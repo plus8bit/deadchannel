@@ -12,11 +12,14 @@
     "probe": "node src/cli.ts",
     "serve": "node src/server/app.ts",
     "test": "node --test 'test/*.test.ts'",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build:fn": "esbuild src/server/vercel-entry.ts --bundle --platform=node --target=node22 --format=esm --outfile=api/index.mjs --log-level=warning",
+    "vercel-build": "npm run build:fn"
   },
   "dependencies": {},
   "devDependencies": {
     "@types/node": "^22.10.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "esbuild": "^0.24.0"
   }
 }

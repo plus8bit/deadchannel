@@ -5,3 +5,5 @@ dist/
 .env
 .env.local
 data/
+.vercel
+api/index.mjs

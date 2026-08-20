@@ -1,10 +1,14 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { createHandler } from "../src/server/app.ts";
-import { ConfigError, loadConfig } from "../src/server/config.ts";
-import { FacilitatorClient } from "../src/server/facilitator.ts";
+import { createHandler } from "./app.ts";
+import { ConfigError, loadConfig } from "./config.ts";
+import { FacilitatorClient } from "./facilitator.ts";
 
 /**
  * Serverless entry point.
+ *
+ * Bundled to `api/index.mjs` by the build step rather than shipped as source:
+ * Vercel transpiles `api/*.ts` but does not bundle, leaving `.ts` import
+ * specifiers in place that Node cannot resolve at runtime.
  *
  * Config is resolved once per cold start and cached. A misconfigured deployment
  * answers 503 with the exact problems rather than serving a broken paywall that

@@ -7,7 +7,7 @@
     }
   ],
   "functions": {
-    "api/index.ts": {
+    "api/index.mjs": {
       "maxDuration": 30,
       "includeFiles": "deadchannel.config.json"
     }

@@ -54,6 +54,9 @@ a{color:var(--amber);text-decoration:none;border-bottom:1px solid #55351a}
 a:hover{border-bottom-color:var(--amber)}
 a:focus-visible{outline:2px solid var(--amber);outline-offset:3px}
 footer{margin-top:64px;padding-top:22px;border-top:1px solid var(--line);color:var(--faint);font-size:12.5px;line-height:1.8}
+.by{margin-top:18px;padding-top:16px;border-top:1px solid var(--line);color:var(--dim)}
+.by span{color:var(--faint)}
+@media(max-width:520px){.by span{display:block;margin-top:2px}.by span::before{content:none}}
 </style></head><body><div class="wrap">
 
 <h1>dead<b>channel</b></h1>
@@ -103,6 +106,7 @@ curl -X POST <span class="s">${cfg.publicUrl}${PROBE_ROUTE.path}</span> \\
 <footer>
   <a href="https://github.com/plus8bit/deadchannel">github.com/plus8bit/deadchannel</a> &middot; <a href="${cfg.publicUrl}/facilitator">facilitator status</a> &middot; settles to <span style="color:var(--dim)">${cfg.payTo.slice(0, 10)}&hellip;${cfg.payTo.slice(-6)}</span> on ${cfg.network.label}<br>
   Machine clients get JSON from this same URL. Ask for <span style="color:var(--dim)">application/json</span>.
+  <div class="by">built by <a href="https://x.com/plus8bit">@plus8bit</a><span>&nbsp;&middot;&nbsp;the first customer was a for loop</span></div>
 </footer>
 
 </div></body></html>`;

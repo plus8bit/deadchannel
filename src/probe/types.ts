@@ -105,4 +105,10 @@ export interface ProbeOptions {
   spacingMs?: number;
   /** User-Agent to send. Changing this is how we detect bot gating. */
   userAgent?: string;
+  /**
+   * HTTP method the resource expects. Most x402 resources are POST; probing a
+   * POST route with GET returns 404/405 and looks exactly like a dead endpoint.
+   * When omitted, the probe starts with GET and retries POST on 404/405.
+   */
+  method?: string;
 }

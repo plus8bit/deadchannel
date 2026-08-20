@@ -43,6 +43,7 @@ function sample(body: unknown, status = 402, ms = 120): Observation {
     bodyBytes: Buffer.byteLength(text),
     contentType: "application/json",
     serverHeader: null,
+    method: "GET",
     requirements: typeof body === "string" ? null : parsePaymentRequirements(body),
     userAgent: AGENT_UA,
   };
@@ -72,7 +73,7 @@ describe("verdicts", () => {
   it("calls an unreachable endpoint dead", () => {
     const dead: Observation = {
       responded: false, status: null, error: "timed out", ms: 10000,
-      bodyText: null, bodyBytes: 0, contentType: null, serverHeader: null,
+      bodyText: null, bodyBytes: 0, contentType: null, serverHeader: null, method: "GET",
       requirements: null, userAgent: AGENT_UA,
     };
     assert.equal(verdictOf([dead, dead]).verdict, "dead");

@@ -28,11 +28,25 @@ const CAIP2: Record<string, { name: string; testnet: boolean }> = {
   "eip155:1329": { name: "sei", testnet: false },
   "eip155:1328": { name: "sei-testnet", testnet: true },
   "eip155:4689": { name: "iotex", testnet: false },
+  "eip155:196": { name: "x-layer", testnet: false },
+  "eip155:143": { name: "monad", testnet: false },
+  "eip155:5000": { name: "mantle", testnet: false },
+  "eip155:59144": { name: "linea", testnet: false },
+  "eip155:100": { name: "gnosis", testnet: false },
+  "eip155:2020": { name: "ronin", testnet: false },
   // CAIP-2 identifies a Solana cluster by the first 32 chars of its genesis hash.
   "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp": { name: "solana", testnet: false },
   "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1": { name: "solana-devnet", testnet: true },
   "solana:4uhcVJyU9pJkvQyS88uRDiswHXSCkY3z": { name: "solana-testnet", testnet: true },
+  // Algorand identifies a network by the base64 genesis hash, case preserved.
+  "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k": { name: "algorand", testnet: false },
+  "algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDe": { name: "algorand-testnet", testnet: true },
 };
+
+/** Some facilitators lowercase the reference part, so match case-insensitively too. */
+const CAIP2_LOWER: Record<string, { name: string; testnet: boolean }> = Object.fromEntries(
+  Object.entries(CAIP2).map(([k, v]) => [k.toLowerCase(), v]),
+);
 
 /** Friendly names that v1 endpoints use directly. */
 const FRIENDLY = new Set([
@@ -48,7 +62,7 @@ export function normalizeNetwork(raw: string | null | undefined): NetworkInfo {
   if (!raw) return { name: "unknown", testnet: false, known: false };
   const id = raw.trim();
 
-  const caip = CAIP2[id];
+  const caip = CAIP2[id] ?? CAIP2_LOWER[id.toLowerCase()];
   if (caip) return { name: caip.name, testnet: caip.testnet, known: true };
 
   const lower = id.toLowerCase();

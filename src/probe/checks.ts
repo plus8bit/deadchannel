@@ -224,10 +224,19 @@ function payToSignal(options: PaymentOption[]): Signal {
   }
 
   const problems: string[] = [];
+  const brokered: string[] = [];
+
   for (const o of withPayTo) {
     const addr = o.payTo as string;
     if (BURN_ADDRESSES.has(addr.toLowerCase())) {
       problems.push(`payTo on ${o.network} is a burn address (${addr}) — funds sent here are destroyed`);
+      continue;
+    }
+    // Brokered settlement (AWS Marketplace and similar) names a URN, not a
+    // wallet. Nothing is wrong with it, but the caller is trusting the broker
+    // rather than a chain address, and should know that.
+    if (isBrokeredPayout(addr, o.network)) {
+      brokered.push(o.network);
       continue;
     }
     if (!addressMatchesNetwork(addr, o.network)) {
@@ -235,9 +244,25 @@ function payToSignal(options: PaymentOption[]): Signal {
     }
   }
 
-  return problems.length === 0
-    ? { id: "pay-to-valid", status: "pass", weight: 0, detail: "Every payout address is well formed for its network." }
-    : { id: "pay-to-valid", status: "fail", weight: 45, detail: problems.join("; ") + "." };
+  if (problems.length > 0) {
+    return { id: "pay-to-valid", status: "fail", weight: 45, detail: problems.join("; ") + "." };
+  }
+  if (brokered.length > 0) {
+    return {
+      id: "pay-to-valid",
+      status: "warn",
+      weight: 6,
+      detail: `Settlement is brokered via ${[...new Set(brokered)].join(", ")} rather than paid to a chain address. Funds go to the broker, not directly to the operator.`,
+    };
+  }
+  return { id: "pay-to-valid", status: "pass", weight: 0, detail: "Every payout address is well formed for its network." };
+}
+
+/** Non-chain settlement rails identify the payee by URN under a broker scheme. */
+const BROKER_SCHEMES = /^(aws|gcp|azure|stripe):/i;
+
+function isBrokeredPayout(addr: string, network: string): boolean {
+  return addr.startsWith("urn:") && BROKER_SCHEMES.test(network);
 }
 
 function addressMatchesNetwork(addr: string, network: string): boolean {
@@ -273,12 +298,22 @@ function networkSignals(options: PaymentOption[]): Signal[] {
     out.push({ id: "network-mainnet", status: "pass", weight: 0, detail: `Settles on mainnet: ${mainnets.join(", ")}.` });
   }
 
-  if (unknown.length > 0) {
+  const brokerRails = unknown.filter((n) => BROKER_SCHEMES.test(n));
+  const trulyUnknown = unknown.filter((n) => !BROKER_SCHEMES.test(n));
+  if (brokerRails.length > 0) {
+    out.push({
+      id: "network-broker",
+      status: "warn",
+      weight: 4,
+      detail: `Offers brokered settlement rail(s): ${brokerRails.join(", ")}. Not a public chain — the broker holds the funds.`,
+    });
+  }
+  if (trulyUnknown.length > 0) {
     out.push({
       id: "network-known",
       status: "warn",
       weight: 10,
-      detail: `Unrecognized network identifier(s): ${unknown.join(", ")}. Confirm the chain before sending funds.`,
+      detail: `Unrecognized network identifier(s): ${trulyUnknown.join(", ")}. Confirm the chain before sending funds.`,
     });
   }
 

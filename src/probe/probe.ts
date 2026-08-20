@@ -18,10 +18,15 @@ export async function probe(url: string, options: ProbeOptions = {}): Promise<Pr
   const cfg = { ...DEFAULTS, ...options };
   const target = normalizeUrl(url);
 
+  // Resolve the method before sampling. Probing a POST-only route with GET
+  // yields 404/405, which is indistinguishable from a dead endpoint — this is
+  // the single largest source of false "dead" verdicts across a catalog.
+  const method = await resolveMethod(target, cfg);
+
   const agentSamples: Observation[] = [];
   for (let i = 0; i < cfg.samples; i++) {
     if (i > 0 && cfg.spacingMs > 0) await sleep(cfg.spacingMs);
-    agentSamples.push(await observe(target, { timeoutMs: cfg.timeoutMs, userAgent: cfg.userAgent }));
+    agentSamples.push(await observe(target, { timeoutMs: cfg.timeoutMs, userAgent: cfg.userAgent, method }));
   }
 
   // Only spend an extra round trip on bot-gate detection when the agent UA
@@ -31,7 +36,7 @@ export async function probe(url: string, options: ProbeOptions = {}): Promise<Pr
     (s) => s.responded && s.status !== null && [403, 429, 503].includes(s.status),
   );
   if (looksBlocked) {
-    browserSample = await observe(target, { timeoutMs: cfg.timeoutMs, userAgent: BROWSER_UA });
+    browserSample = await observe(target, { timeoutMs: cfg.timeoutMs, userAgent: BROWSER_UA, method });
   }
 
   const signals = runChecks({ agentSamples, browserSample });
@@ -57,6 +62,24 @@ export async function probe(url: string, options: ProbeOptions = {}): Promise<Pr
     probedAt: new Date().toISOString(),
     samples: agentSamples.length + (browserSample ? 1 : 0),
   };
+}
+
+/**
+ * Pick the method to probe with. An explicit one from the catalog is trusted;
+ * otherwise try GET and fall back to POST when the route rejects the verb.
+ */
+async function resolveMethod(
+  target: string,
+  cfg: { timeoutMs: number; userAgent: string; method?: string },
+): Promise<string> {
+  if (cfg.method) return cfg.method.toUpperCase();
+
+  const first = await observe(target, { timeoutMs: cfg.timeoutMs, userAgent: cfg.userAgent, method: "GET" });
+  const verbRejected = first.status === 405 || first.status === 404 || first.status === 501;
+  if (!verbRejected) return "GET";
+
+  const retry = await observe(target, { timeoutMs: cfg.timeoutMs, userAgent: cfg.userAgent, method: "POST" });
+  return retry.status === 402 || retry.requirements !== null ? "POST" : "GET";
 }
 
 function computeLatency(samples: Observation[]): LatencyStats | null {

@@ -12,6 +12,8 @@ export interface Observation {
   bodyBytes: number;
   contentType: string | null;
   serverHeader: string | null;
+  /** Method actually used for this round trip. */
+  method: string;
   /** Present only when the body parsed as x402 payment requirements. */
   requirements: PaymentRequirements | null;
   userAgent: string;
@@ -28,21 +30,27 @@ const MAX_BODY_BYTES = 64 * 1024;
 
 export async function observe(
   url: string,
-  opts: { timeoutMs: number; userAgent: string },
+  opts: { timeoutMs: number; userAgent: string; method?: string },
 ): Promise<Observation> {
   const started = performance.now();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), opts.timeoutMs);
 
   try {
+    const method = (opts.method ?? "GET").toUpperCase();
+    const sendsBody = method !== "GET" && method !== "HEAD";
     const res = await fetch(url, {
-      method: "GET",
+      method,
       redirect: "follow",
       signal: controller.signal,
       headers: {
         accept: "application/json, */*",
         "user-agent": opts.userAgent,
+        // A correct x402 server answers 402 before it validates the body, so an
+        // empty object is enough to reach the paywall without guessing a schema.
+        ...(sendsBody ? { "content-type": "application/json" } : {}),
       },
+      ...(sendsBody ? { body: "{}" } : {}),
     });
 
     const bodyText = await readCapped(res);
@@ -68,6 +76,7 @@ export async function observe(
       bodyBytes: bodyText === null ? 0 : Buffer.byteLength(bodyText),
       contentType: res.headers.get("content-type"),
       serverHeader: res.headers.get("server"),
+      method,
       requirements,
       userAgent: opts.userAgent,
     };
@@ -81,6 +90,7 @@ export async function observe(
       bodyBytes: 0,
       contentType: null,
       serverHeader: null,
+      method: (opts.method ?? "GET").toUpperCase(),
       requirements: null,
       userAgent: opts.userAgent,
     };

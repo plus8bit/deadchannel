@@ -5,7 +5,7 @@ import { ConfigError, loadConfig } from "./config.ts";
 import type { Config } from "./config.ts";
 import { FacilitatorClient, FacilitatorError } from "./facilitator.ts";
 import { facilitatorAuth } from "./facilitator-auth.ts";
-import { landingPage } from "./landing.ts";
+import { FAVICON_SVG, landingPage } from "./landing.ts";
 import { BadRequest, PROBE_ROUTE, parseProbeRequest, runProbe } from "./routes.ts";
 import {
   HEADER_REQUIRED,
@@ -67,6 +67,7 @@ async function handle(
     return;
   }
 
+  if (path === "/favicon.svg" || path === "/favicon.ico") return sendSvg(res, FAVICON_SVG);
   if (path === "/health") return send(res, 200, { ok: true, network: cfg.network.label });
   if (path === "/facilitator") return handleFacilitatorCheck(res, cfg, facilitator);
   if (path === "/" || path === "/index.json") {
@@ -260,6 +261,15 @@ function prefersHtml(req: IncomingMessage): boolean {
   const html = accept.indexOf("text/html");
   const json = accept.indexOf("application/json");
   return json === -1 || html < json;
+}
+
+function sendSvg(res: ServerResponse, body: string): void {
+  res.writeHead(200, {
+    "content-type": "image/svg+xml; charset=utf-8",
+    "content-length": Buffer.byteLength(body),
+    "cache-control": "public, max-age=86400",
+  });
+  res.end(body);
 }
 
 function sendHtml(res: ServerResponse, body: string): void {

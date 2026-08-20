@@ -11,6 +11,19 @@ import { PROBE_ROUTE } from "./routes.ts";
  * Deliberately single-theme: this is a terminal-shaped tool and the page commits
  * to that, so every colour is painted explicitly rather than inherited.
  */
+/**
+ * The site mark: a flat carrier with a single spike.
+ *
+ * Drawn rather than lettered because a favicon is 16 pixels and type is
+ * unreadable there. Two shapes survive that size: the flatline reads as the
+ * dead channel, the spike as the thing worth catching.
+ */
+export const FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+<rect width="32" height="32" rx="7" fill="#0C0E13"/>
+<path d="M4 20h6l3-11 4 17 3-9h8" fill="none" stroke="#E8873A" stroke-width="2.6"
+      stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`;
+
 export function landingPage(cfg: Config): string {
   const price = `$${cfg.priceUsd}`;
   return `<!doctype html>
@@ -19,7 +32,13 @@ export function landingPage(cfg: Config): string {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>deadchannel</title>
 <meta name="description" content="Risk check for any x402 endpoint. Tells an agent whether an endpoint is alive, honestly priced and safe to call, before it spends money.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A7%8A%3C/text%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/favicon.svg">
+<meta name="theme-color" content="#0C0E13">
+<meta property="og:title" content="deadchannel">
+<meta property="og:description" content="Risk check for any x402 endpoint. Tells an agent whether an endpoint is alive, honestly priced and safe to call, before it spends money.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">

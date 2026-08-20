@@ -1149,6 +1149,11 @@ function shape(r) {
 }
 
 // src/server/landing.ts
+var FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+<rect width="32" height="32" rx="7" fill="#0C0E13"/>
+<path d="M4 20h6l3-11 4 17 3-9h8" fill="none" stroke="#E8873A" stroke-width="2.6"
+      stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`;
 function landingPage(cfg) {
   const price = `$${cfg.priceUsd}`;
   return `<!doctype html>
@@ -1157,7 +1162,13 @@ function landingPage(cfg) {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>deadchannel</title>
 <meta name="description" content="Risk check for any x402 endpoint. Tells an agent whether an endpoint is alive, honestly priced and safe to call, before it spends money.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A7%8A%3C/text%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/favicon.svg">
+<meta name="theme-color" content="#0C0E13">
+<meta property="og:title" content="deadchannel">
+<meta property="og:description" content="Risk check for any x402 endpoint. Tells an agent whether an endpoint is alive, honestly priced and safe to call, before it spends money.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
@@ -1374,6 +1385,7 @@ async function handle(req, res, cfg, facilitator, deps) {
     res.writeHead(204).end();
     return;
   }
+  if (path === "/favicon.svg" || path === "/favicon.ico") return sendSvg(res, FAVICON_SVG);
   if (path === "/health") return send(res, 200, { ok: true, network: cfg.network.label });
   if (path === "/facilitator") return handleFacilitatorCheck(res, cfg, facilitator);
   if (path === "/" || path === "/index.json") {
@@ -1519,6 +1531,14 @@ function prefersHtml(req) {
   const html = accept.indexOf("text/html");
   const json = accept.indexOf("application/json");
   return json === -1 || html < json;
+}
+function sendSvg(res, body) {
+  res.writeHead(200, {
+    "content-type": "image/svg+xml; charset=utf-8",
+    "content-length": Buffer.byteLength(body),
+    "cache-control": "public, max-age=86400"
+  });
+  res.end(body);
 }
 function sendHtml(res, body) {
   res.writeHead(200, {

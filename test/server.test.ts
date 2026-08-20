@@ -326,3 +326,14 @@ describe("content negotiation", () => {
     assert.match(res.headers.get("content-type") ?? "", /application\/json/);
   });
 });
+
+describe("site mark", () => {
+  it("serves an SVG favicon at both conventional paths", async () => {
+    for (const path of ["/favicon.svg", "/favicon.ico"]) {
+      const res = await fetch(`${base}${path}`);
+      assert.equal(res.status, 200, path);
+      assert.match(res.headers.get("content-type") ?? "", /image\/svg\+xml/);
+      assert.match(await res.text(), /^<svg/);
+    }
+  });
+});

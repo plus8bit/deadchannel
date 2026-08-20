@@ -95,3 +95,27 @@ describe("committed defaults", () => {
     assert.equal(cfg.publicUrl, "https://deadchannel.vercel.app");
   });
 });
+
+describe("USDC EIP-712 domain", () => {
+  // Verified against name() and version() on chain, 20 Aug 2026. The buyer signs
+  // against this domain; a wrong name yields a signature the facilitator rejects,
+  // which would break every mainnet payment while testnet kept working.
+  const EXPECTED: Record<string, { name: string; version: string }> = {
+    base: { name: "USD Coin", version: "2" },
+    "base-sepolia": { name: "USDC", version: "2" },
+  };
+
+  for (const [key, expected] of Object.entries(EXPECTED)) {
+    it(`uses the on-chain domain for ${key}`, () => {
+      const cfg = loadConfig({ X402_PAY_TO: GOOD.X402_PAY_TO, X402_NETWORK: key });
+      assert.equal(cfg.network.usdcName, expected.name);
+      assert.equal(cfg.network.usdcVersion, expected.version);
+    });
+  }
+
+  it("does not use one network's domain on the other", () => {
+    const main = loadConfig({ X402_PAY_TO: GOOD.X402_PAY_TO, X402_NETWORK: "base" });
+    const test = loadConfig({ X402_PAY_TO: GOOD.X402_PAY_TO, X402_NETWORK: "base-sepolia" });
+    assert.notEqual(main.network.usdcName, test.network.usdcName);
+  });
+});

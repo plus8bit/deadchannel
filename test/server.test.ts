@@ -276,3 +276,17 @@ describe("free endpoints", () => {
     assert.equal(((await res.json()) as { ok: boolean }).ok, true);
   });
 });
+
+describe("advertised payment terms", () => {
+  it("advertises the mainnet USDC domain, not the testnet one", async () => {
+    reset();
+    const res = await post({ url: "https://api.example.com/paid" });
+    const decoded = JSON.parse(
+      Buffer.from(res.headers.get(HEADER_REQUIRED) as string, "base64").toString("utf8"),
+    ) as { accepts: { extra: { name: string; version: string }; asset: string }[] };
+
+    assert.equal(decoded.accepts[0]?.extra.name, "USD Coin");
+    assert.equal(decoded.accepts[0]?.extra.version, "2");
+    assert.equal(decoded.accepts[0]?.asset, "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913");
+  });
+});

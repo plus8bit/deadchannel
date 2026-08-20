@@ -14,7 +14,13 @@ export interface NetworkConfig {
   label: string;
   testnet: boolean;
   usdc: string;
-  /** EIP-712 domain version of the USDC contract, needed by the exact scheme. */
+  /**
+   * EIP-712 domain of the USDC contract, read from `name()` and `version()`
+   * on chain. The buyer signs a transfer authorization against this exact
+   * domain, so a wrong string produces a signature the facilitator rejects.
+   * The two networks genuinely differ: mainnet is "USD Coin", Sepolia "USDC".
+   */
+  usdcName: string;
   usdcVersion: string;
 }
 
@@ -24,6 +30,7 @@ export const NETWORKS: Record<string, NetworkConfig> = {
     label: "Base Sepolia",
     testnet: true,
     usdc: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+    usdcName: "USDC",
     usdcVersion: "2",
   },
   base: {
@@ -31,6 +38,7 @@ export const NETWORKS: Record<string, NetworkConfig> = {
     label: "Base",
     testnet: false,
     usdc: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    usdcName: "USD Coin",
     usdcVersion: "2",
   },
 };

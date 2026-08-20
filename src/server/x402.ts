@@ -91,7 +91,7 @@ export function buildPaymentRequired(
         asset: cfg.network.usdc,
         payTo: cfg.payTo,
         maxTimeoutSeconds: cfg.maxTimeoutSeconds,
-        extra: { name: "USDC", version: cfg.network.usdcVersion },
+        extra: { name: cfg.network.usdcName, version: cfg.network.usdcVersion },
       },
     ],
     extensions: bazaarExtension(route),

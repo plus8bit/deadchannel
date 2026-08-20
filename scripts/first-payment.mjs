@@ -33,23 +33,26 @@ function fail(message) {
   process.exit(1);
 }
 
-/** Reads a line with the terminal echo suppressed, so nothing is displayed. */
+/**
+ * Reads a line with the terminal echo suppressed.
+ *
+ * readline redraws its own line when asked a question, which wipes anything
+ * written to stdout beforehand — so the prompt has to be passed to `question`
+ * and the echo suppressed by overriding how readline writes, not by clearing
+ * the line afterwards. An invisible prompt is dangerous here: someone holding
+ * a private key needs to be certain what is asking for it.
+ */
 function promptHidden(question) {
   if (!process.stdin.isTTY) return Promise.resolve(null);
   return new Promise((resolve) => {
     const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true });
-    process.stdout.write(question);
-    const onData = (char) => {
-      // Repaint the prompt without the typed characters.
-      if (![String.fromCharCode(13), String.fromCharCode(10), "\u0004"].includes(char.toString())) {
-        process.stdout.clearLine(0);
-        process.stdout.cursorTo(0);
-        process.stdout.write(question);
-      }
+    let asking = false;
+    rl._writeToOutput = (chunk) => {
+      // Show the prompt itself; swallow everything the user types.
+      if (!asking || chunk.includes(question)) rl.output.write(chunk);
     };
-    process.stdin.on("data", onData);
-    rl.question("", (answer) => {
-      process.stdin.removeListener("data", onData);
+    asking = true;
+    rl.question(question, (answer) => {
       rl.close();
       process.stdout.write("\n");
       resolve(answer);

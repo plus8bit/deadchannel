@@ -1,3 +1,5 @@
+import defaults from "../../deadchannel.config.json" with { type: "json" };
+
 /**
  * Server configuration, resolved and validated once at boot.
  *
@@ -52,16 +54,35 @@ export interface Config {
 const USDC_DECIMALS = 6;
 const EVM_ADDRESS = /^0x[a-fA-F0-9]{40}$/;
 
+/**
+ * Committed defaults, so a deployment is correct without dashboard state.
+ *
+ * Imported statically rather than read from disk: a bundler will inline this,
+ * whereas a runtime file read breaks the moment the code is bundled into a
+ * serverless function whose working directory is not the repository root.
+ */
+interface FileDefaults {
+  payTo?: string;
+  network?: string;
+  priceUsd?: number;
+  publicUrl?: string;
+  facilitatorUrl?: string;
+}
+
+const FILE_DEFAULTS = defaults as FileDefaults;
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const problems: string[] = [];
+  // Environment always wins, so a deployment can be retargeted without a commit.
+  const file: FileDefaults = env["X402_IGNORE_CONFIG_FILE"] === "1" ? {} : FILE_DEFAULTS;
 
-  const networkKey = env["X402_NETWORK"] ?? "base-sepolia";
+  const networkKey = env["X402_NETWORK"] ?? file.network ?? "base-sepolia";
   const network = NETWORKS[networkKey];
   if (!network) {
     problems.push(`X402_NETWORK must be one of ${Object.keys(NETWORKS).join(", ")}, got "${networkKey}"`);
   }
 
-  const payTo = env["X402_PAY_TO"] ?? "";
+  const payTo = env["X402_PAY_TO"] ?? file.payTo ?? "";
   if (!EVM_ADDRESS.test(payTo)) {
     problems.push(`X402_PAY_TO must be a 0x-prefixed 40-hex-digit address, got "${payTo || "(unset)"}"`);
   }
@@ -69,7 +90,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     problems.push("X402_PAY_TO is the zero address — payments would be destroyed");
   }
 
-  const priceUsd = Number(env["X402_PRICE_USD"] ?? "0.001");
+  const priceUsd = Number(env["X402_PRICE_USD"] ?? file.priceUsd ?? 0.001);
   if (!Number.isFinite(priceUsd) || priceUsd <= 0) {
     problems.push(`X402_PRICE_USD must be a positive number, got "${env["X402_PRICE_USD"]}"`);
   }
@@ -84,7 +105,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   }
 
   const net = network as NetworkConfig;
-  const publicUrl = (env["PUBLIC_URL"] ?? `http://localhost:${port}`).replace(/\/+$/, "");
+  const publicUrl = (
+    env["PUBLIC_URL"] ??
+    file.publicUrl ??
+    // Vercel injects the deployment host but not the scheme.
+    (env["VERCEL_PROJECT_PRODUCTION_URL"] ? `https://${env["VERCEL_PROJECT_PRODUCTION_URL"]}` : null) ??
+    `http://localhost:${port}`
+  ).replace(/\/+$/, "");
 
   return {
     port,
@@ -93,7 +120,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     payTo,
     priceUsd,
     priceAtomic: toAtomic(priceUsd, USDC_DECIMALS),
-    facilitatorUrl: (env["X402_FACILITATOR_URL"] ?? defaultFacilitator(net)).replace(/\/+$/, ""),
+    facilitatorUrl: (env["X402_FACILITATOR_URL"] ?? file.facilitatorUrl ?? defaultFacilitator(net)).replace(/\/+$/, ""),
     facilitatorToken: env["X402_FACILITATOR_TOKEN"] ?? null,
     maxTimeoutSeconds: Number(env["X402_MAX_TIMEOUT_SECONDS"] ?? "120"),
   };

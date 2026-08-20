@@ -126,10 +126,12 @@ export interface ProbeResponse {
 }
 
 export async function runProbe(req: ProbeRequest): Promise<ProbeResponse> {
+  // Budgeted for a serverless 30s ceiling: method resolution costs one extra
+  // round trip, so worst case is (samples + 1) * timeoutMs plus spacing.
   const result = await probe(req.url, {
     samples: req.samples ?? DEFAULT_SAMPLES,
-    timeoutMs: 9000,
-    spacingMs: 200,
+    timeoutMs: 6000,
+    spacingMs: 150,
     ...(req.method ? { method: req.method } : {}),
   });
   return shape(result);

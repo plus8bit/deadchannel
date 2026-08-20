@@ -70,3 +70,28 @@ describe("loadConfig", () => {
     assert.equal(cfg.publicUrl, "https://deadchannel.xyz");
   });
 });
+
+describe("committed defaults", () => {
+  it("uses the checked-in payout address when the environment is silent", () => {
+    const cfg = loadConfig({});
+    assert.match(cfg.payTo, /^0x[a-fA-F0-9]{40}$/, "a deployment must never start without a payout address");
+    assert.equal(cfg.priceAtomic, "1000");
+  });
+
+  it("lets the environment override every committed field", () => {
+    const other = "0x209693Bc6afc0C5328bA36FaF03C514EF312287C";
+    const cfg = loadConfig({ X402_PAY_TO: other, X402_NETWORK: "base", X402_PRICE_USD: "0.05" });
+    assert.equal(cfg.payTo, other);
+    assert.equal(cfg.network.caip2, "eip155:8453");
+    assert.equal(cfg.priceAtomic, "50000");
+  });
+
+  it("can ignore the file entirely, so a bad commit cannot leak into production", () => {
+    assert.throws(() => loadConfig({ X402_IGNORE_CONFIG_FILE: "1" }), ConfigError);
+  });
+
+  it("derives the public url from the Vercel deployment host", () => {
+    const cfg = loadConfig({ VERCEL_PROJECT_PRODUCTION_URL: "deadchannel.vercel.app" });
+    assert.equal(cfg.publicUrl, "https://deadchannel.vercel.app");
+  });
+});

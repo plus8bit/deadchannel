@@ -24,13 +24,25 @@ export interface Deps {
 
 const DEFAULT_DEPS: Deps = { runProbe };
 
-export function createApp(cfg: Config, facilitator: FacilitatorClient, deps: Deps = DEFAULT_DEPS) {
-  return createServer((req, res) => {
+/**
+ * The request handler on its own, so the same code serves a long-running
+ * process and a serverless function without a second implementation.
+ */
+export function createHandler(
+  cfg: Config,
+  facilitator: FacilitatorClient,
+  deps: Deps = DEFAULT_DEPS,
+): (req: IncomingMessage, res: ServerResponse) => void {
+  return (req, res) => {
     handle(req, res, cfg, facilitator, deps).catch((err: unknown) => {
       log("error", { msg: "unhandled", err: describe(err) });
       if (!res.headersSent) send(res, 500, { error: "internal error" });
     });
-  });
+  };
+}
+
+export function createApp(cfg: Config, facilitator: FacilitatorClient, deps: Deps = DEFAULT_DEPS) {
+  return createServer(createHandler(cfg, facilitator, deps));
 }
 
 async function handle(

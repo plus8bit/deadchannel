@@ -312,6 +312,14 @@ describe("content negotiation", () => {
     assert.match(res.headers.get("content-type") ?? "", /application\/json/);
   });
 
+  it("marks both representations as varying by Accept", async () => {
+    // A cache that ignores this will serve the page to agents asking for JSON.
+    for (const accept of ["text/html", "application/json"]) {
+      const res = await fetch(`${base}/`, { headers: { accept } });
+      assert.match(res.headers.get("vary") ?? "", /Accept/i, `missing Vary for ${accept}`);
+    }
+  });
+
   it("never serves HTML from the paid route", async () => {
     reset();
     const res = await post({ url: "https://api.example.com/paid" });

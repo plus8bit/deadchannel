@@ -1520,7 +1520,10 @@ function sendHtml(res, body) {
   res.writeHead(200, {
     "content-type": "text/html; charset=utf-8",
     "content-length": Buffer.byteLength(body),
-    "cache-control": "public, max-age=300"
+    "cache-control": "public, max-age=300",
+    // Without this a CDN caches the page against the bare URL and then serves
+    // HTML to agents asking for JSON. Any cached negotiated response needs it.
+    vary: "Accept"
   });
   res.end(body);
 }
@@ -1544,7 +1547,8 @@ function send(res, status, body) {
   res.writeHead(status, {
     "content-type": "application/json; charset=utf-8",
     "content-length": Buffer.byteLength(payload),
-    "cache-control": "no-store"
+    "cache-control": "no-store",
+    vary: "Accept"
   });
   res.end(payload);
 }

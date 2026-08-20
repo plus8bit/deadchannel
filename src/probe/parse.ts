@@ -38,10 +38,11 @@ export function parsePaymentRequirements(body: unknown): PaymentRequirements | n
 
   // v2 hoists shared resource metadata to the root instead of repeating it per option.
   const rootResource = asRecord(scope["resource"]);
+  const bazaarExt = asRecord(scope["extensions"]);
 
   const accepts: PaymentOption[] = [];
   for (const [i, entry] of rawAccepts.entries()) {
-    const option = parseOption(entry, i, warnings, rootResource);
+    const option = parseOption(entry, i, warnings, rootResource, bazaarExt);
     if (option) accepts.push(option);
   }
 
@@ -53,6 +54,7 @@ function parseOption(
   index: number,
   warnings: string[],
   rootResource: Record<string, unknown> | null,
+  bazaarExt: Record<string, unknown> | null,
 ): PaymentOption | null {
   const o = asRecord(entry);
   if (!o) {
@@ -71,8 +73,16 @@ function parseOption(
   const resolved = resolveAsset(asset, extra);
   const atomic = amount ?? "0";
 
-  const outputSchema = o["outputSchema"] ?? rootResource?.["outputSchema"];
-  const inputSchema = o["inputSchema"] ?? rootResource?.["inputSchema"] ?? asRecord(outputSchema)?.["input"];
+  // Schemas may sit on the accepts entry, on ResourceInfo, or, most commonly in
+  // v2, inside the bazaar extension's input/output descriptors.
+  const bazaarInfo = asRecord(asRecord(bazaarExt?.["bazaar"])?.["info"]);
+  const outputSchema =
+    o["outputSchema"] ?? rootResource?.["outputSchema"] ?? bazaarInfo?.["output"];
+  const inputSchema =
+    o["inputSchema"] ??
+    rootResource?.["inputSchema"] ??
+    bazaarInfo?.["input"] ??
+    asRecord(outputSchema)?.["input"];
 
   const net = normalizeNetwork(readString(o["network"]));
 
@@ -103,8 +113,15 @@ function parseOption(
  */
 function parseBazaar(scope: Record<string, unknown>, accepts: unknown[]): BazaarMetadata {
   const candidates: Record<string, unknown>[] = [];
+  // v2 carries serviceName/tags/iconUrl on the ResourceInfo object.
+  const resource = asRecord(scope["resource"]);
+  if (resource) candidates.push(resource);
   const rootExt = asRecord(scope["extensions"]) ?? asRecord(scope["bazaar"]);
-  if (rootExt) candidates.push(rootExt);
+  if (rootExt) {
+    candidates.push(rootExt);
+    const bazaar = asRecord(rootExt["bazaar"]);
+    if (bazaar) candidates.push(bazaar);
+  }
   candidates.push(scope);
   for (const entry of accepts) {
     const o = asRecord(entry);

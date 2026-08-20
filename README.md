@@ -56,23 +56,36 @@ TESTNET   risk 80   $0.01  355ms p99  https://x402.org/protected
 ## First full catalog scan — 20 Aug 2026
 
 `node src/scan.ts --live 150` pulls every resource the public Bazaar facilitators
-publish and audits it. Results from the first run, over **15,001 resources**:
+publish and audits it. Results over **14,979 resources**:
 
 | | |
 | --- | --- |
-| publish no discovery tags | **89.8%** — an agent searching by topic cannot find them |
-| of the 150 busiest, no input/output schema | **87.3%** — you pay first, learn what you bought after |
-| catalog held by the top 3 payout addresses | **18.3%**, taking **1.25%** of all demand |
-| pass every check | **10.1%** |
-| genuinely dead, among the busiest | **2.7%** |
+| catalog held by the top 3 payout addresses | **18.4%**, receiving **1 call in 80** |
+| publish no discovery tags | **40.9%** — an agent searching by topic never finds them |
+| pass every check | **56.8%** |
+| of the 150 busiest, live right now | **91.3%** |
+| of the busiest, genuinely dead | **2.0%** |
 
-Median price $0.01, range $0 to $1,000, 316,944 paid calls in 30 days.
+Median price $0.01, range $0 to $1,000, 316,927 paid calls in 30 days.
 
-The concentration figure is the one worth sitting with: three addresses list
-2,750 resources between them and receive one call in eighty. Catalog size is not
-catalog depth.
+The catalog is in better shape than the folklore suggests. What it is not is
+evenly distributed: three addresses list 2,750 resources between them and receive
+one call in eighty, which makes them roughly 15x over-represented relative to the
+demand they serve. Catalog size is not catalog depth.
 
 ![catalog audit](data/x402-catalog-audit.png)
+
+### A correction, and the guard against repeating it
+
+An earlier version of this table claimed 89.8% of the catalog published no tags.
+That was wrong. The loader read `extensions.bazaar.tags` only, while most
+publishers put tags on the item root — the real figure is 40.9%.
+
+The bug survived review because nothing asserted the *positive* count. A check
+that only ever counts what is missing cannot tell "publishers omit this" apart
+from "we are looking in the wrong place." `test/catalog.test.ts` now hand-counts
+tags across all three known locations in a captured 200-item slice of the live
+catalog and asserts the loader matches exactly, in both directions.
 
 ## Notes from the wild
 
@@ -93,6 +106,10 @@ Built against live endpoints, not the spec alone:
   when the real figure is 2.7%. The verb comes from the catalog now, with a POST
   retry when it is unknown. Any x402 index reporting a high dead rate is worth
   checking for this.
+- **Discovery metadata is scattered.** The spec puts `serviceName`/`tags` on the
+  ResourceInfo object, the CDP catalog flattens them onto the item root, and a
+  minority nest them under `extensions.bazaar`. Read one location and you will
+  undercount by half.
 - **Brokered rails exist.** AWS Marketplace resources name the payee with a URN
   under an `aws:base` network instead of a chain address. That is legitimate, but
   the funds go to the broker, so it is reported as a warning rather than scored

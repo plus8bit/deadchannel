@@ -76,6 +76,9 @@ async function fetchGoPlausible(): Promise<CatalogEntry[]> {
   }
 }
 
+/** Exported under a test-only name so the fixture suite can exercise it directly. */
+export { normalizeCdp as __test__normalizeCdp };
+
 function normalizeCdp(raw: Record<string, unknown>): CatalogEntry {
   const quality = (raw["quality"] ?? {}) as Record<string, unknown>;
   const bazaarInfo = readBazaarInfo(raw);
@@ -131,20 +134,46 @@ interface BazaarInfo {
   method: string | null;
 }
 
+/**
+ * Discovery metadata is scattered across three levels in practice.
+ *
+ * The spec puts `serviceName`/`tags` on the ResourceInfo object, but the CDP
+ * catalog flattens them onto the item root, while a minority of publishers nest
+ * them under `extensions.bazaar`. Reading only one location undercounts badly:
+ * checking `extensions.bazaar.tags` alone finds tags on 10% of the catalog,
+ * whereas the root carries them for most of it.
+ */
 function readBazaarInfo(raw: Record<string, unknown>, key = "extensions"): BazaarInfo {
   const container = (raw[key] ?? {}) as Record<string, unknown>;
   const bazaar = ((container["bazaar"] ?? container) ?? {}) as Record<string, unknown>;
   const info = ((bazaar["info"] ?? bazaar) ?? {}) as Record<string, unknown>;
-  const tags = Array.isArray(bazaar["tags"]) ? (bazaar["tags"] as unknown[]).map(String) : [];
+  // ResourceInfo, when the catalog keeps it as an object rather than a bare URL.
+  const resource = (typeof raw["resource"] === "object" && raw["resource"] !== null
+    ? raw["resource"]
+    : {}) as Record<string, unknown>;
+
+  const tags = firstArray(raw["tags"], resource["tags"], bazaar["tags"]);
   // CDP buries the verb inside the input descriptor rather than beside it.
   const input = (info["input"] ?? {}) as Record<string, unknown>;
+
   return {
     input: hasKeys(info["input"]),
     output: hasKeys(info["output"]) || hasKeys(info["outputSchema"]),
-    serviceName: str(bazaar["serviceName"]) ?? str(info["serviceName"]),
+    serviceName:
+      str(raw["serviceName"]) ??
+      str(resource["serviceName"]) ??
+      str(bazaar["serviceName"]) ??
+      str(info["serviceName"]),
     tags,
     method: str(input["method"]) ?? str(info["method"]),
   };
+}
+
+function firstArray(...candidates: unknown[]): string[] {
+  for (const c of candidates) {
+    if (Array.isArray(c) && c.length > 0) return c.map(String);
+  }
+  return [];
 }
 
 function hasKeys(v: unknown): boolean {

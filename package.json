@@ -1,0 +1,22 @@
+{
+  "name": "deadchannel",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Risk oracle for x402 endpoints \u2014 tells agents which paid endpoints are alive, honestly priced, and safe to call. Zero runtime dependencies.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "probe": "node src/cli.ts",
+    "serve": "node src/server/app.ts",
+    "test": "node --test 'test/*.test.ts'",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}

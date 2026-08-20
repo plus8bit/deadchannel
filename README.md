@@ -115,6 +115,31 @@ Built against live endpoints, not the spec alone:
   the funds go to the broker, so it is reported as a warning rather than scored
   as an invalid payout.
 
+## Selling
+
+The service sells its own check over x402. `src/server/` implements the seller
+side of the v2 HTTP transport: `PAYMENT-REQUIRED` out, `PAYMENT-SIGNATURE` in,
+`PAYMENT-RESPONSE` back, in the authorization flow — verify, run the resource,
+then settle.
+
+**No private key is involved.** A seller declares where settlement should land;
+the buyer signs and the facilitator broadcasts. The payout address is therefore
+public information and lives in `deadchannel.config.json`, where anyone can
+audit it, rather than in a dashboard where nobody can.
+
+Settlement runs only after the probe produced a result, so a failure on our side
+costs the buyer nothing.
+
+```
+GET  /             service card, free
+GET  /health       liveness, free
+GET  /facilitator  proves credentials are accepted, free, moves no money
+POST /probe        the check, $0.001 in USDC on Base
+```
+
+`GET /facilitator` exists because a wrong credential otherwise stays invisible
+until someone tries to pay, and the first to discover it would be a customer.
+
 ## Development
 
 ```

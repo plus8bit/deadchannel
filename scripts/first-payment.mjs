@@ -6,19 +6,22 @@
  * there is no registration endpoint. So the catalog listing is bootstrapped by
  * buying from yourself once, for the price of the call plus gas.
  *
- * The signing key is read from BUYER_PRIVATE_KEY and never printed, stored or
- * sent anywhere except the local signer. Run this yourself; nobody else needs
- * to see the key.
+ * The key is prompted for with echo off, so it never appears on the command
+ * line, in shell history, or in the environment of any other process. It is
+ * used once by the local signer and then discarded — what leaves this machine
+ * is a signature, never the key.
  *
- *   export BUYER_PRIVATE_KEY=0x...        # a wallet holding a little USDC on Base
- *   node scripts/first-payment.mjs
+ *   node scripts/first-payment.mjs --dry-run   # show the terms, pay nothing
+ *   node scripts/first-payment.mjs             # prompts for the key, then pays
  *
- * Add --dry-run to fetch and print the payment terms without paying.
+ * BUYER_PRIVATE_KEY is still honoured for unattended use, but typing it into a
+ * shell puts it in history, so the prompt is the better path.
  */
 
 import { ExactEvmScheme } from "@x402/evm/exact/client";
 import { wrapFetchWithPayment, x402Client, decodePaymentResponseHeader } from "@x402/fetch";
 import { privateKeyToAccount } from "viem/accounts";
+import { createInterface } from "node:readline";
 
 const TARGET = process.env.TARGET_URL ?? "https://deadchannel.vercel.app/probe";
 const NETWORK = process.env.TARGET_NETWORK ?? "eip155:8453";
@@ -28,6 +31,30 @@ const dryRun = process.argv.includes("--dry-run");
 function fail(message) {
   process.stderr.write(`${message}\n`);
   process.exit(1);
+}
+
+/** Reads a line with the terminal echo suppressed, so nothing is displayed. */
+function promptHidden(question) {
+  if (!process.stdin.isTTY) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true });
+    process.stdout.write(question);
+    const onData = (char) => {
+      // Repaint the prompt without the typed characters.
+      if (![String.fromCharCode(13), String.fromCharCode(10), "\u0004"].includes(char.toString())) {
+        process.stdout.clearLine(0);
+        process.stdout.cursorTo(0);
+        process.stdout.write(question);
+      }
+    };
+    process.stdin.on("data", onData);
+    rl.question("", (answer) => {
+      process.stdin.removeListener("data", onData);
+      rl.close();
+      process.stdout.write("\n");
+      resolve(answer);
+    });
+  });
 }
 
 const terms = await fetch(TARGET, {
@@ -65,11 +92,13 @@ if (dryRun) {
   process.exit(0);
 }
 
-const key = process.env.BUYER_PRIVATE_KEY;
-if (!key) fail("set BUYER_PRIVATE_KEY to pay. It is never printed or stored.");
-if (!/^0x[0-9a-fA-F]{64}$/.test(key)) fail("BUYER_PRIVATE_KEY must be a 0x-prefixed 32-byte hex key.");
+const key = process.env.BUYER_PRIVATE_KEY ?? (await promptHidden("private key of the paying wallet: "));
+if (!key) fail("no key given, nothing was paid.");
+if (!/^0x[0-9a-fA-F]{64}$/.test(key.trim())) {
+  fail("that is not a 0x-prefixed 32-byte hex key. Nothing was paid.");
+}
 
-const account = privateKeyToAccount(key);
+const account = privateKeyToAccount(key.trim());
 process.stdout.write(`paying from ${account.address}\n\n`);
 
 const client = new x402Client().register(NETWORK, new ExactEvmScheme(account));

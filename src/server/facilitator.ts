@@ -40,14 +40,25 @@ export class FacilitatorError extends Error {
   }
 }
 
+/**
+ * Produces an Authorization header value for one request, or null when the
+ * facilitator needs no auth. Per-request because CDP binds its token to the
+ * method and path being called.
+ */
+export type AuthProvider = (method: string, url: string) => string | null;
+
+export function staticToken(token: string | null): AuthProvider {
+  return () => (token ? `Bearer ${token}` : null);
+}
+
 export class FacilitatorClient {
   readonly baseUrl: string;
-  readonly #token: string | null;
+  readonly #auth: AuthProvider;
   readonly #timeoutMs: number;
 
-  constructor(baseUrl: string, token: string | null = null, timeoutMs = 20_000) {
+  constructor(baseUrl: string, auth: AuthProvider | string | null = null, timeoutMs = 20_000) {
     this.baseUrl = baseUrl;
-    this.#token = token;
+    this.#auth = typeof auth === "function" ? auth : staticToken(auth);
     this.#timeoutMs = timeoutMs;
   }
 
@@ -87,6 +98,7 @@ export class FacilitatorClient {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.#timeoutMs);
     const url = `${this.baseUrl}${path}`;
+    const authorization = this.#auth(init.method, url);
 
     try {
       const res = await fetch(url, {
@@ -95,7 +107,7 @@ export class FacilitatorClient {
         headers: {
           accept: "application/json",
           ...(init.body ? { "content-type": "application/json" } : {}),
-          ...(this.#token ? { authorization: `Bearer ${this.#token}` } : {}),
+          ...(authorization ? { authorization } : {}),
         },
         ...(init.body ? { body: init.body } : {}),
       });

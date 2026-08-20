@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { createHandler } from "./app.ts";
 import { ConfigError, loadConfig } from "./config.ts";
 import { FacilitatorClient } from "./facilitator.ts";
+import { facilitatorAuth } from "./facilitator-auth.ts";
 
 /**
  * Serverless entry point.
@@ -20,7 +21,7 @@ let configProblems: string[] | null = null;
 
 try {
   const cfg = loadConfig();
-  handler = createHandler(cfg, new FacilitatorClient(cfg.facilitatorUrl, cfg.facilitatorToken));
+  handler = createHandler(cfg, new FacilitatorClient(cfg.facilitatorUrl, facilitatorAuth(cfg)));
 } catch (err) {
   configProblems = err instanceof ConfigError ? err.problems : [String(err)];
 }

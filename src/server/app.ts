@@ -4,6 +4,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { ConfigError, loadConfig } from "./config.ts";
 import type { Config } from "./config.ts";
 import { FacilitatorClient, FacilitatorError } from "./facilitator.ts";
+import { facilitatorAuth } from "./facilitator-auth.ts";
 import { BadRequest, PROBE_ROUTE, parseProbeRequest, runProbe } from "./routes.ts";
 import {
   HEADER_REQUIRED,
@@ -244,7 +245,7 @@ async function main(): Promise<void> {
     throw err;
   }
 
-  const facilitator = new FacilitatorClient(cfg.facilitatorUrl, cfg.facilitatorToken);
+  const facilitator = new FacilitatorClient(cfg.facilitatorUrl, facilitatorAuth(cfg));
 
   try {
     const kinds = await facilitator.supported();

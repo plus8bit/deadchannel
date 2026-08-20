@@ -290,3 +290,31 @@ describe("advertised payment terms", () => {
     assert.equal(decoded.accepts[0]?.asset, "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913");
   });
 });
+
+describe("content negotiation", () => {
+  it("serves the landing page to a browser", async () => {
+    const res = await fetch(`${base}/`, { headers: { accept: "text/html,application/xhtml+xml" } });
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get("content-type") ?? "", /text\/html/);
+    const body = await res.text();
+    assert.match(body, /<title>deadchannel<\/title>/);
+    assert.match(body, /Base/, "the page must name the network it settles on");
+  });
+
+  it("serves the JSON card to an agent asking for JSON", async () => {
+    const res = await fetch(`${base}/`, { headers: { accept: "application/json" } });
+    assert.match(res.headers.get("content-type") ?? "", /application\/json/);
+    assert.equal(((await res.json()) as { service: string }).service, "deadchannel");
+  });
+
+  it("serves JSON when no preference is given, because that is the machine default", async () => {
+    const res = await fetch(`${base}/`);
+    assert.match(res.headers.get("content-type") ?? "", /application\/json/);
+  });
+
+  it("never serves HTML from the paid route", async () => {
+    reset();
+    const res = await post({ url: "https://api.example.com/paid" });
+    assert.match(res.headers.get("content-type") ?? "", /application\/json/);
+  });
+});

@@ -5,6 +5,7 @@ import { ConfigError, loadConfig } from "./config.ts";
 import type { Config } from "./config.ts";
 import { FacilitatorClient, FacilitatorError } from "./facilitator.ts";
 import { facilitatorAuth } from "./facilitator-auth.ts";
+import { landingPage } from "./landing.ts";
 import { BadRequest, PROBE_ROUTE, parseProbeRequest, runProbe } from "./routes.ts";
 import {
   HEADER_REQUIRED,
@@ -68,7 +69,11 @@ async function handle(
 
   if (path === "/health") return send(res, 200, { ok: true, network: cfg.network.label });
   if (path === "/facilitator") return handleFacilitatorCheck(res, cfg, facilitator);
-  if (path === "/" || path === "/index.json") return send(res, 200, serviceCard(cfg));
+  if (path === "/" || path === "/index.json") {
+    // One address, two audiences: browsers read the page, agents read the card.
+    if (path === "/" && prefersHtml(req)) return sendHtml(res, landingPage(cfg));
+    return send(res, 200, serviceCard(cfg));
+  }
 
   if (path === PROBE_ROUTE.path) {
     if (req.method !== PROBE_ROUTE.method) {
@@ -246,6 +251,24 @@ function serviceCard(cfg: Config) {
     },
     note: "You are only charged when the check produces a result. Failures settle nothing.",
   };
+}
+
+/** True when the client asked for HTML ahead of JSON, as a browser does. */
+function prefersHtml(req: IncomingMessage): boolean {
+  const accept = header(req, "accept") ?? "";
+  if (!accept.includes("text/html")) return false;
+  const html = accept.indexOf("text/html");
+  const json = accept.indexOf("application/json");
+  return json === -1 || html < json;
+}
+
+function sendHtml(res: ServerResponse, body: string): void {
+  res.writeHead(200, {
+    "content-type": "text/html; charset=utf-8",
+    "content-length": Buffer.byteLength(body),
+    "cache-control": "public, max-age=300",
+  });
+  res.end(body);
 }
 
 function header(req: IncomingMessage, name: string): string | undefined {

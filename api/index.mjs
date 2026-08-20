@@ -1273,6 +1273,7 @@ async function handle(req, res, cfg, facilitator, deps) {
     return;
   }
   if (path === "/health") return send(res, 200, { ok: true, network: cfg.network.label });
+  if (path === "/facilitator") return handleFacilitatorCheck(res, cfg, facilitator);
   if (path === "/" || path === "/index.json") return send(res, 200, serviceCard(cfg));
   if (path === PROBE_ROUTE.path) {
     if (req.method !== PROBE_ROUTE.method) {
@@ -1281,7 +1282,10 @@ async function handle(req, res, cfg, facilitator, deps) {
     }
     return handlePaidProbe(req, res, cfg, facilitator, deps);
   }
-  send(res, 404, { error: "not found", endpoints: ["GET /", "GET /health", "POST /probe"] });
+  send(res, 404, {
+    error: "not found",
+    endpoints: ["GET /", "GET /health", "GET /facilitator", "POST /probe"]
+  });
 }
 async function handlePaidProbe(req, res, cfg, facilitator, deps) {
   const required = buildPaymentRequired(cfg, PROBE_ROUTE);
@@ -1349,6 +1353,36 @@ async function handlePaidProbe(req, res, cfg, facilitator, deps) {
   res.setHeader(HEADER_RESPONSE, encodeHeader(settlement));
   send(res, 200, result);
 }
+async function handleFacilitatorCheck(res, cfg, facilitator) {
+  const base = {
+    facilitator: cfg.facilitatorUrl,
+    network: cfg.network.caip2,
+    scheme: "exact"
+  };
+  let kinds;
+  try {
+    kinds = await facilitator.supported();
+  } catch (err) {
+    const detail = describe(err);
+    const authProblem = err instanceof FacilitatorError && (err.status === 401 || err.status === 403);
+    return send(res, 503, {
+      ...base,
+      reachable: !authProblem,
+      authenticated: false,
+      canSettle: false,
+      problem: authProblem ? "the facilitator rejected our credentials \u2014 check CDP_API_KEY_ID and CDP_API_KEY_SECRET" : detail
+    });
+  }
+  const canSettle = kinds.some((k) => k.network === cfg.network.caip2 && k.scheme === "exact");
+  send(res, canSettle ? 200 : 503, {
+    ...base,
+    reachable: true,
+    authenticated: true,
+    canSettle,
+    supports: kinds.map((k) => `v${k.x402Version}/${k.scheme}/${k.network}`).slice(0, 20),
+    ...canSettle ? {} : { problem: `facilitator cannot settle exact on ${cfg.network.caip2}` }
+  });
+}
 function serviceCard(cfg) {
   return {
     service: PROBE_ROUTE.serviceName,
@@ -1363,6 +1397,7 @@ function serviceCard(cfg) {
       payTo: cfg.payTo
     },
     endpoints: {
+      "GET /facilitator": { paid: false },
       [`${PROBE_ROUTE.method} ${PROBE_ROUTE.path}`]: {
         paid: true,
         input: PROBE_ROUTE.inputExample,

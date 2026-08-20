@@ -53,6 +53,27 @@ TESTNET   risk 80   $0.01  355ms p99  https://x402.org/protected
                       can find out what it gets back.
 ```
 
+## First full catalog scan — 20 Aug 2026
+
+`node src/scan.ts --live 150` pulls every resource the public Bazaar facilitators
+publish and audits it. Results from the first run, over **15,001 resources**:
+
+| | |
+| --- | --- |
+| publish no discovery tags | **89.8%** — an agent searching by topic cannot find them |
+| of the 150 busiest, no input/output schema | **87.3%** — you pay first, learn what you bought after |
+| catalog held by the top 3 payout addresses | **18.3%**, taking **1.25%** of all demand |
+| pass every check | **10.1%** |
+| genuinely dead, among the busiest | **2.7%** |
+
+Median price $0.01, range $0 to $1,000, 316,944 paid calls in 30 days.
+
+The concentration figure is the one worth sitting with: three addresses list
+2,750 resources between them and receive one call in eighty. Catalog size is not
+catalog depth.
+
+![catalog audit](data/x402-catalog-audit.png)
+
 ## Notes from the wild
 
 Built against live endpoints, not the spec alone:
@@ -67,6 +88,15 @@ Built against live endpoints, not the spec alone:
 - Several servers omit the top-level `x402Version` the reference implementations
   all send, and some nest `accepts[]` one level deeper than documented. Both are
   parsed and reported as warnings rather than rejected.
+- **Most resources are POST.** Probing them with GET returns 404/405, which looks
+  exactly like a dead endpoint — it put our first live-probe dead rate at 25%
+  when the real figure is 2.7%. The verb comes from the catalog now, with a POST
+  retry when it is unknown. Any x402 index reporting a high dead rate is worth
+  checking for this.
+- **Brokered rails exist.** AWS Marketplace resources name the payee with a URN
+  under an `aws:base` network instead of a chain address. That is legitimate, but
+  the funds go to the broker, so it is reported as a warning rather than scored
+  as an invalid payout.
 
 ## Development
 

@@ -140,6 +140,27 @@ POST /probe        the check, $0.001 in USDC on Base
 `GET /facilitator` exists because a wrong credential otherwise stays invisible
 until someone tries to pay, and the first to discover it would be a customer.
 
+## Live
+
+The service is deployed at **https://deadchannel.vercel.app**, selling on Base
+mainnet at $0.001 per call and settling through the Coinbase facilitator.
+
+First settled payment: [`0x6ac4a22c`](https://basescan.org/tx/0x6ac4a22c0b7721c9a5103d98ee3d546c120293e97bb5b7a2ca13fabed28e319b),
+block 50230005, 20 Aug 2026. Gas was paid by the facilitator, not the buyer —
+in x402 the buyer only signs, so a wallet holding nothing but USDC can pay.
+
+`npm run validate` re-runs the 25 preflight checks the Bazaar applies before it
+will index a resource, and reports whether the listing is currently active. It
+needs no key and moves no money.
+
+```
+resource : https://deadchannel.vercel.app/probe
+valid    : true
+accepted : accepted
+checks   : 25/25 passed
+indexed  : active=true
+```
+
 ## Development
 
 ```

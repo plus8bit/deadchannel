@@ -7,14 +7,19 @@
  * Frames are HTML screenshots timed to the narration, which means the pacing
  * follows the voice rather than the other way round.
  *
- *   VOICE=Samantha RATE=168 node scripts/build-pitch-video.mjs
+ *   node scripts/build-pitch-video.mjs
+ *   ENGINE=say VOICE=Samantha node scripts/build-pitch-video.mjs   # macOS fallback
  *   ffmpeg -y -f concat -safe 0 -i /tmp/vid/audio.txt -c copy /tmp/vid/voice.wav
  *   ffmpeg -y -f concat -safe 0 -i /tmp/vid/concat.txt -i /tmp/vid/voice.wav \
  *     -map 0:v -map 1:a -c:v libx264 -crf 20 -pix_fmt yuv420p -r 30 \
  *     -c:a aac -b:a 192k -shortest data/deadchannel-pitch.mp4
  *
- * Frames already on disk are skipped, so an interrupted run resumes. Voices
- * come from `say -v '?'`; changing VOICE regenerates only the narration.
+ * Narration uses Piper, a local neural model: free, offline, no account, and
+ * markedly less robotic than the macOS system voices. Fetch a voice first:
+ *   python3 -m piper.download_voices en_US-ryan-high --data-dir /tmp/vid/voices
+ *
+ * Frames already on disk are skipped, so an interrupted run resumes, and
+ * changing only the voice re-times the existing frames without re-rendering.
  */
 
 import { execFileSync } from "node:child_process";
@@ -118,8 +123,27 @@ const scenes = [
   },
 ];
 
-const VOICE = process.env.VOICE ?? "Samantha";
+/**
+ * Narration engine. `piper` is a local neural model — free, offline, and far
+ * less robotic than the system voices; `say` is the macOS fallback.
+ */
+const ENGINE = process.env.ENGINE ?? "piper";
+const VOICE = process.env.VOICE ?? (ENGINE === "piper" ? "/tmp/vid/voices/en_US-ryan-high.onnx" : "Samantha");
 const RATE = process.env.RATE ?? "168";
+const LENGTH = process.env.LENGTH ?? "1.06";   // >1 slows piper down a little
+
+function speak(text, aiff, wav) {
+  if (ENGINE === "piper") {
+    execFileSync(
+      "python3",
+      ["-m", "piper", "-m", VOICE, "--length-scale", LENGTH, "--sentence-silence", "0.30", "-f", wav],
+      { input: text, stdio: ["pipe", "pipe", "pipe"] },
+    );
+    return;
+  }
+  execFileSync("say", ["-v", VOICE, "-r", RATE, "-o", aiff, text]);
+  execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-i", aiff, "-ar", "48000", "-ac", "2", wav]);
+}
 
 rmSync(`${OUT}/audio`, { recursive: true, force: true });
 mkdirSync(`${OUT}/frames`, { recursive: true });
@@ -160,7 +184,7 @@ html,body{width:${W}px;height:${H}px;overflow:hidden;background:#07090D}
 }
 
 // ── narration: synthesize first, so frame timing can follow the voice ────────
-console.log(`voice: ${VOICE} @ ${RATE} wpm`);
+console.log(`engine: ${ENGINE}  voice: ${VOICE}`);
 const timeline = [];
 let buffer = [];
 let frameNo = 0;
@@ -168,8 +192,7 @@ let frameNo = 0;
 for (const [i, sc] of scenes.entries()) {
   const aiff = `${OUT}/audio/${String(i).padStart(2, "0")}.aiff`;
   const wav = `${OUT}/audio/${String(i).padStart(2, "0")}.wav`;
-  execFileSync("say", ["-v", VOICE, "-r", RATE, "-o", aiff, sc.say]);
-  execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-i", aiff, "-ar", "48000", "-ac", "2", wav]);
+  speak(sc.say, aiff, wav);
   const dur = Number(
     execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", wav])
       .toString().trim(),

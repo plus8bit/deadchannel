@@ -24,8 +24,6 @@
  * markedly less robotic than the macOS system voices. Fetch a voice first:
  *   python3 -m piper.download_voices en_US-ryan-high --data-dir /tmp/vid/voices
  *
- * Frames already on disk are skipped, so an interrupted run resumes, and
- * changing only the voice re-times the existing frames without re-rendering.
 import { execFileSync } from "node:child_process";
 import { existsSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 
@@ -145,7 +143,20 @@ function speak(text, aiff, wav, index) {
     if (!src) throw new Error(`missing recording for line ${index + 1}: expected ${stem}.m4a`);
     execFileSync("ffmpeg", [
       "-y", "-loglevel", "error", "-i", src,
-      "-af", "highpass=f=80,afftdn=nf=-24,dynaudnorm=g=7:p=0.9,alimiter=limit=0.95",
+      // Trim the silence the speaker left at each edge, then clean and level:
+      // rumble filter, gentle denoise, loudness normalisation, safety limiter.
+      "-af",
+      [
+        "silenceremove=start_periods=1:start_duration=0.06:start_threshold=-45dB:detection=peak",
+        "areverse",
+        "silenceremove=start_periods=1:start_duration=0.06:start_threshold=-45dB:detection=peak",
+        "areverse",
+        "highpass=f=85",
+        "afftdn=nf=-22",
+        "loudnorm=I=-16:TP=-1.5:LRA=11",
+        "alimiter=limit=0.97",
+        "apad=pad_dur=0.25",
+      ].join(","),
       "-ar", "48000", "-ac", "2", wav,
     ]);
     return;

@@ -157,20 +157,19 @@ export function runChecks(input: CheckInput): Signal[] {
 
 function priceSignals(options: PaymentOption[], withReqs: Observation[]): Signal[] {
   const out: Signal[] = [];
-  const priced = options.filter((o) => o.amountDecimal !== null && o.assetSymbol !== null);
+  const priced = options.filter((o) => o.priceUsd !== null);
 
   if (priced.length === 0) {
     out.push({
       id: "price-sane",
       status: "warn",
       weight: 25,
-      detail: `Price cannot be determined — asset ${options[0]?.asset ?? "unknown"} has no known decimals and the server declared none. An agent cannot know what it is agreeing to pay.`,
+      detail: `Price in USD cannot be determined. The asset is not a stablecoin we recognize, or the scheme quotes a spending ceiling rather than a charge, so an agent cannot know what this call will actually cost.`,
     });
     return out;
   }
 
-  const cheapest = Math.min(...priced.map((o) => o.amountDecimal as number));
-  const priceUsd = cheapest; // all currently-resolvable assets are $1 stablecoins
+  const priceUsd = Math.min(...priced.map((o) => o.priceUsd as number));
 
   if (priceUsd <= 0) {
     out.push({ id: "price-sane", status: "warn", weight: 15, detail: "Advertised price is zero. Free endpoints do not need a 402." });
@@ -196,7 +195,7 @@ function priceSignals(options: PaymentOption[], withReqs: Observation[]): Signal
   const perProbe = withReqs
     .map((s) => {
       const amounts = (s.requirements?.accepts ?? [])
-        .map((o) => o.amountDecimal)
+        .map((o) => o.priceUsd)
         .filter((n): n is number => n !== null);
       return amounts.length > 0 ? Math.min(...amounts) : null;
     })

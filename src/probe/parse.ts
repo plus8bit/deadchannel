@@ -1,4 +1,5 @@
 import { resolveAsset, toDecimal } from "./assets.ts";
+import type { ResolvedAsset } from "./assets.ts";
 import { normalizeNetwork } from "./networks.ts";
 import type { BazaarMetadata, PaymentOption, PaymentRequirements } from "./types.ts";
 
@@ -85,15 +86,17 @@ function parseOption(
     asRecord(outputSchema)?.["input"];
 
   const net = normalizeNetwork(readString(o["network"]));
+  const scheme = readString(o["scheme"]) ?? "unknown";
 
   return {
-    scheme: readString(o["scheme"]) ?? "unknown",
+    scheme,
     network: net.name,
     networkRaw: readString(o["network"]) ?? "unknown",
     networkKnown: net.known,
     networkTestnet: net.testnet,
     maxAmountRequired: atomic,
     amountDecimal: toDecimal(atomic, resolved.decimals),
+    priceUsd: priceInUsd(scheme, atomic, resolved),
     asset,
     assetSymbol: resolved.symbol,
     assetDecimals: resolved.decimals,
@@ -156,6 +159,22 @@ function isMeaningful(v: unknown): boolean {
   if (v === null || v === undefined) return false;
   if (typeof v !== "object") return false;
   return Object.keys(v as Record<string, unknown>).length > 0;
+}
+
+/**
+ * Schemes where `amount` is a spending ceiling rather than the charge.
+ *
+ * Reading them as a price is how a $1,000 authorization limit on a gift-card
+ * invoice turns into $1,000 of imagined revenue. Ceilings are decoded but
+ * never priced.
+ */
+const CEILING_SCHEMES = new Set(["upto", "batch-settlement", "aggr_deferred"]);
+
+function priceInUsd(scheme: string, atomic: string, resolved: ResolvedAsset): number | null {
+  if (CEILING_SCHEMES.has(scheme)) return null;
+  if (resolved.usdPerUnit === null) return null;
+  const amount = toDecimal(atomic, resolved.decimals);
+  return amount === null ? null : amount * resolved.usdPerUnit;
 }
 
 function asRecord(v: unknown): Record<string, unknown> | null {

@@ -33,8 +33,8 @@ const ALGORAND_ADDRESS = /^[A-Z2-7]{58}$/;
 
 export function auditEntry(entry: CatalogEntry, now = Date.now()): AuditedEntry {
   const flags: Flag[] = [];
-  const priced = entry.accepts.filter((o) => o.amountDecimal !== null);
-  const priceUsd = priced.length > 0 ? Math.min(...priced.map((o) => o.amountDecimal as number)) : null;
+  const priced = entry.accepts.filter((o) => o.priceUsd !== null);
+  const priceUsd = priced.length > 0 ? Math.min(...priced.map((o) => o.priceUsd as number)) : null;
 
   if (entry.accepts.length > 0 && priced.length === 0) flags.push("unpriceable");
   if (priceUsd !== null && priceUsd > PRICE_CEILING_USD) flags.push("price-trap");

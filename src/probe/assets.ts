@@ -54,9 +54,12 @@ export function resolveAsset(
     };
   }
 
-  // Unknown address. A stablecoin-shaped name is a weak but usable signal;
-  // we still refuse to guess decimals unless the server declared them.
-  const looksStable = declaredName ? /^(usdc|usdt|pyusd|usdg|dai|eurc)$/i.test(declaredName) : false;
+  // Unknown address. Only a stablecoin-shaped name buys a USD valuation; every
+  // other token decodes to an amount but stays unpriced, because we have no
+  // business guessing what a memecoin is worth.
+  const looksStable = declaredName
+    ? /^(usdc|usd coin|usdbc|usdt|tether|pyusd|usdg|dai|eurc)$/i.test(declaredName.trim())
+    : false;
   return {
     symbol: declaredName ?? null,
     decimals: declaredDecimals ?? (looksStable ? 6 : null),

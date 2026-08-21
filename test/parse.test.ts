@@ -57,6 +57,7 @@ describe("parsePaymentRequirements", () => {
     assert.equal(req.accepts.length, 2);
     for (const option of req.accepts) {
       assert.equal(option.amountDecimal, 0.01, "10000 atomic USDC is $0.01");
+      assert.equal(option.priceUsd, 0.01);
       assert.equal(option.assetSymbol, "USDC");
     }
   });
@@ -99,6 +100,36 @@ describe("parsePaymentRequirements", () => {
     assert.ok(req?.warnings.some((w) => w.includes("nested")));
   });
 
+  it("prices a stablecoin in dollars, and a memecoin not at all", () => {
+    const req = parsePaymentRequirements({
+      x402Version: 2,
+      accepts: [{
+        scheme: "exact", network: "solana", amount: "7142857143",
+        asset: "F2bnJW1z55UQ9ZqGX5RwYQfvNJrd23n66eyBV5QZpump",
+        payTo: "CKPKJWNdJEqa81x7CkZ14BVPiY6y16Sxs7owznqtWYp5",
+        extra: { name: "TCX", decimals: 6 },
+      }],
+    });
+    // 7,142 tokens of something is not $7,142, and treating it as dollars turns
+    // a cheap endpoint into a price trap.
+    assert.equal(req?.accepts[0]?.amountDecimal, 7142.857143);
+    assert.equal(req?.accepts[0]?.priceUsd, null, "an unknown token has no USD price");
+  });
+
+  it("treats an upto ceiling as a limit, not a charge", () => {
+    const req = parsePaymentRequirements({
+      x402Version: 2,
+      accepts: [{
+        scheme: "upto", network: "base", amount: "1000000000",
+        asset: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        payTo: "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
+        extra: { name: "USDC", version: "2" },
+      }],
+    });
+    assert.equal(req?.accepts[0]?.amountDecimal, 1000);
+    assert.equal(req?.accepts[0]?.priceUsd, null, "a $1000 spend limit is not a $1000 price");
+  });
+
   it("refuses to price an asset with unknown decimals", () => {
     const req = parsePaymentRequirements({
       x402Version: 1,
@@ -106,6 +137,7 @@ describe("parsePaymentRequirements", () => {
     });
     assert.equal(req?.accepts[0]?.amountDecimal, null);
     assert.equal(req?.accepts[0]?.assetDecimals, null);
+    assert.equal(req?.accepts[0]?.priceUsd, null);
   });
 
   it("returns null for payloads that are not x402 at all", () => {

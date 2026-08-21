@@ -48,7 +48,7 @@ export async function probe(url: string, options: ProbeOptions = {}): Promise<Pr
   const requirements = agentSamples.find((s) => s.requirements !== null)?.requirements ?? null;
 
   const prices = (requirements?.accepts ?? [])
-    .map((o) => o.amountDecimal)
+    .map((o) => o.priceUsd)
     .filter((n): n is number => n !== null && n > 0);
 
   return {

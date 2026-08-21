@@ -18,8 +18,17 @@ export interface PaymentOption {
   networkTestnet: boolean;
   /** Raw atomic amount as advertised, kept as string to avoid precision loss. */
   maxAmountRequired: string;
-  /** Decoded human amount, when we could determine the asset's decimals. */
+  /** Decoded token amount, when we could determine the asset's decimals. */
   amountDecimal: number | null;
+  /**
+   * Price in USD, and only when the asset is actually a stablecoin we know.
+   *
+   * Distinct from `amountDecimal` on purpose: an endpoint priced at 7,142 units
+   * of a memecoin decodes to 7142 tokens, which is not $7,142. Conflating the
+   * two makes a cheap endpoint look like a price trap and inflates any revenue
+   * figure computed from the catalog.
+   */
+  priceUsd: number | null;
   asset: string | null;
   assetSymbol: string | null;
   assetDecimals: number | null;

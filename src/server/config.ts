@@ -59,7 +59,7 @@ export interface Config {
   maxTimeoutSeconds: number;
 }
 
-const USDC_DECIMALS = 6;
+export const USDC_DECIMALS = 6;
 const EVM_ADDRESS = /^0x[a-fA-F0-9]{40}$/;
 
 /**

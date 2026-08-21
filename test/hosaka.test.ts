@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { normalize } from "../src/hosaka/profile.ts";
-import { detectVendors } from "../src/hosaka/vendors.ts";
+import { detectVendors, providerFor } from "../src/hosaka/vendors.ts";
 import type { DnsFacts, WebFacts } from "../src/hosaka/types.ts";
 
 const dns = (over: Partial<DnsFacts> = {}): DnsFacts => ({
@@ -87,5 +87,40 @@ describe("vendor detection", () => {
     const found = detectVendors({ txt: [], dns: dns(), web: web(), html });
     assert.ok((found[0]?.evidence.length ?? 0) < 120, "evidence must be checkable by eye");
     assert.match(found[0]?.evidence ?? "", /js\.stripe\.com/);
+  });
+});
+
+describe("provider attribution", () => {
+  it("names the mail provider from the MX hosts", () => {
+    assert.equal(providerFor("mx", ["aspmx.l.google.com"]), "Google Workspace");
+    assert.equal(providerFor("mx", ["x.mail.protection.outlook.com"]), "Microsoft 365");
+    assert.equal(providerFor("mx", ["mx1.pphosted.com"]), "Proofpoint");
+  });
+
+  it("names the DNS provider from the NS hosts", () => {
+    assert.equal(providerFor("ns", ["ns-1087.awsdns-07.org"]), "AWS Route 53");
+    assert.equal(providerFor("ns", ["dana.ns.cloudflare.com"]), "Cloudflare");
+  });
+
+  it("returns the host itself when no rule matches, rather than nothing", () => {
+    assert.equal(providerFor("mx", ["mail.some-tiny-host.example"]), "mail.some-tiny-host.example");
+  });
+
+  it("returns null only when there are no records at all", () => {
+    assert.equal(providerFor("mx", []), null);
+    assert.equal(providerFor("ns", []), null);
+  });
+
+  it("answers the MX question even when the vendor is also proven by a TXT record", () => {
+    // The vendor list deduplicates Google Workspace down to its DNS TXT proof,
+    // which is why the mail question is asked of the MX records directly.
+    const vendors = detectVendors({
+      txt: ["google-site-verification=abc"],
+      dns: dns({ mx: ["aspmx.l.google.com"] }),
+      web: null, html: null,
+    });
+    assert.equal(vendors.filter((v) => v.name === "Google Workspace").length, 1);
+    assert.match(vendors[0]?.evidence ?? "", /DNS TXT/);
+    assert.equal(providerFor("mx", ["aspmx.l.google.com"]), "Google Workspace");
   });
 });

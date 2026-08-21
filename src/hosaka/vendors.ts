@@ -182,3 +182,21 @@ export function detectVendors(input: {
   }
   return [...best.values()].sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
 }
+
+/**
+ * Names the provider behind a set of MX or NS hosts.
+ *
+ * Deliberately independent of `detectVendors`: that function deduplicates a
+ * vendor down to its strongest evidence, which may be a TXT record, and then
+ * the answer to "who runs their mail" is no longer in the result. Asking the
+ * records directly keeps the answer tied to the question.
+ */
+export function providerFor(kind: "mx" | "ns", hosts: string[]): string | null {
+  if (hosts.length === 0) return null;
+  const rules = kind === "mx" ? MX_RULES : NS_RULES;
+  for (const rule of rules) {
+    if (hosts.some((h) => rule.pattern.test(h))) return rule.name;
+  }
+  // Unknown provider: name the host rather than pretend there is none.
+  return hosts[0] ?? null;
+}

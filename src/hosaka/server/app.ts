@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { ConfigError, loadConfig } from "../../server/config.ts";
 import type { Config } from "../../server/config.ts";
-import { FacilitatorClient } from "../../server/facilitator.ts";
+import { FacilitatorClient, FacilitatorError } from "../../server/facilitator.ts";
 import { facilitatorAuth } from "../../server/facilitator-auth.ts";
 import { applyOutcome, servePaid } from "../../server/paid.ts";
 import type { PaidHandlerDeps } from "../../server/paid.ts";
@@ -61,6 +61,7 @@ async function handle(
   }
 
   if (path === "/health") return send(res, 200, { ok: true, network: cfg.network.label });
+  if (path === "/facilitator") return send(res, ...(await facilitatorStatus(cfg, facilitator)));
   if (path === "/warehouse") return send(res, 200, await warehouseStats());
   if (path === "/" || path === "/index.json") return send(res, 200, card(cfg));
 
@@ -68,7 +69,12 @@ async function handle(
   if (!shelf) {
     return send(res, 404, {
       error: "not found",
-      endpoints: SHELVES.map((s) => `${s.route.method} ${s.route.path}`).concat("GET /", "GET /health"),
+      endpoints: SHELVES.map((s) => `${s.route.method} ${s.route.path}`).concat(
+        "GET /",
+        "GET /health",
+        "GET /facilitator",
+        "GET /warehouse",
+      ),
     });
   }
   if (req.method !== shelf.route.method) {
@@ -81,6 +87,48 @@ async function handle(
     log("info", { msg: "sold", shelf: shelf.route.path, usd: outcome.settled.priceUsd, tx: outcome.settled.transaction, payer: outcome.settled.payer });
   }
   applyOutcome(res, outcome);
+}
+
+/**
+ * Proves the facilitator accepts our credentials without moving money.
+ *
+ * Worth a route of its own: a wrong key otherwise stays invisible until a buyer
+ * tries to pay, and the first person to discover it is a customer.
+ */
+async function facilitatorStatus(
+  cfg: Config,
+  facilitator: FacilitatorClient,
+): Promise<[number, unknown]> {
+  const base = { facilitator: cfg.facilitatorUrl, network: cfg.network.caip2, scheme: "exact" };
+  try {
+    const kinds = await facilitator.supported();
+    const canSettle = kinds.some((k) => k.network === cfg.network.caip2 && k.scheme === "exact");
+    return [
+      canSettle ? 200 : 503,
+      {
+        ...base,
+        reachable: true,
+        authenticated: true,
+        canSettle,
+        ...(canSettle ? {} : { problem: `cannot settle exact on ${cfg.network.caip2}` }),
+      },
+    ];
+  } catch (err) {
+    const status = err instanceof FacilitatorError ? err.status : null;
+    const authProblem = status === 401 || status === 403;
+    return [
+      503,
+      {
+        ...base,
+        reachable: !authProblem,
+        authenticated: false,
+        canSettle: false,
+        problem: authProblem
+          ? "the facilitator rejected our credentials — set CDP_API_KEY_ID and CDP_API_KEY_SECRET on this project"
+          : err instanceof Error ? err.message : String(err),
+      },
+    ];
+  }
 }
 
 function card(cfg: Config) {

@@ -1,8 +1,8 @@
 {
-  "$comment": "Public deployment settings for Hosaka. Same payout address as deadchannel on purpose: the Bazaar rolls volume up per address, so two shops under one wallet accumulate together instead of splitting.",
+  "$comment": "Public deployment settings for Hosaka. Same payout address as deadchannel on purpose: the Bazaar rolls volume up per address, so two shops under one wallet accumulate together instead of splitting. Settles through CDP because only that facilitator indexes into the 15,000-entry catalog, and indexing is triggered by the first settled payment.",
   "payTo": "0x712c78928080Adb009E31315c0c3c7473dA9648a",
   "network": "base",
   "priceUsd": 0.001,
   "publicUrl": "https://hosaka-agents.vercel.app",
-  "facilitatorUrl": "https://facilitator.goplausible.xyz"
+  "facilitatorUrl": "https://api.cdp.coinbase.com/platform/v2/x402"
 }

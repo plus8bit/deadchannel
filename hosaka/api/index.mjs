@@ -1,11 +1,11 @@
 // hosaka/hosaka.config.json
 var hosaka_config_default = {
-  $comment: "Public deployment settings for Hosaka. Same payout address as deadchannel on purpose: the Bazaar rolls volume up per address, so two shops under one wallet accumulate together instead of splitting.",
+  $comment: "Public deployment settings for Hosaka. Same payout address as deadchannel on purpose: the Bazaar rolls volume up per address, so two shops under one wallet accumulate together instead of splitting. Settles through CDP because only that facilitator indexes into the 15,000-entry catalog, and indexing is triggered by the first settled payment.",
   payTo: "0x712c78928080Adb009E31315c0c3c7473dA9648a",
   network: "base",
   priceUsd: 1e-3,
   publicUrl: "https://hosaka-agents.vercel.app",
-  facilitatorUrl: "https://facilitator.goplausible.xyz"
+  facilitatorUrl: "https://api.cdp.coinbase.com/platform/v2/x402"
 };
 
 // deadchannel.config.json
@@ -1079,13 +1079,19 @@ async function handle(req, res, cfg, facilitator) {
     return;
   }
   if (path === "/health") return send(res, 200, { ok: true, network: cfg.network.label });
+  if (path === "/facilitator") return send(res, ...await facilitatorStatus(cfg, facilitator));
   if (path === "/warehouse") return send(res, 200, await warehouseStats());
   if (path === "/" || path === "/index.json") return send(res, 200, card(cfg));
   const shelf = SHELVES.find((s) => s.route.path === path);
   if (!shelf) {
     return send(res, 404, {
       error: "not found",
-      endpoints: SHELVES.map((s) => `${s.route.method} ${s.route.path}`).concat("GET /", "GET /health")
+      endpoints: SHELVES.map((s) => `${s.route.method} ${s.route.path}`).concat(
+        "GET /",
+        "GET /health",
+        "GET /facilitator",
+        "GET /warehouse"
+      )
     });
   }
   if (req.method !== shelf.route.method) {
@@ -1097,6 +1103,36 @@ async function handle(req, res, cfg, facilitator) {
     log("info", { msg: "sold", shelf: shelf.route.path, usd: outcome.settled.priceUsd, tx: outcome.settled.transaction, payer: outcome.settled.payer });
   }
   applyOutcome(res, outcome);
+}
+async function facilitatorStatus(cfg, facilitator) {
+  const base = { facilitator: cfg.facilitatorUrl, network: cfg.network.caip2, scheme: "exact" };
+  try {
+    const kinds = await facilitator.supported();
+    const canSettle = kinds.some((k) => k.network === cfg.network.caip2 && k.scheme === "exact");
+    return [
+      canSettle ? 200 : 503,
+      {
+        ...base,
+        reachable: true,
+        authenticated: true,
+        canSettle,
+        ...canSettle ? {} : { problem: `cannot settle exact on ${cfg.network.caip2}` }
+      }
+    ];
+  } catch (err) {
+    const status = err instanceof FacilitatorError ? err.status : null;
+    const authProblem = status === 401 || status === 403;
+    return [
+      503,
+      {
+        ...base,
+        reachable: !authProblem,
+        authenticated: false,
+        canSettle: false,
+        problem: authProblem ? "the facilitator rejected our credentials \u2014 set CDP_API_KEY_ID and CDP_API_KEY_SECRET on this project" : err instanceof Error ? err.message : String(err)
+      }
+    ];
+  }
 }
 function card(cfg) {
   return {

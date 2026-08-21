@@ -1,16 +1,36 @@
 {
   "name": "hosaka-mcp",
   "version": "0.1.0",
-  "description": "Company facts for AI agents: domain age, mail and DNS providers, and every third-party vendor a company can be proven to use, each with the record that proves it. Paid per call in USDC on Base, no signup and no API key.",
-  "keywords": ["mcp", "modelcontextprotocol", "x402", "company-data", "enrichment", "technographics", "b2b", "agents"],
+  "description": "Company facts for AI agents, paid per call in USDC on Base: domain age, mail and DNS providers, and every third-party vendor a company can be proven to use, each with the record that proves it. No signup, no API key.",
+  "keywords": [
+    "mcp",
+    "modelcontextprotocol",
+    "x402",
+    "company-data",
+    "enrichment",
+    "technographics",
+    "b2b",
+    "agents"
+  ],
   "license": "MIT",
   "author": "plus8bit",
   "homepage": "https://hosaka-agents.vercel.app",
-  "repository": { "type": "git", "url": "git+https://github.com/plus8bit/deadchannel.git", "directory": "packages/hosaka-mcp" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/plus8bit/deadchannel.git",
+    "directory": "packages/hosaka-mcp"
+  },
   "type": "module",
-  "bin": { "hosaka-mcp": "./src/server.mjs" },
-  "files": ["src", "README.md"],
-  "engines": { "node": ">=20" },
+  "bin": {
+    "hosaka-mcp": "./src/server.mjs"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@x402/evm": "^2.23.0",
     "@x402/fetch": "^2.23.0",

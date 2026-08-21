@@ -5,6 +5,7 @@ import { ConfigError, loadConfig } from "./config.ts";
 import type { Config } from "./config.ts";
 import { FacilitatorClient, FacilitatorError } from "./facilitator.ts";
 import { facilitatorAuth } from "./facilitator-auth.ts";
+import { llmsTxt, openApiSpec } from "./descriptors.ts";
 import { FAVICON_SVG, landingPage } from "./landing.ts";
 import { BadRequest, PROBE_ROUTE, parseProbeRequest, runProbe } from "./routes.ts";
 import {
@@ -69,6 +70,8 @@ async function handle(
 
   if (path === "/favicon.svg" || path === "/favicon.ico") return sendSvg(res, FAVICON_SVG);
   if (path === "/health") return send(res, 200, { ok: true, network: cfg.network.label });
+  if (path === "/llms.txt") return sendText(res, llmsTxt(cfg));
+  if (path === "/openapi.json") return send(res, 200, openApiSpec(cfg));
   if (path === "/facilitator") return handleFacilitatorCheck(res, cfg, facilitator);
   if (path === "/" || path === "/index.json") {
     // One address, two audiences: browsers read the page, agents read the card.
@@ -86,7 +89,7 @@ async function handle(
 
   send(res, 404, {
     error: "not found",
-    endpoints: ["GET /", "GET /health", "GET /facilitator", "POST /probe"],
+    endpoints: ["GET /", "GET /health", "GET /facilitator", "GET /llms.txt", "GET /openapi.json", "POST /probe"],
   });
 }
 
@@ -243,6 +246,8 @@ function serviceCard(cfg: Config) {
     },
     endpoints: {
       "GET /facilitator": { paid: false },
+      "GET /llms.txt": { paid: false },
+      "GET /openapi.json": { paid: false },
       [`${PROBE_ROUTE.method} ${PROBE_ROUTE.path}`]: {
         paid: true,
         input: PROBE_ROUTE.inputExample,
@@ -261,6 +266,15 @@ function prefersHtml(req: IncomingMessage): boolean {
   const html = accept.indexOf("text/html");
   const json = accept.indexOf("application/json");
   return json === -1 || html < json;
+}
+
+function sendText(res: ServerResponse, body: string): void {
+  res.writeHead(200, {
+    "content-type": "text/plain; charset=utf-8",
+    "content-length": Buffer.byteLength(body),
+    "cache-control": "public, max-age=3600",
+  });
+  res.end(body);
 }
 
 function sendSvg(res: ServerResponse, body: string): void {

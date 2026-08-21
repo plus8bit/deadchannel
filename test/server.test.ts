@@ -337,3 +337,38 @@ describe("site mark", () => {
     }
   });
 });
+
+describe("machine-readable descriptors", () => {
+  // Added because the access log showed crawlers asking for these and getting
+  // 404. A service whose product is discoverability should be discoverable.
+  it("serves llms.txt as plain text naming the price and the endpoint", async () => {
+    const res = await fetch(`${base}/llms.txt`);
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get("content-type") ?? "", /text\/plain/);
+    const body = await res.text();
+    assert.match(body, /^# deadchannel/);
+    assert.match(body, /POST \/probe/);
+    assert.match(body, /0\.001/, "the price must be stated");
+  });
+
+  it("serves an OpenAPI document that documents the 402", async () => {
+    const res = await fetch(`${base}/openapi.json`);
+    assert.equal(res.status, 200);
+    const spec = (await res.json()) as Record<string, any>;
+    assert.equal(spec["openapi"], "3.1.0");
+    const post = spec["paths"]["/probe"]["post"];
+    assert.ok(post["responses"]["402"], "the paywall must appear in the schema");
+    assert.ok(
+      post["responses"]["402"]["headers"]["PAYMENT-REQUIRED"],
+      "clients need to know where the terms arrive",
+    );
+    assert.equal(spec["x-x402"]["network"], "eip155:8453");
+    assert.equal(spec["x-x402"]["payTo"], PAY_TO);
+  });
+
+  it("lists the descriptors on the service card", async () => {
+    const card = (await (await fetch(`${base}/`)).json()) as { endpoints: Record<string, unknown> };
+    assert.ok("GET /llms.txt" in card.endpoints);
+    assert.ok("GET /openapi.json" in card.endpoints);
+  });
+});

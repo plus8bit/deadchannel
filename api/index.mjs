@@ -296,7 +296,7 @@ function resolveAsset(address, extra) {
       usdPerUnit: known.usd
     };
   }
-  const looksStable = declaredName ? /^(usdc|usdt|pyusd|usdg|dai|eurc)$/i.test(declaredName) : false;
+  const looksStable = declaredName ? /^(usdc|usd coin|usdbc|usdt|tether|pyusd|usdg|dai|eurc)$/i.test(declaredName.trim()) : false;
   return {
     symbol: declaredName ?? null,
     decimals: declaredDecimals ?? (looksStable ? 6 : null),
@@ -448,14 +448,16 @@ function parseOption(entry, index, warnings, rootResource, bazaarExt) {
   const outputSchema = o["outputSchema"] ?? rootResource?.["outputSchema"] ?? bazaarInfo?.["output"];
   const inputSchema = o["inputSchema"] ?? rootResource?.["inputSchema"] ?? bazaarInfo?.["input"] ?? asRecord(outputSchema)?.["input"];
   const net = normalizeNetwork(readString2(o["network"]));
+  const scheme = readString2(o["scheme"]) ?? "unknown";
   return {
-    scheme: readString2(o["scheme"]) ?? "unknown",
+    scheme,
     network: net.name,
     networkRaw: readString2(o["network"]) ?? "unknown",
     networkKnown: net.known,
     networkTestnet: net.testnet,
     maxAmountRequired: atomic,
     amountDecimal: toDecimal(atomic, resolved.decimals),
+    priceUsd: priceInUsd(scheme, atomic, resolved),
     asset,
     assetSymbol: resolved.symbol,
     assetDecimals: resolved.decimals,
@@ -507,6 +509,13 @@ function isMeaningful(v) {
   if (v === null || v === void 0) return false;
   if (typeof v !== "object") return false;
   return Object.keys(v).length > 0;
+}
+var CEILING_SCHEMES = /* @__PURE__ */ new Set(["upto", "batch-settlement", "aggr_deferred"]);
+function priceInUsd(scheme, atomic, resolved) {
+  if (CEILING_SCHEMES.has(scheme)) return null;
+  if (resolved.usdPerUnit === null) return null;
+  const amount = toDecimal(atomic, resolved.decimals);
+  return amount === null ? null : amount * resolved.usdPerUnit;
 }
 function asRecord(v) {
   return typeof v === "object" && v !== null && !Array.isArray(v) ? v : null;
@@ -756,18 +765,17 @@ function runChecks(input) {
 }
 function priceSignals(options, withReqs) {
   const out = [];
-  const priced = options.filter((o) => o.amountDecimal !== null && o.assetSymbol !== null);
+  const priced = options.filter((o) => o.priceUsd !== null);
   if (priced.length === 0) {
     out.push({
       id: "price-sane",
       status: "warn",
       weight: 25,
-      detail: `Price cannot be determined \u2014 asset ${options[0]?.asset ?? "unknown"} has no known decimals and the server declared none. An agent cannot know what it is agreeing to pay.`
+      detail: `Price in USD cannot be determined. The asset is not a stablecoin we recognize, or the scheme quotes a spending ceiling rather than a charge, so an agent cannot know what this call will actually cost.`
     });
     return out;
   }
-  const cheapest = Math.min(...priced.map((o) => o.amountDecimal));
-  const priceUsd = cheapest;
+  const priceUsd = Math.min(...priced.map((o) => o.priceUsd));
   if (priceUsd <= 0) {
     out.push({ id: "price-sane", status: "warn", weight: 15, detail: "Advertised price is zero. Free endpoints do not need a 402." });
   } else if (priceUsd < PRICE_FLOOR_USD) {
@@ -788,7 +796,7 @@ function priceSignals(options, withReqs) {
     out.push({ id: "price-sane", status: "pass", weight: 0, detail: `Cheapest option $${fmt(priceUsd)} sits inside the sane band.` });
   }
   const perProbe = withReqs.map((s) => {
-    const amounts = (s.requirements?.accepts ?? []).map((o) => o.amountDecimal).filter((n) => n !== null);
+    const amounts = (s.requirements?.accepts ?? []).map((o) => o.priceUsd).filter((n) => n !== null);
     return amounts.length > 0 ? Math.min(...amounts) : null;
   }).filter((n) => n !== null);
   const distinct = new Set(perProbe.map((n) => n.toFixed(9)));
@@ -987,7 +995,7 @@ async function probe(url, options = {}) {
   if (latency) signals.push(latencySignal(latency.p99));
   const risk = scoreRisk(signals);
   const requirements = agentSamples.find((s) => s.requirements !== null)?.requirements ?? null;
-  const prices = (requirements?.accepts ?? []).map((o) => o.amountDecimal).filter((n) => n !== null && n > 0);
+  const prices = (requirements?.accepts ?? []).map((o) => o.priceUsd).filter((n) => n !== null && n > 0);
   return {
     url: target,
     verdict: decideVerdict(signals, risk),

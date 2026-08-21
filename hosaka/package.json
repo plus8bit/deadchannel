@@ -1,0 +1,6 @@
+{
+  "name": "hosaka-deploy",
+  "private": true,
+  "type": "module",
+  "description": "Deployment shell for Hosaka. The function is prebuilt from ../src by `npm run build:hosaka`, because Vercel validates the functions glob before it runs any build."
+}

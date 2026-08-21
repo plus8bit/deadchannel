@@ -17,7 +17,8 @@
     "vercel-build": "npm run build:fn",
     "validate": "node scripts/validate-listing.mjs",
     "demo": "node scripts/demo.mjs",
-    "stats": "node scripts/stats.mjs"
+    "stats": "node scripts/stats.mjs",
+    "build:hosaka": "esbuild src/hosaka/server/vercel-entry.ts --bundle --platform=node --target=node22 --format=esm --outfile=hosaka/api/index.mjs --log-level=warning"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

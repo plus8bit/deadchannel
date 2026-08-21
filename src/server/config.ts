@@ -69,7 +69,7 @@ const EVM_ADDRESS = /^0x[a-fA-F0-9]{40}$/;
  * whereas a runtime file read breaks the moment the code is bundled into a
  * serverless function whose working directory is not the repository root.
  */
-interface FileDefaults {
+export interface FileDefaults {
   payTo?: string;
   network?: string;
   priceUsd?: number;
@@ -79,10 +79,19 @@ interface FileDefaults {
 
 const FILE_DEFAULTS = defaults as FileDefaults;
 
-export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
+/**
+ * @param defaults Committed settings for *this* deployment. Passed explicitly
+ * because a bundler inlines whichever config file the module imports, so two
+ * shops built from one repo would otherwise both advertise the first one's URL
+ * — and the advertised URL is what the catalog indexes.
+ */
+export function loadConfig(
+  env: NodeJS.ProcessEnv = process.env,
+  defaults: FileDefaults = FILE_DEFAULTS,
+): Config {
   const problems: string[] = [];
   // Environment always wins, so a deployment can be retargeted without a commit.
-  const file: FileDefaults = env["X402_IGNORE_CONFIG_FILE"] === "1" ? {} : FILE_DEFAULTS;
+  const file: FileDefaults = env["X402_IGNORE_CONFIG_FILE"] === "1" ? {} : defaults;
 
   const networkKey = env["X402_NETWORK"] ?? file.network ?? "base-sepolia";
   const network = NETWORKS[networkKey];

@@ -161,6 +161,49 @@ checks   : 25/25 passed
 indexed  : active=true
 ```
 
+## Hosaka
+
+A second shop on the same payout address, selling company facts to agents.
+
+```
+POST /lookup    $0.005   domain age, registrar, mail and DNS provider, DMARC, HTTPS
+POST /dossier   $0.05    every third-party vendor we can prove, with the proof
+```
+
+Live at **https://hosaka-agents.vercel.app**, settling on Base mainnet.
+
+Profiles are assembled from four sources that need no key and no supplier: DNS
+over HTTPS, the RDAP registry, the TLS handshake and the homepage. Cost per
+profile is zero — the margin is in the assembly.
+
+The interesting part is vendor detection. A company proves ownership to every
+SaaS product it buys by placing a DNS verification record, and authorises every
+sender it uses in its SPF record. Those two lists are a purchase history the
+company published itself. Every claim carries the record that proves it, so a
+buyer can check rather than trust.
+
+### Using it from Claude or ChatGPT
+
+The Bazaar's search ignores the query and ranks by unique payers, so a new shop
+is invisible there regardless of quality. MCP is the channel that works on day
+one — the agent is already in a client that speaks it.
+
+```json
+{
+  "mcpServers": {
+    "hosaka": {
+      "command": "node",
+      "args": ["/absolute/path/to/src/hosaka/mcp/server.ts"],
+      "env": { "HOSAKA_PRIVATE_KEY": "0x…" }
+    }
+  }
+}
+```
+
+The buyer brings their own wallet: the key signs the payment locally and never
+leaves the machine. Without it the tools say what is missing instead of failing
+mid-conversation.
+
 ## Development
 
 ```

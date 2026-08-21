@@ -22,7 +22,8 @@
     "hosaka:validate": "RESOURCE_URL=https://hosaka-agents.vercel.app/lookup node scripts/validate-listing.mjs",
     "hosaka:buy": "TARGET_URL=https://hosaka-agents.vercel.app/lookup node scripts/first-payment.mjs",
     "hosaka:stats": "RESOURCE_URL=https://hosaka-agents.vercel.app/lookup node scripts/stats.mjs",
-    "deploy": "scripts/deploy.sh"
+    "deploy": "scripts/deploy.sh",
+    "mcp": "node src/hosaka/mcp/server.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

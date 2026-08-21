@@ -23,7 +23,8 @@
     "hosaka:buy": "TARGET_URL=https://hosaka-agents.vercel.app/lookup node scripts/first-payment.mjs",
     "hosaka:stats": "RESOURCE_URL=https://hosaka-agents.vercel.app/lookup node scripts/stats.mjs",
     "deploy": "scripts/deploy.sh",
-    "mcp": "node src/hosaka/mcp/server.ts"
+    "mcp": "node src/hosaka/mcp/server.ts",
+    "build:mcp": "esbuild src/hosaka/mcp/server.ts --bundle --platform=node --target=node20 --format=esm --packages=external --outfile=packages/hosaka-mcp/src/server.mjs --log-level=warning"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

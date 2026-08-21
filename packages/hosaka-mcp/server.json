@@ -1,0 +1,33 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
+  "name": "io.github.plus8bit/hosaka",
+  "description": "Company facts for AI agents: domain age, mail and DNS providers, and every third-party vendor a company can be proven to use, each with the DNS record or script that proves it. Paid per call in USDC on Base, no signup and no API key.",
+  "repository": {
+    "url": "https://github.com/plus8bit/deadchannel",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "hosaka-mcp",
+      "version": "0.1.0",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        {
+          "name": "HOSAKA_PRIVATE_KEY",
+          "description": "Private key of a wallet holding a little USDC on Base. It signs payments locally and never leaves the machine.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "HOSAKA_URL",
+          "description": "Override the shop endpoint. Defaults to https://hosaka-agents.vercel.app",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}

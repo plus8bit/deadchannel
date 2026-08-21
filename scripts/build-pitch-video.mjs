@@ -141,24 +141,45 @@ function speak(text, aiff, wav, index) {
     const stem = `${OUT}/mine/${String(index + 1).padStart(2, "0")}`;
     const src = [".m4a", ".mp3", ".wav", ".aiff", ".mp4"].map((e) => stem + e).find((f) => existsSync(f));
     if (!src) throw new Error(`missing recording for line ${index + 1}: expected ${stem}.m4a`);
+
+    // Pass one: trim the lead-in, cap any long tail, clean and level.
+    const tmp = `${wav}.stage1.wav`;
     execFileSync("ffmpeg", [
       "-y", "-loglevel", "error", "-i", src,
-      // Trim the silence the speaker left at each edge, then clean and level:
-      // rumble filter, gentle denoise, loudness normalisation, safety limiter.
       "-af",
       [
-        "silenceremove=start_periods=1:start_duration=0.06:start_threshold=-45dB:detection=peak",
+        "silenceremove=start_periods=1:start_silence=0.12:start_duration=0.03:start_threshold=-50dB:detection=peak",
         "areverse",
-        "silenceremove=start_periods=1:start_duration=0.06:start_threshold=-45dB:detection=peak",
+        "silenceremove=start_periods=1:start_silence=0.14:start_duration=0.03:start_threshold=-50dB:detection=peak",
         "areverse",
+        "afade=t=in:d=0.04",
         "highpass=f=85",
         "afftdn=nf=-22",
         "loudnorm=I=-16:TP=-1.5:LRA=11",
         "alimiter=limit=0.97",
-        "apad=pad_dur=0.25",
       ].join(","),
+      "-ar", "48000", "-ac", "2", tmp,
+    ]);
+
+    // Pass two, and the reason the joins stop sounding spliced.
+    //
+    // A speaker who stops recording on the last word leaves no tail to keep —
+    // several of these takes ended within 10ms of the final consonant. Trimming
+    // cannot fix that and padding alone still ends the word abruptly, so the
+    // audible content is faded out over its last frames and then padded to a
+    // fixed gap. Every line then ends the same way and is followed by the same
+    // pause, which is what makes fifteen takes read as one continuous read.
+    const d = Number(
+      execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", tmp])
+        .toString().trim(),
+    );
+    const FADE = 0.07, GAP = 0.36;
+    execFileSync("ffmpeg", [
+      "-y", "-loglevel", "error", "-i", tmp,
+      "-af", `afade=t=out:st=${Math.max(0, d - FADE).toFixed(3)}:d=${FADE},apad=whole_dur=${(d + GAP).toFixed(3)}`,
       "-ar", "48000", "-ac", "2", wav,
     ]);
+    rmSync(tmp, { force: true });
     return;
   }
   if (ENGINE === "piper") {

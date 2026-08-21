@@ -15,7 +15,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "build:fn": "esbuild src/server/vercel-entry.ts --bundle --platform=node --target=node22 --format=esm --outfile=api/index.mjs --log-level=warning",
     "vercel-build": "npm run build:fn",
-    "validate": "node scripts/validate-listing.mjs"
+    "validate": "node scripts/validate-listing.mjs",
+    "demo": "node scripts/demo.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

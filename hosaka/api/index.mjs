@@ -4,7 +4,7 @@ var hosaka_config_default = {
   payTo: "0x712c78928080Adb009E31315c0c3c7473dA9648a",
   network: "base",
   priceUsd: 1e-3,
-  publicUrl: "https://hosaka.vercel.app",
+  publicUrl: "https://hosaka-agents.vercel.app",
   facilitatorUrl: "https://facilitator.goplausible.xyz"
 };
 

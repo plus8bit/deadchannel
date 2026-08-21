@@ -13,31 +13,39 @@ import { describe, it } from "node:test";
  *
  * If this fails, run `npm run build:fn` and commit the result.
  */
-describe("committed serverless bundle", () => {
-  it("matches a fresh build of the entry point", () => {
-    const out = join(tmpdir(), `deadchannel-bundle-check-${process.pid}.mjs`);
-    try {
-      execFileSync(
-        "npx",
-        [
-          "esbuild",
-          "src/server/vercel-entry.ts",
-          "--bundle",
-          "--platform=node",
-          "--target=node22",
-          "--format=esm",
-          `--outfile=${out}`,
-          "--log-level=error",
-        ],
-        { stdio: "pipe" },
-      );
-      assert.equal(
-        readFileSync(out, "utf8"),
-        readFileSync(new URL("../api/index.mjs", import.meta.url), "utf8"),
-        "api/index.mjs is stale — run `npm run build:fn` and commit it",
-      );
-    } finally {
-      rmSync(out, { force: true });
-    }
-  });
+/** Every shop that ships a committed bundle, and how to rebuild it. */
+const BUNDLES = [
+  { name: "deadchannel", entry: "src/server/vercel-entry.ts", committed: "../api/index.mjs", script: "build:fn" },
+  { name: "hosaka", entry: "src/hosaka/server/vercel-entry.ts", committed: "../hosaka/api/index.mjs", script: "build:hosaka" },
+];
+
+describe("committed serverless bundles", () => {
+  for (const bundle of BUNDLES) {
+    it(`${bundle.name} matches a fresh build of its entry point`, () => {
+      const out = join(tmpdir(), `${bundle.name}-bundle-check-${process.pid}.mjs`);
+      try {
+        execFileSync(
+          "npx",
+          [
+            "esbuild",
+            bundle.entry,
+            "--bundle",
+            "--platform=node",
+            "--target=node22",
+            "--format=esm",
+            `--outfile=${out}`,
+            "--log-level=error",
+          ],
+          { stdio: "pipe" },
+        );
+        assert.equal(
+          readFileSync(out, "utf8"),
+          readFileSync(new URL(bundle.committed, import.meta.url), "utf8"),
+          `${bundle.committed} is stale — run \`npm run ${bundle.script}\` and commit it`,
+        );
+      } finally {
+        rmSync(out, { force: true });
+      }
+    });
+  }
 });

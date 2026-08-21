@@ -33,9 +33,9 @@ var NETWORKS = {
 var USDC_DECIMALS = 6;
 var EVM_ADDRESS = /^0x[a-fA-F0-9]{40}$/;
 var FILE_DEFAULTS = deadchannel_config_default;
-function loadConfig(env = process.env) {
+function loadConfig(env = process.env, defaults = FILE_DEFAULTS) {
   const problems = [];
-  const file = env["X402_IGNORE_CONFIG_FILE"] === "1" ? {} : FILE_DEFAULTS;
+  const file = env["X402_IGNORE_CONFIG_FILE"] === "1" ? {} : defaults;
   const networkKey = env["X402_NETWORK"] ?? file.network ?? "base-sepolia";
   const network = NETWORKS[networkKey];
   if (!network) {

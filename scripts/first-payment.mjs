@@ -25,7 +25,13 @@ import { createInterface } from "node:readline";
 
 const TARGET = process.env.TARGET_URL ?? "https://deadchannel.vercel.app/probe";
 const NETWORK = process.env.TARGET_NETWORK ?? "eip155:8453";
-const BODY = { url: process.env.PROBE_URL ?? "https://x402.org/protected" };
+// Each shop takes its own field: deadchannel grades a URL, Hosaka profiles a
+// domain. Chosen from the target so one script serves both.
+const BODY = process.env.REQUEST_BODY
+  ? JSON.parse(process.env.REQUEST_BODY)
+  : TARGET.includes("hosaka")
+    ? { domain: process.env.DOMAIN ?? "figma.com" }
+    : { url: process.env.PROBE_URL ?? "https://x402.org/protected" };
 const dryRun = process.argv.includes("--dry-run");
 
 function fail(message) {

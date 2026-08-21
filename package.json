@@ -18,7 +18,10 @@
     "validate": "node scripts/validate-listing.mjs",
     "demo": "node scripts/demo.mjs",
     "stats": "node scripts/stats.mjs",
-    "build:hosaka": "esbuild src/hosaka/server/vercel-entry.ts --bundle --platform=node --target=node22 --format=esm --outfile=hosaka/api/index.mjs --log-level=warning"
+    "build:hosaka": "esbuild src/hosaka/server/vercel-entry.ts --bundle --platform=node --target=node22 --format=esm --outfile=hosaka/api/index.mjs --log-level=warning",
+    "hosaka:validate": "RESOURCE_URL=https://hosaka-agents.vercel.app/lookup node scripts/validate-listing.mjs",
+    "hosaka:buy": "TARGET_URL=https://hosaka-agents.vercel.app/lookup node scripts/first-payment.mjs",
+    "hosaka:stats": "RESOURCE_URL=https://hosaka-agents.vercel.app/lookup node scripts/stats.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

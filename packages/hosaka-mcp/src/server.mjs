@@ -136,7 +136,7 @@ var DOMAIN_SCHEMA = {
 var server = new McpServer({
   name: "hosaka",
   version: "0.1.0",
-  instructions: "Company facts from a domain, paid per call in USDC on Base. hosaka_lookup is a cheap summary; hosaka_dossier returns every third-party vendor the company can be proven to use, each with the DNS record or script that proves it. Requires HOSAKA_PRIVATE_KEY, a wallet holding a little USDC."
+  instructions: "Company facts from a domain, paid per call in USDC on Base. Four tools at four prices, so a cheap question does not pay for an expensive answer: hosaka_lookup is a $0.01 summary; hosaka_dossier ($0.07) returns every third-party vendor the company can be proven to use, each with the DNS record or script that proves it; hosaka_contacts ($0.02) adds the addresses and phone numbers the company publishes about itself; hosaka_people ($0.25) adds named individuals who work there. Requires HOSAKA_PRIVATE_KEY, a wallet holding a little USDC."
 });
 function domainOf(args) {
   const domain = args["domain"];
@@ -170,6 +170,36 @@ server.tool(
   async (args) => {
     try {
       return text(await payFor(`${BASE}/dossier`, { domain: domainOf(args) }));
+    } catch (err) {
+      return failure(err instanceof Error ? err.message : String(err));
+    }
+  }
+);
+server.tool(
+  {
+    name: "hosaka_contacts",
+    title: "How to reach a company",
+    description: "Everything hosaka_dossier returns, plus every contact point the company publishes about itself \u2014 support and sales email addresses, phone numbers and social accounts, read from its own site. Use this when the question is how to reach the company. For named individuals who work there, use hosaka_people instead. Costs $0.02 in USDC.",
+    inputSchema: DOMAIN_SCHEMA
+  },
+  async (args) => {
+    try {
+      return text(await payFor(`${BASE}/contacts`, { domain: domainOf(args) }));
+    } catch (err) {
+      return failure(err instanceof Error ? err.message : String(err));
+    }
+  }
+);
+server.tool(
+  {
+    name: "hosaka_people",
+    title: "People who work at a company",
+    description: "Everything hosaka_dossier returns, plus named people who work at the company, sourced from a people-data provider. Cheaper than buying the contacts alone elsewhere. Use hosaka_contacts instead when a published support or sales address would answer the question. Costs $0.25 in USDC.",
+    inputSchema: DOMAIN_SCHEMA
+  },
+  async (args) => {
+    try {
+      return text(await payFor(`${BASE}/people`, { domain: domainOf(args) }));
     } catch (err) {
       return failure(err instanceof Error ? err.message : String(err));
     }

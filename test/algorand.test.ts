@@ -162,7 +162,14 @@ describe("every handler picks terms the same way", () => {
         // concrete mismatch reason beats a bare failure.
         if (file === "x402.ts") continue;
         const source = readFileSync(new URL(`../${dir}/${file}`, import.meta.url), "utf8");
-        if (source.includes("accepts[0]")) offenders.push(`${dir}/${file}`);
+        if (source.includes("accepts[0]")) offenders.push(`${dir}/${file} (accepts[0])`);
+        // Same bug, one layer up: an entry point that builds a single client
+        // sends every chain to it, so the second chain's payment is verified
+        // by a facilitator that has never heard of it. This is where it hid
+        // the third time.
+        if (file.includes("entry") && source.includes("new FacilitatorClient(")) {
+          offenders.push(`${dir}/${file} (single facilitator)`);
+        }
       }
     }
 

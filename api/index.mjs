@@ -1904,7 +1904,7 @@ var handler = null;
 var configProblems = null;
 try {
   const cfg = loadConfig();
-  handler = createHandler(cfg, new FacilitatorClient(cfg.facilitatorUrl, facilitatorAuth(cfg)));
+  handler = createHandler(cfg, facilitatorsFor(cfg));
 } catch (err) {
   configProblems = err instanceof ConfigError ? err.problems : [String(err)];
 }

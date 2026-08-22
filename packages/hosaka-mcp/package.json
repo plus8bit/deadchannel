@@ -22,7 +22,7 @@
   },
   "type": "module",
   "bin": {
-    "hosaka-mcp": "./src/server.mjs"
+    "hosaka-mcp": "src/server.mjs"
   },
   "files": [
     "src",

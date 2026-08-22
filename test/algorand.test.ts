@@ -157,6 +157,10 @@ describe("every handler picks terms the same way", () => {
     for (const dir of roots) {
       for (const file of readdirSync(new URL(`../${dir}`, import.meta.url))) {
         if (!file.endsWith(".ts")) continue;
+        // selectTerms is the one place allowed to fall back to position: with
+        // no payload there is no choice to honour, and with an unmatched one a
+        // concrete mismatch reason beats a bare failure.
+        if (file === "x402.ts") continue;
         const source = readFileSync(new URL(`../${dir}/${file}`, import.meta.url), "utf8");
         if (source.includes("accepts[0]")) offenders.push(`${dir}/${file}`);
       }

@@ -864,6 +864,10 @@ async function buildProfile(domain, options = {}) {
     settle(collectTls(host, t), "tls", gaps),
     settle(collectWeb(host, t), "web", gaps)
   ]);
+  const status = web?.facts.status ?? null;
+  if (status !== null && status >= 400) {
+    gaps.push(`web: the site answered ${status}, so title, description and page fingerprints are missing`);
+  }
   return {
     domain: host,
     collectedAt: (/* @__PURE__ */ new Date()).toISOString(),

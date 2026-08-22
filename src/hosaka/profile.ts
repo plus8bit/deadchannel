@@ -36,6 +36,14 @@ export async function buildProfile(domain: string, options: ProfileOptions = {})
     settle(collectWeb(host, t), "web", gaps),
   ]);
 
+  // A page that answered with 403 or 5xx did not tell us anything, even though
+  // the fetch itself succeeded. Left unsaid, the buyer infers it from a null
+  // title and has to guess whether the company has no title or we were blocked.
+  const status = web?.facts.status ?? null;
+  if (status !== null && status >= 400) {
+    gaps.push(`web: the site answered ${status}, so title, description and page fingerprints are missing`);
+  }
+
   return {
     domain: host,
     collectedAt: new Date().toISOString(),

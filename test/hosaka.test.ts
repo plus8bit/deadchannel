@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { normalize } from "../src/hosaka/profile.ts";
+import { buildProfile, normalize } from "../src/hosaka/profile.ts";
 import { detectVendors, providerFor } from "../src/hosaka/vendors.ts";
 import type { DnsFacts, WebFacts } from "../src/hosaka/types.ts";
 
@@ -122,5 +122,22 @@ describe("provider attribution", () => {
     assert.equal(vendors.filter((v) => v.name === "Google Workspace").length, 1);
     assert.match(vendors[0]?.evidence ?? "", /DNS TXT/);
     assert.equal(providerFor("mx", ["aspmx.l.google.com"]), "Google Workspace");
+  });
+});
+
+describe("honesty about what is missing", () => {
+  it("names a blocked page as a gap instead of leaving nulls to be guessed", async () => {
+    // Cloudflare answers some crawlers with 403. The fetch succeeds, so nothing
+    // throws — but we learned nothing, and a paying buyer should be told which
+    // it was rather than inferring it from a null title.
+    const profile = await buildProfile("openai.com", { timeoutMs: 12_000 });
+    if (profile.web?.value.status !== null && (profile.web?.value.status ?? 0) >= 400) {
+      assert.ok(
+        profile.gaps.some((g) => g.startsWith("web:")),
+        "a 4xx page must appear in gaps",
+      );
+    }
+    // Whatever happened to the page, the DNS-based facts still have to be there.
+    assert.ok(profile.vendors.length > 0, "DNS evidence does not depend on the homepage");
   });
 });

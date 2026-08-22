@@ -47535,6 +47535,52 @@ var deadchannel_config_default = {
   facilitatorUrl: "https://facilitator.goplausible.xyz"
 };
 
+// src/server/algorand.ts
+import { createHash } from "node:crypto";
+var ALGORAND_MAINNET = "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=";
+var ALGORAND_TESTNET = "algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDeUmYyoI+Ai3o=";
+var USDC_ASA_MAINNET = "31566704";
+var USDC_ASA_TESTNET = "10458941";
+var GOPLAUSIBLE_FEE_PAYER = "ZMFK2OI7ZBD2U27ISERZC4S6LKM6WMFJPZQ4MYNJDZ2VNBNMBA67RA22AA";
+var CHALLENGE_TAG = "x402-global-challenge";
+var BASE32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+function decodeBase32(s) {
+  const out = [];
+  let bits = 0;
+  let value = 0;
+  for (const ch of s) {
+    const idx = BASE32.indexOf(ch);
+    if (idx < 0) return null;
+    value = value << 5 | idx;
+    bits += 5;
+    if (bits >= 8) {
+      bits -= 8;
+      out.push(value >> bits & 255);
+    }
+  }
+  return new Uint8Array(out);
+}
+function isAlgorandAddress(value) {
+  if (!/^[A-Z2-7]{58}$/.test(value)) return false;
+  const raw = decodeBase32(value);
+  if (raw === null || raw.length < 36) return false;
+  const pubkey = raw.subarray(0, 32);
+  const checksum4 = raw.subarray(32, 36);
+  const expected = createHash("sha512-256").update(pubkey).digest().subarray(28, 32);
+  return Buffer.compare(Buffer.from(checksum4), expected) === 0;
+}
+function algorandOption(offer, priceAtomic, maxTimeoutSeconds) {
+  return {
+    scheme: "exact",
+    network: offer.testnet ? ALGORAND_TESTNET : ALGORAND_MAINNET,
+    amount: priceAtomic,
+    asset: offer.testnet ? USDC_ASA_TESTNET : USDC_ASA_MAINNET,
+    payTo: offer.payTo,
+    maxTimeoutSeconds,
+    extra: { tag: CHALLENGE_TAG, feePayer: GOPLAUSIBLE_FEE_PAYER }
+  };
+}
+
 // src/server/config.ts
 var NETWORKS = {
   "base-sepolia": {
@@ -47580,6 +47626,12 @@ function loadConfig(env = process.env, defaults = FILE_DEFAULTS) {
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     problems2.push(`PORT must be a valid port number, got "${env["PORT"]}"`);
   }
+  const algorandPayTo = env["X402_ALGORAND_PAY_TO"] ?? file.algorandPayTo ?? null;
+  if (algorandPayTo !== null && !isAlgorandAddress(algorandPayTo)) {
+    problems2.push(
+      `X402_ALGORAND_PAY_TO must be a 58-character Algorand address with a valid checksum, got "${algorandPayTo}"`
+    );
+  }
   if (problems2.length > 0) {
     throw new ConfigError(problems2);
   }
@@ -47595,7 +47647,8 @@ function loadConfig(env = process.env, defaults = FILE_DEFAULTS) {
     priceAtomic: toAtomic(priceUsd, USDC_DECIMALS),
     facilitatorUrl: (env["X402_FACILITATOR_URL"] ?? file.facilitatorUrl ?? defaultFacilitator(net)).replace(/\/+$/, ""),
     facilitatorToken: env["X402_FACILITATOR_TOKEN"] ?? null,
-    maxTimeoutSeconds: Number(env["X402_MAX_TIMEOUT_SECONDS"] ?? "120")
+    maxTimeoutSeconds: Number(env["X402_MAX_TIMEOUT_SECONDS"] ?? "120"),
+    algorandPayTo
   };
 }
 var ConfigError = class extends Error {
@@ -47821,7 +47874,11 @@ function buildPaymentRequired(cfg, route, error = "PAYMENT-SIGNATURE header is r
         payTo: cfg.payTo,
         maxTimeoutSeconds: cfg.maxTimeoutSeconds,
         extra: { name: cfg.network.usdcName, version: cfg.network.usdcVersion }
-      }
+      },
+      // A second chain is offered, not substituted. A buyer holding USDC on
+      // only one of them can still pay, and one that holds both picks for
+      // itself; the price is identical either way.
+      ...cfg.algorandPayTo ? [algorandOption({ payTo: cfg.algorandPayTo, testnet: cfg.network.testnet }, cfg.priceAtomic, cfg.maxTimeoutSeconds)] : []
     ],
     extensions: bazaarExtension(route)
   };

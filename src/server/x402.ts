@@ -7,6 +7,7 @@
  * result comes back in `PAYMENT-RESPONSE`. Bodies carry no protocol data.
  */
 
+import { algorandOption } from "./algorand.ts";
 import type { Config } from "./config.ts";
 
 export const HEADER_REQUIRED = "PAYMENT-REQUIRED";
@@ -93,6 +94,12 @@ export function buildPaymentRequired(
         maxTimeoutSeconds: cfg.maxTimeoutSeconds,
         extra: { name: cfg.network.usdcName, version: cfg.network.usdcVersion },
       },
+      // A second chain is offered, not substituted. A buyer holding USDC on
+      // only one of them can still pay, and one that holds both picks for
+      // itself; the price is identical either way.
+      ...(cfg.algorandPayTo
+        ? [algorandOption({ payTo: cfg.algorandPayTo, testnet: cfg.network.testnet }, cfg.priceAtomic, cfg.maxTimeoutSeconds)]
+        : []),
     ],
     extensions: bazaarExtension(route),
   };

@@ -1,4 +1,5 @@
 import defaults from "../../deadchannel.config.json" with { type: "json" };
+import { isAlgorandAddress } from "./algorand.ts";
 
 /**
  * Server configuration, resolved and validated once at boot.
@@ -57,6 +58,13 @@ export interface Config {
   /** Optional bearer token, for facilitators that require auth (e.g. CDP). */
   facilitatorToken: string | null;
   maxTimeoutSeconds: number;
+  /**
+   * Optional second payout address, on Algorand.
+   *
+   * Set it and every 402 offers Algorand alongside Base, letting a buyer pay on
+   * whichever chain it already holds USDC. Leave it unset and nothing changes.
+   */
+  algorandPayTo: string | null;
 }
 
 export const USDC_DECIMALS = 6;
@@ -70,6 +78,8 @@ const EVM_ADDRESS = /^0x[a-fA-F0-9]{40}$/;
  * serverless function whose working directory is not the repository root.
  */
 export interface FileDefaults {
+  /** Algorand payout address, when this deployment also sells on Algorand. */
+  algorandPayTo?: string;
   payTo?: string;
   network?: string;
   priceUsd?: number;
@@ -117,6 +127,15 @@ export function loadConfig(
     problems.push(`PORT must be a valid port number, got "${env["PORT"]}"`);
   }
 
+  // Refused rather than ignored when malformed: an unnoticed typo here means
+  // payments settle to an address nobody can spend from.
+  const algorandPayTo = env["X402_ALGORAND_PAY_TO"] ?? file.algorandPayTo ?? null;
+  if (algorandPayTo !== null && !isAlgorandAddress(algorandPayTo)) {
+    problems.push(
+      `X402_ALGORAND_PAY_TO must be a 58-character Algorand address with a valid checksum, got "${algorandPayTo}"`,
+    );
+  }
+
   if (problems.length > 0) {
     throw new ConfigError(problems);
   }
@@ -140,6 +159,7 @@ export function loadConfig(
     facilitatorUrl: (env["X402_FACILITATOR_URL"] ?? file.facilitatorUrl ?? defaultFacilitator(net)).replace(/\/+$/, ""),
     facilitatorToken: env["X402_FACILITATOR_TOKEN"] ?? null,
     maxTimeoutSeconds: Number(env["X402_MAX_TIMEOUT_SECONDS"] ?? "120"),
+    algorandPayTo,
   };
 }
 

@@ -322,6 +322,18 @@ function isCdp(url) {
   }
 }
 
+// src/server/facilitator-router.ts
+function facilitatorsFor(cfg, env = process.env) {
+  const primary = new FacilitatorClient(cfg.facilitatorUrl, facilitatorAuth(cfg, env));
+  let algorand = null;
+  return (network) => {
+    if (!network.startsWith("algorand:")) return primary;
+    if (cfg.algorandFacilitatorUrl === cfg.facilitatorUrl) return primary;
+    algorand ??= new FacilitatorClient(cfg.algorandFacilitatorUrl, null);
+    return algorand;
+  };
+}
+
 // src/probe/assets.ts
 var REGISTRY = /* @__PURE__ */ new Map([
   // USDC, 6 decimals everywhere
@@ -1577,6 +1589,11 @@ function safeBase64(value) {
     return null;
   }
 }
+function selectTerms(accepts, payload) {
+  const wanted = payload?.accepted;
+  if (!wanted) return accepts[0];
+  return accepts.find((o) => o.network === wanted.network && o.scheme === wanted.scheme) ?? accepts[0];
+}
 function matchesOurTerms(accepted, ours) {
   if (!accepted) return { ok: false, reason: "payment payload has no accepted terms" };
   if (accepted.scheme !== ours.scheme) return { ok: false, reason: `scheme must be ${ours.scheme}` };
@@ -1641,9 +1658,9 @@ async function handle(req, res, cfg, facilitator, deps) {
 }
 async function handlePaidProbe(req, res, cfg, facilitator, deps) {
   const required = buildPaymentRequired(cfg, PROBE_ROUTE);
-  const ourTerms = required.accepts[0];
-  if (!ourTerms) return send(res, 500, { error: "no payment terms configured" });
   const signature = decodePaymentSignature(header(req, HEADER_SIGNATURE));
+  const ourTerms = selectTerms(required.accepts, signature);
+  if (!ourTerms) return send(res, 500, { error: "no payment terms configured" });
   if (!signature) {
     res.setHeader(HEADER_REQUIRED, encodeHeader(required));
     return send(res, 402, {
@@ -1665,9 +1682,10 @@ async function handlePaidProbe(req, res, cfg, facilitator, deps) {
     res.setHeader(HEADER_REQUIRED, encodeHeader(buildPaymentRequired(cfg, PROBE_ROUTE, terms.reason)));
     return send(res, 402, { error: "payment terms mismatch", reason: terms.reason });
   }
+  const settler = typeof facilitator === "function" ? facilitator(ourTerms.network) : facilitator;
   let verification;
   try {
-    verification = await facilitator.verify(signature, ourTerms);
+    verification = await settler.verify(signature, ourTerms);
   } catch (err) {
     log("error", { msg: "verify failed", err: describe(err) });
     return send(res, 502, { error: "payment verification unavailable" });
@@ -1685,7 +1703,7 @@ async function handlePaidProbe(req, res, cfg, facilitator, deps) {
   }
   let settlement;
   try {
-    settlement = await facilitator.settle(signature, ourTerms);
+    settlement = await settler.settle(signature, ourTerms);
   } catch (err) {
     log("error", { msg: "settle failed", err: describe(err) });
     return send(res, 502, { error: "settlement unavailable, you were not charged" });
@@ -1706,14 +1724,15 @@ async function handlePaidProbe(req, res, cfg, facilitator, deps) {
   send(res, 200, result);
 }
 async function handleFacilitatorCheck(res, cfg, facilitator) {
+  const client = typeof facilitator === "function" ? facilitator(cfg.network.caip2) : facilitator;
   const base = {
-    facilitator: cfg.facilitatorUrl,
+    facilitator: client.baseUrl,
     network: cfg.network.caip2,
     scheme: "exact"
   };
   let kinds;
   try {
-    kinds = await facilitator.supported();
+    kinds = await client.supported();
   } catch (err) {
     const detail = describe(err);
     const authProblem = err instanceof FacilitatorError && (err.status === 401 || err.status === 403);
@@ -1843,17 +1862,21 @@ See .env.example for the required variables.
     }
     throw err;
   }
-  const facilitator = new FacilitatorClient(cfg.facilitatorUrl, facilitatorAuth(cfg));
+  const facilitator = facilitatorsFor(cfg);
   try {
-    const kinds = await facilitator.supported();
-    const canSettle = kinds.some((k) => k.network === cfg.network.caip2 && k.scheme === "exact");
-    if (!canSettle) {
-      process.stderr.write(
-        `facilitator ${cfg.facilitatorUrl} does not support exact/${cfg.network.caip2}
+    const networks = [cfg.network.caip2, ...cfg.algorandPayTo ? [ALGORAND_MAINNET] : []];
+    for (const network of networks) {
+      const client = facilitator(network);
+      const kinds = await client.supported();
+      const canSettle = kinds.some((k) => k.network === network && k.scheme === "exact");
+      if (!canSettle) {
+        process.stderr.write(
+          `facilitator ${client.baseUrl} does not support exact/${network}
 it supports: ${kinds.map((k) => `${k.scheme}/${k.network}`).join(", ") || "(nothing)"}
 `
-      );
-      process.exit(78);
+        );
+        process.exit(78);
+      }
     }
   } catch (err) {
     process.stderr.write(`could not reach facilitator: ${describe(err)}

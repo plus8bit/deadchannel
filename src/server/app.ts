@@ -4,7 +4,9 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { ConfigError, loadConfig } from "./config.ts";
 import type { Config } from "./config.ts";
 import { FacilitatorClient, FacilitatorError } from "./facilitator.ts";
-import { facilitatorAuth } from "./facilitator-auth.ts";
+import { ALGORAND_MAINNET } from "./algorand.ts";
+import { facilitatorsFor } from "./facilitator-router.ts";
+import type { FacilitatorFor } from "./facilitator-router.ts";
 import { llmsTxt, openApiSpec } from "./descriptors.ts";
 import { FAVICON_SVG, landingPage } from "./landing.ts";
 import { BadRequest, PROBE_ROUTE, parseProbeRequest, runProbe } from "./routes.ts";
@@ -16,6 +18,7 @@ import {
   decodePaymentSignature,
   encodeHeader,
   matchesOurTerms,
+  selectTerms,
 } from "./x402.ts";
 
 const MAX_BODY_BYTES = 32 * 1024;
@@ -33,7 +36,7 @@ const DEFAULT_DEPS: Deps = { runProbe };
  */
 export function createHandler(
   cfg: Config,
-  facilitator: FacilitatorClient,
+  facilitator: FacilitatorClient | FacilitatorFor,
   deps: Deps = DEFAULT_DEPS,
 ): (req: IncomingMessage, res: ServerResponse) => void {
   return (req, res) => {
@@ -44,7 +47,7 @@ export function createHandler(
   };
 }
 
-export function createApp(cfg: Config, facilitator: FacilitatorClient, deps: Deps = DEFAULT_DEPS) {
+export function createApp(cfg: Config, facilitator: FacilitatorClient | FacilitatorFor, deps: Deps = DEFAULT_DEPS) {
   return createServer(createHandler(cfg, facilitator, deps));
 }
 
@@ -52,7 +55,7 @@ async function handle(
   req: IncomingMessage,
   res: ServerResponse,
   cfg: Config,
-  facilitator: FacilitatorClient,
+  facilitator: FacilitatorClient | FacilitatorFor,
   deps: Deps,
 ): Promise<void> {
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
@@ -104,14 +107,16 @@ async function handlePaidProbe(
   req: IncomingMessage,
   res: ServerResponse,
   cfg: Config,
-  facilitator: FacilitatorClient,
+  facilitator: FacilitatorClient | FacilitatorFor,
   deps: Deps,
 ): Promise<void> {
   const required = buildPaymentRequired(cfg, PROBE_ROUTE);
-  const ourTerms = required.accepts[0];
+  const signature = decodePaymentSignature(header(req, HEADER_SIGNATURE));
+  // The offer the buyer chose, not the first one listed. Once a resource sells
+  // on two chains, position tells you nothing about which terms were signed.
+  const ourTerms = selectTerms(required.accepts, signature);
   if (!ourTerms) return send(res, 500, { error: "no payment terms configured" });
 
-  const signature = decodePaymentSignature(header(req, HEADER_SIGNATURE));
   if (!signature) {
     res.setHeader(HEADER_REQUIRED, encodeHeader(required));
     return send(res, 402, {
@@ -137,9 +142,11 @@ async function handlePaidProbe(
     return send(res, 402, { error: "payment terms mismatch", reason: terms.reason });
   }
 
+  const settler = typeof facilitator === "function" ? facilitator(ourTerms.network) : facilitator;
+
   let verification;
   try {
-    verification = await facilitator.verify(signature, ourTerms);
+    verification = await settler.verify(signature, ourTerms);
   } catch (err) {
     log("error", { msg: "verify failed", err: describe(err) });
     return send(res, 502, { error: "payment verification unavailable" });
@@ -160,7 +167,7 @@ async function handlePaidProbe(
 
   let settlement;
   try {
-    settlement = await facilitator.settle(signature, ourTerms);
+    settlement = await settler.settle(signature, ourTerms);
   } catch (err) {
     log("error", { msg: "settle failed", err: describe(err) });
     return send(res, 502, { error: "settlement unavailable, you were not charged" });
@@ -194,17 +201,18 @@ async function handlePaidProbe(
 async function handleFacilitatorCheck(
   res: ServerResponse,
   cfg: Config,
-  facilitator: FacilitatorClient,
+  facilitator: FacilitatorClient | FacilitatorFor,
 ): Promise<void> {
+  const client = typeof facilitator === "function" ? facilitator(cfg.network.caip2) : facilitator;
   const base = {
-    facilitator: cfg.facilitatorUrl,
+    facilitator: client.baseUrl,
     network: cfg.network.caip2,
     scheme: "exact",
   };
 
   let kinds;
   try {
-    kinds = await facilitator.supported();
+    kinds = await client.supported();
   } catch (err) {
     const detail = describe(err);
     // 401/403 from a facilitator means credentials, not connectivity.
@@ -348,17 +356,23 @@ async function main(): Promise<void> {
     throw err;
   }
 
-  const facilitator = new FacilitatorClient(cfg.facilitatorUrl, facilitatorAuth(cfg));
+  const facilitator = facilitatorsFor(cfg);
 
   try {
-    const kinds = await facilitator.supported();
-    const canSettle = kinds.some((k) => k.network === cfg.network.caip2 && k.scheme === "exact");
-    if (!canSettle) {
-      process.stderr.write(
-        `facilitator ${cfg.facilitatorUrl} does not support exact/${cfg.network.caip2}\n` +
-          `it supports: ${kinds.map((k) => `${k.scheme}/${k.network}`).join(", ") || "(nothing)"}\n`,
-      );
-      process.exit(78);
+    // Every chain the service advertises, since each may have its own settler
+    // and a chain nobody can settle is an offer nobody can accept.
+    const networks = [cfg.network.caip2, ...(cfg.algorandPayTo ? [ALGORAND_MAINNET] : [])];
+    for (const network of networks) {
+      const client = facilitator(network);
+      const kinds = await client.supported();
+      const canSettle = kinds.some((k) => k.network === network && k.scheme === "exact");
+      if (!canSettle) {
+        process.stderr.write(
+          `facilitator ${client.baseUrl} does not support exact/${network}\n` +
+            `it supports: ${kinds.map((k) => `${k.scheme}/${k.network}`).join(", ") || "(nothing)"}\n`,
+        );
+        process.exit(78);
+      }
     }
   } catch (err) {
     process.stderr.write(`could not reach facilitator: ${describe(err)}\n`);

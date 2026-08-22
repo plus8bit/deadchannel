@@ -147,3 +147,26 @@ describe("choosing the terms the buyer signed for", () => {
     assert.equal(selectTerms(accepts as never, null)!.network, "eip155:8453");
   });
 });
+
+describe("every handler picks terms the same way", () => {
+  it("no request path selects payment terms by position", async () => {
+    const { readFileSync, readdirSync } = await import("node:fs");
+    const roots = ["src/server", "src/hosaka/server"];
+    const offenders: string[] = [];
+
+    for (const dir of roots) {
+      for (const file of readdirSync(new URL(`../${dir}`, import.meta.url))) {
+        if (!file.endsWith(".ts")) continue;
+        const source = readFileSync(new URL(`../${dir}/${file}`, import.meta.url), "utf8");
+        if (source.includes("accepts[0]")) offenders.push(`${dir}/${file}`);
+      }
+    }
+
+    // There are two independent request paths — deadchannel's probe handler and
+    // the shared paid flow Hosaka uses. Fixing one and not the other is exactly
+    // what happened: a buyer paying on Algorand was told "network must be
+    // eip155:8453", because the handler compared their payment against whichever
+    // offer happened to be listed first.
+    assert.deepEqual(offenders, [], `these select terms by position: ${offenders.join(", ")}`);
+  });
+});

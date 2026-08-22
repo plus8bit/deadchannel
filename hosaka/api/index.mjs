@@ -48605,6 +48605,65 @@ function normalize2(input) {
   return host.replace(/^www\./, "");
 }
 
+// src/hosaka/contacts.ts
+function ownedBy(email, domain) {
+  const at = email.lastIndexOf("@");
+  if (at < 0) return false;
+  const host = email.slice(at + 1).toLowerCase();
+  const d = domain.toLowerCase().replace(/^www\./, "");
+  return host === d || host.endsWith(`.${d}`);
+}
+function sourceHost(url) {
+  try {
+    const u = new URL(url);
+    const embedded = decodeURIComponent(u.pathname + u.search).match(/https?:\/\/([^/\s]+)/);
+    return (embedded ? embedded[1] : u.hostname).toLowerCase().replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+function onOwnSite(sources, domain) {
+  if (!Array.isArray(sources) || sources.length === 0) return false;
+  const d = domain.toLowerCase().replace(/^www\./, "");
+  return sources.some((s) => {
+    const host = typeof s === "string" ? sourceHost(s) : null;
+    return host !== null && (host === d || host.endsWith(`.${d}`));
+  });
+}
+function rows(v) {
+  if (!Array.isArray(v)) return [];
+  return v.flatMap((r) => {
+    if (typeof r === "string") return [{ value: r, sources: [] }];
+    if (r && typeof r === "object" && typeof r.value === "string") {
+      return [{ value: r.value, sources: r.sources }];
+    }
+    return [];
+  });
+}
+var SOCIAL = ["facebook", "instagram", "twitter", "linkedin", "github", "youtube", "tiktok", "pinterest", "snapchat"];
+function summarise(domain, raw) {
+  const outer = raw ?? {};
+  const list = Array.isArray(outer["data"]) ? outer["data"] : [];
+  const first2 = list[0] ?? null;
+  if (!first2) return null;
+  const emails = rows(first2["emails"]);
+  const mine = emails.filter((e) => ownedBy(e.value, domain)).map((e) => e.value);
+  const theirs = emails.filter((e) => !ownedBy(e.value, domain)).map((e) => e.value);
+  const social = {};
+  for (const k of SOCIAL) {
+    const v = first2[k];
+    if (typeof v === "string" && v.length > 0) social[k] = v;
+  }
+  return {
+    emails: [...new Set(mine)],
+    phones: [...new Set(rows(first2["phone_numbers"]).filter((p) => onOwnSite(p.sources, domain)).map((p) => p.value))],
+    social,
+    foundElsewhere: [...new Set(theirs)],
+    kept: new Set(mine).size,
+    discarded: new Set(theirs).size
+  };
+}
+
 // src/hosaka/server/bundle.ts
 var TIERS = {
   people: {
@@ -48646,6 +48705,7 @@ async function runBundle(req, tier) {
     domain: req.domain,
     company,
     contacts: {
+      summary: summarise(req.domain, purchase.data),
       data: purchase.data,
       source: supplier.name,
       kind,

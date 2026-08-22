@@ -1,0 +1,89 @@
+{
+  "status": "OK",
+  "request_id": "924558fe",
+  "data": [
+    {
+      "domain": "stripe.com",
+      "query": "stripe.com",
+      "emails": [
+        {
+          "value": "sales@stripe.com",
+          "sources": [
+            "https://stripe.com/contact/sales"
+          ]
+        },
+        {
+          "value": "support@stripe.com",
+          "sources": [
+            "https://support.stripe.com/questions/why-some-messages-do-not-appear"
+          ]
+        },
+        {
+          "value": "dpo@stripe.com",
+          "sources": [
+            "https://support.stripe.com/questions/contact-stripes-data-protection-officer"
+          ]
+        },
+        {
+          "value": "trademarks@stripe.com",
+          "sources": [
+            "https://stripe.com/it-hr/legal/marks"
+          ]
+        },
+        {
+          "value": "ica@icacities.org",
+          "sources": [
+            "https://59.email.stripe.com/CL0/https:%2F%2Fwww.icacities.org%2Fcontact%2F/1/0101"
+          ]
+        },
+        {
+          "value": "support@alison.com",
+          "sources": [
+            "https://59.email.stripe.com/CL0/https:%2F%2Falison.com%2Fcontact-us/1/0101"
+          ]
+        },
+        {
+          "value": "support@postmarkapp.com",
+          "sources": [
+            "https://marketplace.stripe.com/apps/postmark"
+          ]
+        },
+        {
+          "value": "fedorova.apps@gmail.com",
+          "sources": [
+            "https://marketplace.stripe.com/apps/mrr-dashboard"
+          ]
+        },
+        {
+          "value": "example@gmail.com",
+          "sources": [
+            "https://docs.stripe.com/stripe-apps/components/list?locale=de-DE"
+          ]
+        }
+      ],
+      "phone_numbers": [
+        {
+          "value": "8889262289",
+          "sources": [
+            "https://stripe.com/legal/spc/licenses"
+          ]
+        },
+        {
+          "value": "4243275753",
+          "sources": [
+            "https://59.email.stripe.com/CL0/https:%2F%2Fwww.icacities.org%2Fcontact%2F/1/0101"
+          ]
+        }
+      ],
+      "facebook": "https://www.facebook.com/StripeHQ",
+      "instagram": "https://www.instagram.com/stripehq",
+      "tiktok": null,
+      "snapchat": null,
+      "twitter": "https://twitter.com/stripe",
+      "linkedin": "https://www.linkedin.com/company/stripe",
+      "github": "https://github.com/stripe",
+      "youtube": null,
+      "pinterest": null
+    }
+  ]
+}

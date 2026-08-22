@@ -1,6 +1,8 @@
 import { buy } from "../suppliers/buy.ts";
 import { SUPPLIERS, SupplierError } from "../suppliers/types.ts";
 import { buildProfile } from "../profile.ts";
+import { summarise } from "../contacts.ts";
+import type { ContactSummary } from "../contacts.ts";
 import type { DomainProfile } from "../types.ts";
 
 /**
@@ -63,7 +65,13 @@ export interface BundleResponse {
   domain: string;
   company: DomainProfile;
   contacts: {
-    /** Exactly what the supplier returned, unedited. */
+    /**
+     * The company's own contact points, sorted out of everything else the
+     * scraper reached. Null when the supplier returned a shape we do not
+     * recognise, in which case `data` is still there to read.
+     */
+    summary: ContactSummary | null;
+    /** Exactly what the supplier returned, unedited, so nothing is taken on trust. */
     data: unknown;
     source: string;
     /**
@@ -99,6 +107,7 @@ export async function runBundle(req: { domain: string }, tier: TierName): Promis
     domain: req.domain,
     company,
     contacts: {
+      summary: summarise(req.domain, purchase.data),
       data: purchase.data,
       source: supplier.name,
       kind,

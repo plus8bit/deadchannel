@@ -65,6 +65,14 @@ export interface Config {
    * whichever chain it already holds USDC. Leave it unset and nothing changes.
    */
   algorandPayTo: string | null;
+  /**
+   * Who settles Algorand payments, which is rarely whoever settles Base ones.
+   *
+   * Coinbase's facilitator indexes into the large catalog but does not settle
+   * on Algorand at all, so a shop that advertises both chains through one
+   * facilitator is advertising an offer half its buyers cannot pay.
+   */
+  algorandFacilitatorUrl: string;
 }
 
 export const USDC_DECIMALS = 6;
@@ -80,6 +88,7 @@ const EVM_ADDRESS = /^0x[a-fA-F0-9]{40}$/;
 export interface FileDefaults {
   /** Algorand payout address, when this deployment also sells on Algorand. */
   algorandPayTo?: string;
+  algorandFacilitatorUrl?: string;
   payTo?: string;
   network?: string;
   priceUsd?: number;
@@ -160,6 +169,11 @@ export function loadConfig(
     facilitatorToken: env["X402_FACILITATOR_TOKEN"] ?? null,
     maxTimeoutSeconds: Number(env["X402_MAX_TIMEOUT_SECONDS"] ?? "120"),
     algorandPayTo,
+    algorandFacilitatorUrl: (
+      env["X402_ALGORAND_FACILITATOR_URL"] ??
+      file.algorandFacilitatorUrl ??
+      "https://facilitator.goplausible.xyz"
+    ).replace(/\/+$/, ""),
   };
 }
 

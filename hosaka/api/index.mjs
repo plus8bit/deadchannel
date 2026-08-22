@@ -47517,12 +47517,14 @@ var init_esm5 = __esm({
 
 // hosaka/hosaka.config.json
 var hosaka_config_default = {
-  $comment: "Public deployment settings for Hosaka. Same payout address as deadchannel on purpose: the Bazaar rolls volume up per address, so two shops under one wallet accumulate together instead of splitting. Settles through CDP because only that facilitator indexes into the 15,000-entry catalog, and indexing is triggered by the first settled payment.",
+  $comment: "Public deployment settings for Hosaka. Same payout address as deadchannel on purpose: the Bazaar rolls volume up per address, so two shops under one wallet accumulate together instead of splitting. Settles through CDP because only that facilitator indexes into the 15,000-entry catalog, and indexing is triggered by the first settled payment. Algorand is settled by GoPlausible rather than CDP, which does not support it; the payout address there is a different wallet because Algorand uses a different key format entirely.",
   payTo: "0x712c78928080Adb009E31315c0c3c7473dA9648a",
   network: "base",
   priceUsd: 1e-3,
   publicUrl: "https://hosaka-agents.vercel.app",
-  facilitatorUrl: "https://api.cdp.coinbase.com/platform/v2/x402"
+  facilitatorUrl: "https://api.cdp.coinbase.com/platform/v2/x402",
+  algorandPayTo: "NLT4P2QFI3OO3PTLQHQXCAM2RA2Y7T4RZZKZF43BLMBKDFPFX54ZLDY2JU",
+  algorandFacilitatorUrl: "https://facilitator.goplausible.xyz"
 };
 
 // deadchannel.config.json
@@ -47532,7 +47534,8 @@ var deadchannel_config_default = {
   network: "base",
   priceUsd: 1e-3,
   publicUrl: "https://deadchannel.vercel.app",
-  facilitatorUrl: "https://facilitator.goplausible.xyz"
+  facilitatorUrl: "https://facilitator.goplausible.xyz",
+  algorandPayTo: "NLT4P2QFI3OO3PTLQHQXCAM2RA2Y7T4RZZKZF43BLMBKDFPFX54ZLDY2JU"
 };
 
 // src/server/algorand.ts
@@ -47648,7 +47651,8 @@ function loadConfig(env = process.env, defaults = FILE_DEFAULTS) {
     facilitatorUrl: (env["X402_FACILITATOR_URL"] ?? file.facilitatorUrl ?? defaultFacilitator(net)).replace(/\/+$/, ""),
     facilitatorToken: env["X402_FACILITATOR_TOKEN"] ?? null,
     maxTimeoutSeconds: Number(env["X402_MAX_TIMEOUT_SECONDS"] ?? "120"),
-    algorandPayTo
+    algorandPayTo,
+    algorandFacilitatorUrl: (env["X402_ALGORAND_FACILITATOR_URL"] ?? file.algorandFacilitatorUrl ?? "https://facilitator.goplausible.xyz").replace(/\/+$/, "")
   };
 }
 var ConfigError = class extends Error {
@@ -47844,6 +47848,18 @@ function isCdp(url) {
   }
 }
 
+// src/server/facilitator-router.ts
+function facilitatorsFor(cfg, env = process.env) {
+  const primary = new FacilitatorClient(cfg.facilitatorUrl, facilitatorAuth(cfg, env));
+  let algorand = null;
+  return (network) => {
+    if (!network.startsWith("algorand:")) return primary;
+    if (cfg.algorandFacilitatorUrl === cfg.facilitatorUrl) return primary;
+    algorand ??= new FacilitatorClient(cfg.algorandFacilitatorUrl, null);
+    return algorand;
+  };
+}
+
 // src/hosaka/server/app.ts
 import { createServer } from "node:http";
 
@@ -47934,6 +47950,11 @@ function safeBase64(value) {
     return null;
   }
 }
+function selectTerms(accepts, payload) {
+  const wanted = payload?.accepted;
+  if (!wanted) return accepts[0];
+  return accepts.find((o) => o.network === wanted.network && o.scheme === wanted.scheme) ?? accepts[0];
+}
 function matchesOurTerms(accepted, ours) {
   if (!accepted) return { ok: false, reason: "payment payload has no accepted terms" };
   if (accepted.scheme !== ours.scheme) return { ok: false, reason: `scheme must be ${ours.scheme}` };
@@ -47957,9 +47978,10 @@ var MAX_BODY_BYTES = 32 * 1024;
 async function servePaid(req, cfg, facilitator, deps) {
   const priced = deps.priceUsd === void 0 ? cfg : withPrice(cfg, deps.priceUsd);
   const required = buildPaymentRequired(priced, deps.route);
-  const terms = required.accepts[0];
-  if (!terms) return { status: 500, body: { error: "no payment terms configured" }, headers: {} };
   const signature = decodePaymentSignature(header(req, HEADER_SIGNATURE));
+  const terms = selectTerms(required.accepts, signature);
+  if (!terms) return { status: 500, body: { error: "no payment terms configured" }, headers: {} };
+  const settler = typeof facilitator === "function" ? facilitator(terms.network) : facilitator;
   if (!signature) {
     return {
       status: 402,
@@ -47992,7 +48014,7 @@ async function servePaid(req, cfg, facilitator, deps) {
   }
   let verification;
   try {
-    verification = await facilitator.verify(signature, terms);
+    verification = await settler.verify(signature, terms);
   } catch (err) {
     const refusal = refusalFrom(err);
     if (refusal) {
@@ -48019,7 +48041,7 @@ async function servePaid(req, cfg, facilitator, deps) {
   }
   let settlement;
   try {
-    settlement = await facilitator.settle(signature, terms);
+    settlement = await settler.settle(signature, terms);
   } catch (err) {
     const refusal = refusalFrom(err);
     if (refusal) {
@@ -49051,34 +49073,38 @@ async function handle(req, res, cfg, facilitator) {
   applyOutcome(res, outcome);
 }
 async function facilitatorStatus(cfg, facilitator) {
-  const base = { facilitator: cfg.facilitatorUrl, network: cfg.network.caip2, scheme: "exact" };
-  try {
-    const kinds = await facilitator.supported();
-    const canSettle = kinds.some((k) => k.network === cfg.network.caip2 && k.scheme === "exact");
-    return [
-      canSettle ? 200 : 503,
-      {
-        ...base,
-        reachable: true,
-        authenticated: true,
-        canSettle,
-        ...canSettle ? {} : { problem: `cannot settle exact on ${cfg.network.caip2}` }
+  const route = (n) => typeof facilitator === "function" ? facilitator(n) : facilitator;
+  const networks = [cfg.network.caip2, ...cfg.algorandPayTo ? [ALGORAND_MAINNET] : []];
+  const chains = await Promise.all(
+    networks.map(async (network) => {
+      const client = route(network);
+      try {
+        const kinds = await client.supported();
+        const canSettle = kinds.some((k) => k.network === network && k.scheme === "exact");
+        return {
+          network,
+          facilitator: client.baseUrl,
+          reachable: true,
+          authenticated: true,
+          canSettle,
+          ...canSettle ? {} : { problem: `cannot settle exact on ${network}` }
+        };
+      } catch (err) {
+        const status = err instanceof FacilitatorError ? err.status : null;
+        const authProblem = status === 401 || status === 403;
+        return {
+          network,
+          facilitator: client.baseUrl,
+          reachable: !authProblem,
+          authenticated: false,
+          canSettle: false,
+          problem: authProblem ? "the facilitator rejected our credentials \u2014 set CDP_API_KEY_ID and CDP_API_KEY_SECRET on this project" : err instanceof Error ? err.message : String(err)
+        };
       }
-    ];
-  } catch (err) {
-    const status = err instanceof FacilitatorError ? err.status : null;
-    const authProblem = status === 401 || status === 403;
-    return [
-      503,
-      {
-        ...base,
-        reachable: !authProblem,
-        authenticated: false,
-        canSettle: false,
-        problem: authProblem ? "the facilitator rejected our credentials \u2014 set CDP_API_KEY_ID and CDP_API_KEY_SECRET on this project" : err instanceof Error ? err.message : String(err)
-      }
-    ];
-  }
+    })
+  );
+  const healthy = chains.every((c) => c.canSettle);
+  return [healthy ? 200 : 503, { scheme: "exact", healthy, chains }];
 }
 function card(cfg) {
   return {
@@ -49127,7 +49153,7 @@ async function main() {
     }
     throw err;
   }
-  const facilitator = new FacilitatorClient(cfg.facilitatorUrl, facilitatorAuth(cfg));
+  const facilitator = facilitatorsFor(cfg);
   createServer(createHandler(cfg, facilitator)).listen(cfg.port, () => {
     log("info", { msg: "hosaka listening", port: cfg.port, network: cfg.network.label, payTo: cfg.payTo });
   });
@@ -49141,7 +49167,7 @@ var handler = null;
 var problems = null;
 try {
   const cfg = loadConfig(process.env, hosaka_config_default);
-  handler = createHandler(cfg, new FacilitatorClient(cfg.facilitatorUrl, facilitatorAuth(cfg)));
+  handler = createHandler(cfg, facilitatorsFor(cfg));
 } catch (err) {
   problems = err instanceof ConfigError ? err.problems : [String(err)];
 }

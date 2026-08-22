@@ -1,5 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Config } from "./config.ts";
+import { selectTerms } from "./x402.ts";
+import type { FacilitatorFor } from "./facilitator-router.ts";
 import { USDC_DECIMALS, toAtomic } from "./config.ts";
 import { FacilitatorClient, FacilitatorError } from "./facilitator.ts";
 import type { PaidRoute } from "./x402.ts";
@@ -48,15 +50,19 @@ export interface PaidOutcome {
 export async function servePaid<Req, Res>(
   req: IncomingMessage,
   cfg: Config,
-  facilitator: FacilitatorClient,
+  facilitator: FacilitatorClient | FacilitatorFor,
   deps: PaidHandlerDeps<Req, Res>,
 ): Promise<PaidOutcome> {
   const priced = deps.priceUsd === undefined ? cfg : withPrice(cfg, deps.priceUsd);
   const required = buildPaymentRequired(priced, deps.route);
-  const terms = required.accepts[0];
+  const signature = decodePaymentSignature(header(req, HEADER_SIGNATURE));
+  const terms = selectTerms(required.accepts, signature);
   if (!terms) return { status: 500, body: { error: "no payment terms configured" }, headers: {} };
 
-  const signature = decodePaymentSignature(header(req, HEADER_SIGNATURE));
+  // Chosen from the terms, not from configuration: the buyer picked the chain,
+  // and only some facilitators can settle on it.
+  const settler = typeof facilitator === "function" ? facilitator(terms.network) : facilitator;
+
   if (!signature) {
     return {
       status: 402,
@@ -92,7 +98,7 @@ export async function servePaid<Req, Res>(
 
   let verification;
   try {
-    verification = await facilitator.verify(signature, terms);
+    verification = await settler.verify(signature, terms);
   } catch (err) {
     // A 4xx means the facilitator looked at the payment and refused it — an
     // empty wallet, a bad signature. Reporting that as our outage tells the
@@ -125,7 +131,7 @@ export async function servePaid<Req, Res>(
 
   let settlement;
   try {
-    settlement = await facilitator.settle(signature, terms);
+    settlement = await settler.settle(signature, terms);
   } catch (err) {
     const refusal = refusalFrom(err);
     if (refusal) {

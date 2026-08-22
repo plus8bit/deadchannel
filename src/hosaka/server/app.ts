@@ -4,6 +4,9 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { ConfigError, loadConfig } from "../../server/config.ts";
 import type { Config } from "../../server/config.ts";
 import { FacilitatorClient, FacilitatorError } from "../../server/facilitator.ts";
+import { facilitatorsFor } from "../../server/facilitator-router.ts";
+import { ALGORAND_MAINNET } from "../../server/algorand.ts";
+import type { FacilitatorFor } from "../../server/facilitator-router.ts";
 import { facilitatorAuth } from "../../server/facilitator-auth.ts";
 import { applyOutcome, servePaid } from "../../server/paid.ts";
 import type { PaidHandlerDeps } from "../../server/paid.ts";
@@ -38,7 +41,7 @@ const SHELVES: Shelf[] = [
   { route: CONTACTS_ROUTE, parse: parseDomainRequest, run: (r) => runBundle(r, "contacts"), priceUsd: PRICE_CONTACTS },
 ];
 
-export function createHandler(cfg: Config, facilitator: FacilitatorClient) {
+export function createHandler(cfg: Config, facilitator: FacilitatorClient | FacilitatorFor) {
   return (req: IncomingMessage, res: ServerResponse): void => {
     handle(req, res, cfg, facilitator).catch((err: unknown) => {
       log("error", { msg: "unhandled", err: err instanceof Error ? err.message : String(err) });
@@ -51,7 +54,7 @@ async function handle(
   req: IncomingMessage,
   res: ServerResponse,
   cfg: Config,
-  facilitator: FacilitatorClient,
+  facilitator: FacilitatorClient | FacilitatorFor,
 ): Promise<void> {
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
   const path = url.pathname.replace(/\/+$/, "") || "/";
@@ -102,38 +105,48 @@ async function handle(
  */
 async function facilitatorStatus(
   cfg: Config,
-  facilitator: FacilitatorClient,
+  facilitator: FacilitatorClient | FacilitatorFor,
 ): Promise<[number, unknown]> {
-  const base = { facilitator: cfg.facilitatorUrl, network: cfg.network.caip2, scheme: "exact" };
-  try {
-    const kinds = await facilitator.supported();
-    const canSettle = kinds.some((k) => k.network === cfg.network.caip2 && k.scheme === "exact");
-    return [
-      canSettle ? 200 : 503,
-      {
-        ...base,
-        reachable: true,
-        authenticated: true,
-        canSettle,
-        ...(canSettle ? {} : { problem: `cannot settle exact on ${cfg.network.caip2}` }),
-      },
-    ];
-  } catch (err) {
-    const status = err instanceof FacilitatorError ? err.status : null;
-    const authProblem = status === 401 || status === 403;
-    return [
-      503,
-      {
-        ...base,
-        reachable: !authProblem,
-        authenticated: false,
-        canSettle: false,
-        problem: authProblem
-          ? "the facilitator rejected our credentials — set CDP_API_KEY_ID and CDP_API_KEY_SECRET on this project"
-          : err instanceof Error ? err.message : String(err),
-      },
-    ];
-  }
+  const route = (n: string) => (typeof facilitator === "function" ? facilitator(n) : facilitator);
+
+  // Every chain the shop advertises, not just the primary one. A second chain
+  // settled by a facilitator that does not support it is an offer no buyer can
+  // complete, and without this it looks healthy right up until someone pays.
+  const networks = [cfg.network.caip2, ...(cfg.algorandPayTo ? [ALGORAND_MAINNET] : [])];
+
+  const chains = await Promise.all(
+    networks.map(async (network) => {
+      const client = route(network);
+      try {
+        const kinds = await client.supported();
+        const canSettle = kinds.some((k) => k.network === network && k.scheme === "exact");
+        return {
+          network,
+          facilitator: client.baseUrl,
+          reachable: true,
+          authenticated: true,
+          canSettle,
+          ...(canSettle ? {} : { problem: `cannot settle exact on ${network}` }),
+        };
+      } catch (err) {
+        const status = err instanceof FacilitatorError ? err.status : null;
+        const authProblem = status === 401 || status === 403;
+        return {
+          network,
+          facilitator: client.baseUrl,
+          reachable: !authProblem,
+          authenticated: false,
+          canSettle: false,
+          problem: authProblem
+            ? "the facilitator rejected our credentials — set CDP_API_KEY_ID and CDP_API_KEY_SECRET on this project"
+            : err instanceof Error ? err.message : String(err),
+        };
+      }
+    }),
+  );
+
+  const healthy = chains.every((c) => c.canSettle);
+  return [healthy ? 200 : 503, { scheme: "exact", healthy, chains }];
 }
 
 function card(cfg: Config) {
@@ -184,7 +197,7 @@ async function main(): Promise<void> {
     }
     throw err;
   }
-  const facilitator = new FacilitatorClient(cfg.facilitatorUrl, facilitatorAuth(cfg));
+  const facilitator = facilitatorsFor(cfg);
   createServer(createHandler(cfg, facilitator)).listen(cfg.port, () => {
     log("info", { msg: "hosaka listening", port: cfg.port, network: cfg.network.label, payTo: cfg.payTo });
   });

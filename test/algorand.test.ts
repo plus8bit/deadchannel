@@ -97,3 +97,53 @@ describe("selling on Algorand as well as Base", () => {
     assert.notEqual(o.payTo, GOPLAUSIBLE_FEE_PAYER);
   });
 });
+
+describe("routing a payment to a facilitator that can settle it", () => {
+  const base = {
+    X402_NETWORK: "base",
+    X402_PAY_TO: "0x712c78928080Adb009E31315c0c3c7473dA9648a",
+    X402_ALGORAND_PAY_TO: REAL,
+    X402_FACILITATOR_URL: "https://api.cdp.coinbase.com/platform/v2/x402",
+    PUBLIC_URL: "https://example.test",
+    // CDP refuses to construct a client without credentials, which is correct
+    // and unrelated to what this test is about. Nothing is ever sent.
+    CDP_API_KEY_ID: "00000000-0000-0000-0000-000000000000",
+    CDP_API_KEY_SECRET: "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBw==",
+  };
+
+  it("sends Algorand elsewhere than Base", async () => {
+    const { facilitatorsFor } = await import("../src/server/facilitator-router.ts");
+    const { loadConfig } = await import("../src/server/config.ts");
+    const route = facilitatorsFor(loadConfig(base, {}), base as NodeJS.ProcessEnv);
+    // Coinbase's facilitator indexes the big catalog but cannot settle on
+    // Algorand at all, so routing by network is what keeps the second chain
+    // from being an offer nobody can complete.
+    assert.match(route("eip155:8453").baseUrl, /cdp\.coinbase\.com/);
+    assert.match(route(ALGORAND_MAINNET).baseUrl, /goplausible/);
+  });
+
+  it("does not build a second client when one facilitator serves both", async () => {
+    const { facilitatorsFor } = await import("../src/server/facilitator-router.ts");
+    const { loadConfig } = await import("../src/server/config.ts");
+    const cfg = loadConfig({ ...base, X402_FACILITATOR_URL: "https://facilitator.goplausible.xyz" }, {});
+    const route = facilitatorsFor(cfg, base as NodeJS.ProcessEnv);
+    assert.equal(route("eip155:8453"), route(ALGORAND_MAINNET), "same client, not a duplicate");
+  });
+});
+
+describe("choosing the terms the buyer signed for", () => {
+  it("matches the offer by network rather than by position", async () => {
+    const { selectTerms } = await import("../src/server/x402.ts");
+    const accepts = [
+      { scheme: "exact", network: "eip155:8453", amount: "10000", asset: "0xusdc", payTo: "0xus", maxTimeoutSeconds: 120 },
+      { scheme: "exact", network: ALGORAND_MAINNET, amount: "10000", asset: "31566704", payTo: REAL, maxTimeoutSeconds: 120 },
+    ];
+    // A buyer who picked the second chain would otherwise be checked against
+    // terms they never agreed to, and rejected for a mismatch they did not make.
+    const picked = selectTerms(accepts as never, {
+      accepted: { scheme: "exact", network: ALGORAND_MAINNET },
+    } as never);
+    assert.equal(picked!.network, ALGORAND_MAINNET);
+    assert.equal(selectTerms(accepts as never, null)!.network, "eip155:8453");
+  });
+});

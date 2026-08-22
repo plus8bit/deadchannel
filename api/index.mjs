@@ -8,7 +8,8 @@ var deadchannel_config_default = {
   network: "base",
   priceUsd: 1e-3,
   publicUrl: "https://deadchannel.vercel.app",
-  facilitatorUrl: "https://facilitator.goplausible.xyz"
+  facilitatorUrl: "https://facilitator.goplausible.xyz",
+  algorandPayTo: "NLT4P2QFI3OO3PTLQHQXCAM2RA2Y7T4RZZKZF43BLMBKDFPFX54ZLDY2JU"
 };
 
 // src/server/algorand.ts
@@ -124,7 +125,8 @@ function loadConfig(env = process.env, defaults = FILE_DEFAULTS) {
     facilitatorUrl: (env["X402_FACILITATOR_URL"] ?? file.facilitatorUrl ?? defaultFacilitator(net)).replace(/\/+$/, ""),
     facilitatorToken: env["X402_FACILITATOR_TOKEN"] ?? null,
     maxTimeoutSeconds: Number(env["X402_MAX_TIMEOUT_SECONDS"] ?? "120"),
-    algorandPayTo
+    algorandPayTo,
+    algorandFacilitatorUrl: (env["X402_ALGORAND_FACILITATOR_URL"] ?? file.algorandFacilitatorUrl ?? "https://facilitator.goplausible.xyz").replace(/\/+$/, "")
   };
 }
 var ConfigError = class extends Error {

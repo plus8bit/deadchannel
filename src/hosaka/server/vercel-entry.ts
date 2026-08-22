@@ -1,8 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import hosakaDefaults from "../../../hosaka/hosaka.config.json" with { type: "json" };
 import { ConfigError, loadConfig } from "../../server/config.ts";
-import { FacilitatorClient } from "../../server/facilitator.ts";
-import { facilitatorAuth } from "../../server/facilitator-auth.ts";
+import { facilitatorsFor } from "../../server/facilitator-router.ts";
 import { createHandler } from "./app.ts";
 
 /**
@@ -22,7 +21,7 @@ let problems: string[] | null = null;
 
 try {
   const cfg = loadConfig(process.env, hosakaDefaults);
-  handler = createHandler(cfg, new FacilitatorClient(cfg.facilitatorUrl, facilitatorAuth(cfg)));
+  handler = createHandler(cfg, facilitatorsFor(cfg));
 } catch (err) {
   problems = err instanceof ConfigError ? err.problems : [String(err)];
 }

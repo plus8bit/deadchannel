@@ -179,6 +179,30 @@ function safeBase64(value: string): string | null {
  * The facilitator validates the signature, not the terms. Without this check a
  * buyer could authorize one cent to a different address and still be verified.
  */
+/**
+ * The offer the buyer actually chose.
+ *
+ * Once a resource advertises more than one chain, assuming the first entry is
+ * wrong for everyone who picked the second: their payment would be checked
+ * against terms they never agreed to and rejected as a mismatch. The payload
+ * names the network and scheme it was signed for, so the offer is looked up by
+ * those rather than by position.
+ *
+ * Falls back to the first entry when nothing matches, so the caller still gets
+ * terms to compare against and produces a specific mismatch reason instead of
+ * a bare failure.
+ */
+export function selectTerms(
+  accepts: PaymentRequirements[],
+  payload: PaymentPayload | null,
+): PaymentRequirements | undefined {
+  const wanted = payload?.accepted;
+  if (!wanted) return accepts[0];
+  return (
+    accepts.find((o) => o.network === wanted.network && o.scheme === wanted.scheme) ?? accepts[0]
+  );
+}
+
 export function matchesOurTerms(
   accepted: PaymentRequirements | undefined,
   ours: PaymentRequirements,

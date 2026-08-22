@@ -4,5 +4,6 @@
   "network": "base",
   "priceUsd": 0.001,
   "publicUrl": "https://deadchannel.vercel.app",
-  "facilitatorUrl": "https://facilitator.goplausible.xyz"
+  "facilitatorUrl": "https://facilitator.goplausible.xyz",
+  "algorandPayTo": "NLT4P2QFI3OO3PTLQHQXCAM2RA2Y7T4RZZKZF43BLMBKDFPFX54ZLDY2JU"
 }

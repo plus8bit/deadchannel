@@ -4,7 +4,7 @@ import { buildProfile } from "../profile.ts";
 import type { DomainProfile } from "../types.ts";
 
 /**
- * The resale shelf: our own dossier plus contacts bought from a supplier,
+ * The resale shelves: our own dossier plus contacts bought from a supplier,
  * delivered in one call.
  *
  * The point is not the markup on the purchased half — that would be thin and
@@ -18,15 +18,60 @@ import type { DomainProfile } from "../types.ts";
  * half-delivered answer.
  */
 
-const SUPPLIER_ID = "fullenrich-people";
+/**
+ * Two tiers, because two different things get called "contacts".
+ *
+ * Named people with roles cost fifty times what a scrape of a company's own
+ * published addresses costs, and they are worth it for some questions and
+ * pointless for others. Selling them as one product would mean either
+ * overcharging for the cheap answer or quietly serving it when the expensive
+ * one was paid for. So they are separate shelves at separate prices, and the
+ * response says which one arrived.
+ */
+export const TIERS = {
+  people: {
+    supplier: "fullenrich-people",
+    kind: "named-people",
+    /**
+     * $0.25 against a $0.15 supplier cost.
+     *
+     * The number is set by what it has to beat: the market's top earner sells
+     * contacts alone at $0.28, so anything at or above that loses the only
+     * advantage worth having from behind. This undercuts it by a ninth and
+     * still carries the dossier they do not sell, on a 67% markup over cost.
+     */
+    priceUsd: 0.25,
+  },
+  contacts: {
+    supplier: "openwebninja-contacts",
+    kind: "published-contact-points",
+    /**
+     * $0.02 against a $0.003 supplier cost.
+     *
+     * Cheap because the underlying answer is cheap: it is what the company
+     * publishes about itself, not who works there. Priced as the shelf a buyer
+     * reaches for when the question is "how do I reach this company" and the
+     * $0.25 answer would be waste.
+     */
+    priceUsd: 0.02,
+  },
+} as const satisfies Record<string, { supplier: string; kind: string; priceUsd: number }>;
+
+export type TierName = keyof typeof TIERS;
 
 export interface BundleResponse {
   domain: string;
   company: DomainProfile;
-  people: {
+  contacts: {
     /** Exactly what the supplier returned, unedited. */
     data: unknown;
     source: string;
+    /**
+     * Which tier this is. The two are not interchangeable, and a buyer that
+     * cannot tell them apart cannot tell whether the answer is the one they
+     * needed.
+     */
+    kind: string;
     /** What this half cost us, so the buyer can see the resale is declared. */
     costUsd: number;
     /**
@@ -39,11 +84,10 @@ export interface BundleResponse {
   collectedAt: string;
 }
 
-export async function runBundle(req: { domain: string }): Promise<BundleResponse> {
-  const supplier = SUPPLIERS[SUPPLIER_ID];
-  if (!supplier?.byDomain) {
-    throw new SupplierError(SUPPLIER_ID, "no domain lookup configured", false);
-  }
+export async function runBundle(req: { domain: string }, tier: TierName): Promise<BundleResponse> {
+  const { supplier: id, kind } = TIERS[tier];
+  const supplier = SUPPLIERS[id];
+  if (!supplier?.byDomain) throw new SupplierError(id, "no domain lookup configured", false);
 
   // Our half costs nothing and never fails wholesale, so it runs alongside.
   const [company, purchase] = await Promise.all([
@@ -54,9 +98,10 @@ export async function runBundle(req: { domain: string }): Promise<BundleResponse
   return {
     domain: req.domain,
     company,
-    people: {
+    contacts: {
       data: purchase.data,
       source: supplier.name,
+      kind,
       costUsd: purchase.paidUsd,
       ...(purchase.unverifiedMapping ? { requestShapeUnverified: true } : {}),
     },
@@ -64,12 +109,6 @@ export async function runBundle(req: { domain: string }): Promise<BundleResponse
   };
 }
 
-/**
- * $0.25 against a $0.15 supplier cost.
- *
- * The number is set by what it has to beat: the market's top earner sells
- * contacts alone at $0.28, so anything at or above that loses the only
- * advantage worth having from behind. This undercuts it by a ninth and still
- * carries the dossier they do not sell, on a 67% markup over cost.
- */
-export const PRICE_BUNDLE = 0.25;
+/** Kept as a named export because the route table and the tests both read it. */
+export const PRICE_BUNDLE = TIERS.people.priceUsd;
+export const PRICE_CONTACTS = TIERS.contacts.priceUsd;

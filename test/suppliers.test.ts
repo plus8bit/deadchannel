@@ -104,29 +104,71 @@ describe("the supplier list", () => {
   });
 });
 
-describe("the resale shelf", () => {
-  it("is priced below the market leader while carrying more", async () => {
-    const { PRICE_BUNDLE } = await import("../src/hosaka/server/bundle.ts");
-    const cost = SUPPLIERS["fullenrich-people"]!.listPriceUsd;
+describe("the resale shelves", () => {
+  it("prices every tier above what its supplier costs", async () => {
+    const { TIERS } = await import("../src/hosaka/server/bundle.ts");
+    for (const [name, tier] of Object.entries(TIERS)) {
+      const supplier = SUPPLIERS[tier.supplier]!;
+      assert.ok(tier.priceUsd > supplier.listPriceUsd, `${name} sells below cost`);
+      assert.ok(tier.priceUsd / supplier.listPriceUsd >= 1.5, `${name} markup is too thin`);
+      // The ceiling, not the list price, is what we can actually be charged.
+      // If a supplier repriced itself all the way up to its ceiling and we
+      // still sold at today's price, this is the line that says we survive it.
+      assert.ok(
+        tier.priceUsd > supplier.maxPriceUsd,
+        `${name} sells at $${tier.priceUsd} but may be charged up to $${supplier.maxPriceUsd}`,
+      );
+    }
+  });
+
+  it("undercuts the market leader on the tier that competes with it", async () => {
+    const { TIERS } = await import("../src/hosaka/server/bundle.ts");
     // PDL Person Enrich, the top earner in this whole market, sells contacts
     // alone at $0.28. Undercutting it while adding a dossier is the position.
-    assert.ok(PRICE_BUNDLE < 0.28, "must undercut the leader");
-    assert.ok(PRICE_BUNDLE > cost, "must cover what the contacts cost us");
-    assert.ok(PRICE_BUNDLE - cost >= 0.08, `margin is only $${(PRICE_BUNDLE - cost).toFixed(2)}`);
-    assert.ok(PRICE_BUNDLE / cost >= 1.5, "markup must survive a supplier reprice");
+    assert.ok(TIERS.people.priceUsd < 0.28, "must undercut the leader");
+    assert.ok(TIERS.people.priceUsd - SUPPLIERS["fullenrich-people"]!.listPriceUsd >= 0.08);
+  });
+
+  it("keeps the two tiers distinguishable in the response", async () => {
+    const { TIERS } = await import("../src/hosaka/server/bundle.ts");
+    const kinds = Object.values(TIERS).map((t) => t.kind);
+    // Named people and a scrape of a company's own published addresses are
+    // different answers at a fifty-fold price difference. A buyer who cannot
+    // tell which one arrived cannot tell whether they got what they paid for.
+    assert.equal(new Set(kinds).size, kinds.length, "tiers must not share a kind");
   });
 
   it("declares an inferred request shape instead of hiding it", () => {
-    const s = SUPPLIERS["fullenrich-people"]!;
-    assert.ok(s.byDomain, "the shelf needs a domain lookup");
-    assert.equal(s.byDomain?.unverified, true, "this supplier publishes no input schema");
-    assert.deepEqual(s.byDomain?.build("figma.com"), { company_domain: "figma.com" });
+    for (const s of Object.values(SUPPLIERS)) {
+      if (!s.byDomain) continue;
+      // Every supplier we buy from by domain publishes no input schema, so
+      // every mapping is inferred. The day one of them documents itself, this
+      // assertion is what forces the flag to be dropped rather than left lying.
+      assert.equal(s.byDomain.unverified, true, `${s.id} mapping must be marked inferred`);
+    }
+    assert.deepEqual(SUPPLIERS["fullenrich-people"]!.byDomain?.build("figma.com"), {
+      company_domain: "figma.com",
+    });
   });
 
-  it("cannot sell the bundle without an operating wallet, and says so", async () => {
+  it("puts parameters where a GET supplier can actually read them", async () => {
+    const { requestUrl } = await import("../src/hosaka/suppliers/buy.ts");
+    const get = SUPPLIERS["openwebninja-contacts"]!;
+    const url = new URL(requestUrl(get, get.byDomain!.build("figma.com")));
+    // A GET has no body. Sending one looks like it works — the payment settles
+    // and a 200 comes back — but the endpoint answered a question we never
+    // asked and we paid for it.
+    assert.equal(url.searchParams.get("domain"), "figma.com");
+    assert.equal(url.searchParams.get("query"), "figma.com");
+
+    const post = SUPPLIERS["fullenrich-people"]!;
+    assert.equal(requestUrl(post, { company_domain: "figma.com" }), post.url, "a POST keeps its body");
+  });
+
+  it("cannot sell a bundle without an operating wallet, and says so", async () => {
     const { runBundle } = await import("../src/hosaka/server/bundle.ts");
     await assert.rejects(
-      () => runBundle({ domain: "figma.com" }),
+      () => runBundle({ domain: "figma.com" }, "people"),
       (err: SupplierError) => {
         // Throwing is what keeps the buyer from paying for half an answer:
         // the payment layer settles only after the handler returns.

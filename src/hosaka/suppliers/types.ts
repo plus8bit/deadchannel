@@ -81,6 +81,29 @@ export const SUPPLIERS: Record<string, Supplier> = {
     // published, so this is read off the description until a purchase proves it.
     byDomain: { build: (domain) => ({ company_domain: domain }), unverified: true },
   },
+  "openwebninja-contacts": {
+    id: "openwebninja-contacts",
+    name: "OpenWebNinja website contacts scraper",
+    url: "https://x402.openwebninja.com/website-contacts-scraper/scrape-contacts",
+    method: "GET",
+    listPriceUsd: 0.003,
+    maxPriceUsd: 0.005,
+    // No input schema, no description, no tags — nothing published at all. So
+    // the first request carries every plausible spelling of the one parameter
+    // it can possibly want. Unknown query parameters are ignored by almost
+    // every API, which turns five guesses into one $0.003 purchase instead of
+    // five. Once a real response names the field, this collapses to that field.
+    byDomain: {
+      build: (domain) => ({
+        query: domain,
+        website_url: `https://${domain}`,
+        domain,
+        url: `https://${domain}`,
+        website: domain,
+      }),
+      unverified: true,
+    },
+  },
   "linkedpanda-profile": {
     id: "linkedpanda-profile",
     name: "LinkedPanda profile enrichment",

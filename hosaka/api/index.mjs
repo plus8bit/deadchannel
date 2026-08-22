@@ -46550,9 +46550,9 @@ var init_chunk_BA2VL4DT = __esm({
        * @param requestUrl - The URL of the request that received the payment required response
        * @returns Headers to use for retry, or null to proceed to payment
        */
-      async handlePaymentRequired(paymentRequired, requestUrl) {
+      async handlePaymentRequired(paymentRequired, requestUrl2) {
         for (const hook of this.getPaymentRequiredHooks(paymentRequired)) {
-          const result = await hook({ paymentRequired, requestUrl });
+          const result = await hook({ paymentRequired, requestUrl: requestUrl2 });
           if (result?.headers) {
             return result.headers;
           }
@@ -47444,8 +47444,8 @@ function wrapFetchWithPayment(fetch2, client) {
         `Failed to parse payment requirements: ${error instanceof Error ? error.message : "Unknown error"}`
       );
     }
-    const requestUrl = response.url || request.url;
-    const hookHeaders = await httpClient.handlePaymentRequired(paymentRequired, requestUrl);
+    const requestUrl2 = response.url || request.url;
+    const hookHeaders = await httpClient.handlePaymentRequired(paymentRequired, requestUrl2);
     if (hookHeaders) {
       const hookRequest = clonedRequest.clone();
       for (const [key, value] of Object.entries(hookHeaders)) {
@@ -48063,6 +48063,29 @@ var SUPPLIERS = {
     // published, so this is read off the description until a purchase proves it.
     byDomain: { build: (domain) => ({ company_domain: domain }), unverified: true }
   },
+  "openwebninja-contacts": {
+    id: "openwebninja-contacts",
+    name: "OpenWebNinja website contacts scraper",
+    url: "https://x402.openwebninja.com/website-contacts-scraper/scrape-contacts",
+    method: "GET",
+    listPriceUsd: 3e-3,
+    maxPriceUsd: 5e-3,
+    // No input schema, no description, no tags — nothing published at all. So
+    // the first request carries every plausible spelling of the one parameter
+    // it can possibly want. Unknown query parameters are ignored by almost
+    // every API, which turns five guesses into one $0.003 purchase instead of
+    // five. Once a real response names the field, this collapses to that field.
+    byDomain: {
+      build: (domain) => ({
+        query: domain,
+        website_url: `https://${domain}`,
+        domain,
+        url: `https://${domain}`,
+        website: domain
+      }),
+      unverified: true
+    }
+  },
   "linkedpanda-profile": {
     id: "linkedpanda-profile",
     name: "LinkedPanda profile enrichment",
@@ -48074,6 +48097,8 @@ var SUPPLIERS = {
 };
 
 // src/hosaka/suppliers/buy.ts
+var USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+var BASE_RPC = process.env.BASE_RPC_URL ?? "https://mainnet.base.org";
 var KEY_PATTERN = /^0x[0-9a-fA-F]{64}$/;
 function operatingKey(env = process.env) {
   const key = env["HOSAKA_OPERATING_KEY"];
@@ -48120,9 +48145,18 @@ async function buy(which, body, options = {}) {
   const { privateKeyToAccount: privateKeyToAccount2 } = await Promise.resolve().then(() => (init_accounts(), accounts_exports));
   const { ExactEvmScheme: ExactEvmScheme2 } = await Promise.resolve().then(() => (init_client(), client_exports));
   const { wrapFetchWithPayment: wrapFetchWithPayment2, x402Client: x402Client2, decodePaymentResponseHeader: decodePaymentResponseHeader2 } = await Promise.resolve().then(() => (init_esm5(), esm_exports));
-  const client = new x402Client2().register("eip155:8453", new ExactEvmScheme2(privateKeyToAccount2(key)));
+  const account = privateKeyToAccount2(key);
+  const float = await floatUsd(account.address, options.timeoutMs);
+  if (float !== null && float < asking) {
+    throw new SupplierError(
+      supplier.id,
+      `costs $${asking} but the operating wallet holds $${float.toFixed(3)}. Not bought; top it up.`,
+      false
+    );
+  }
+  const client = new x402Client2().register("eip155:8453", new ExactEvmScheme2(account));
   const paidFetch = wrapFetchWithPayment2(fetch, client);
-  const res = await paidFetch(supplier.url, {
+  const res = await paidFetch(requestUrl(supplier, body), {
     method: supplier.method,
     headers: { "content-type": "application/json", accept: "application/json" },
     ...supplier.method === "POST" ? { body: JSON.stringify(body) } : {}
@@ -48140,6 +48174,39 @@ async function buy(which, body, options = {}) {
     ...supplier.byDomain?.unverified ? { unverifiedMapping: true } : {},
     data: await res.json()
   };
+}
+function requestUrl(supplier, body) {
+  if (supplier.method !== "GET") return supplier.url;
+  const url = new URL(supplier.url);
+  for (const [k, v] of Object.entries(body ?? {})) {
+    if (v !== void 0 && v !== null) url.searchParams.set(k, String(v));
+  }
+  return url.toString();
+}
+async function floatUsd(address, timeoutMs = 1e4) {
+  const call2 = {
+    jsonrpc: "2.0",
+    id: 1,
+    method: "eth_call",
+    params: [
+      { to: USDC_BASE, data: `0x70a08231${address.toLowerCase().replace(/^0x/, "").padStart(64, "0")}` },
+      "latest"
+    ]
+  };
+  try {
+    const res = await fetch(BASE_RPC, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(call2),
+      signal: AbortSignal.timeout(timeoutMs)
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    if (!json.result) return null;
+    return Number(BigInt(json.result)) / 1e6;
+  } catch {
+    return null;
+  }
 }
 
 // src/hosaka/sources/dns.ts
@@ -48539,12 +48606,38 @@ function normalize2(input) {
 }
 
 // src/hosaka/server/bundle.ts
-var SUPPLIER_ID = "fullenrich-people";
-async function runBundle(req) {
-  const supplier = SUPPLIERS[SUPPLIER_ID];
-  if (!supplier?.byDomain) {
-    throw new SupplierError(SUPPLIER_ID, "no domain lookup configured", false);
+var TIERS = {
+  people: {
+    supplier: "fullenrich-people",
+    kind: "named-people",
+    /**
+     * $0.25 against a $0.15 supplier cost.
+     *
+     * The number is set by what it has to beat: the market's top earner sells
+     * contacts alone at $0.28, so anything at or above that loses the only
+     * advantage worth having from behind. This undercuts it by a ninth and
+     * still carries the dossier they do not sell, on a 67% markup over cost.
+     */
+    priceUsd: 0.25
+  },
+  contacts: {
+    supplier: "openwebninja-contacts",
+    kind: "published-contact-points",
+    /**
+     * $0.02 against a $0.003 supplier cost.
+     *
+     * Cheap because the underlying answer is cheap: it is what the company
+     * publishes about itself, not who works there. Priced as the shelf a buyer
+     * reaches for when the question is "how do I reach this company" and the
+     * $0.25 answer would be waste.
+     */
+    priceUsd: 0.02
   }
+};
+async function runBundle(req, tier) {
+  const { supplier: id, kind } = TIERS[tier];
+  const supplier = SUPPLIERS[id];
+  if (!supplier?.byDomain) throw new SupplierError(id, "no domain lookup configured", false);
   const [company, purchase] = await Promise.all([
     buildProfile(req.domain),
     buy(supplier, supplier.byDomain.build(req.domain))
@@ -48552,16 +48645,18 @@ async function runBundle(req) {
   return {
     domain: req.domain,
     company,
-    people: {
+    contacts: {
       data: purchase.data,
       source: supplier.name,
+      kind,
       costUsd: purchase.paidUsd,
       ...purchase.unverifiedMapping ? { requestShapeUnverified: true } : {}
     },
     collectedAt: (/* @__PURE__ */ new Date()).toISOString()
   };
 }
-var PRICE_BUNDLE = 0.25;
+var PRICE_BUNDLE = TIERS.people.priceUsd;
+var PRICE_CONTACTS = TIERS.contacts.priceUsd;
 
 // src/hosaka/store.ts
 var MemoryStore = class {
@@ -48751,7 +48846,31 @@ var BUNDLE_ROUTE = {
   outputExample: {
     domain: "figma.com",
     company: { vendors: [{ name: "Greenhouse", category: "hr", evidence: "SPF: include:mg-spf.greenhouse.io" }] },
-    people: { data: { results: [] }, source: "FullEnrich People Search", costUsd: 0.15 }
+    contacts: { data: { results: [] }, source: "FullEnrich People Search", kind: "named-people", costUsd: 0.15 }
+  }
+};
+var CONTACTS_ROUTE = {
+  path: "/contacts",
+  method: "POST",
+  serviceName: "Hosaka",
+  description: "Company dossier plus every contact point the company publishes \u2014 emails, phones and social accounts scraped from its own site. Returns each third-party vendor the company can be proven to use with the record proving it. For reaching a company rather than a named person.",
+  tags: ["contacts", "b2b", "enrichment", "company-data", "email"],
+  mimeType: "application/json",
+  inputExample: { domain: "figma.com" },
+  inputSchema: {
+    type: "object",
+    properties: { domain: { type: "string", description: "Company domain, e.g. figma.com" } },
+    required: ["domain"]
+  },
+  outputExample: {
+    domain: "figma.com",
+    company: { vendors: [{ name: "Greenhouse", category: "hr", evidence: "SPF: include:mg-spf.greenhouse.io" }] },
+    contacts: {
+      data: { emails: ["support@figma.com"], phones: [] },
+      source: "OpenWebNinja website contacts scraper",
+      kind: "published-contact-points",
+      costUsd: 3e-3
+    }
   }
 };
 
@@ -48759,7 +48878,8 @@ var BUNDLE_ROUTE = {
 var SHELVES = [
   { route: LOOKUP_ROUTE, parse: parseDomainRequest, run: runLookup, priceUsd: PRICE_LOOKUP },
   { route: DOSSIER_ROUTE, parse: parseDomainRequest, run: runDossier, priceUsd: PRICE_DOSSIER },
-  { route: BUNDLE_ROUTE, parse: parseDomainRequest, run: runBundle, priceUsd: PRICE_BUNDLE }
+  { route: BUNDLE_ROUTE, parse: parseDomainRequest, run: (r) => runBundle(r, "people"), priceUsd: PRICE_BUNDLE },
+  { route: CONTACTS_ROUTE, parse: parseDomainRequest, run: (r) => runBundle(r, "contacts"), priceUsd: PRICE_CONTACTS }
 ];
 function createHandler(cfg, facilitator) {
   return (req, res) => {

@@ -1,6 +1,10 @@
 import { SUPPLIERS, SupplierError } from "./types.ts";
 import type { Purchase, Supplier } from "./types.ts";
 
+/** Canonical USDC on Base, and a public node to read balances from. */
+const USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+const BASE_RPC = process.env.BASE_RPC_URL ?? "https://mainnet.base.org";
+
 /**
  * Buys one item from an x402 supplier using the operating wallet.
  *
@@ -88,10 +92,21 @@ export async function buy<T>(
   const { ExactEvmScheme } = await import("@x402/evm/exact/client");
   const { wrapFetchWithPayment, x402Client, decodePaymentResponseHeader } = await import("@x402/fetch");
 
-  const client = new x402Client().register("eip155:8453", new ExactEvmScheme(privateKeyToAccount(key as `0x${string}`)));
+  const account = privateKeyToAccount(key as `0x${string}`);
+
+  const float = await floatUsd(account.address, options.timeoutMs);
+  if (float !== null && float < asking) {
+    throw new SupplierError(
+      supplier.id,
+      `costs $${asking} but the operating wallet holds $${float.toFixed(3)}. Not bought; top it up.`,
+      false,
+    );
+  }
+
+  const client = new x402Client().register("eip155:8453", new ExactEvmScheme(account));
   const paidFetch = wrapFetchWithPayment(fetch, client);
 
-  const res = await paidFetch(supplier.url, {
+  const res = await paidFetch(requestUrl(supplier, body), {
     method: supplier.method,
     headers: { "content-type": "application/json", accept: "application/json" },
     ...(supplier.method === "POST" ? { body: JSON.stringify(body) } : {}),
@@ -112,4 +127,60 @@ export async function buy<T>(
     ...(supplier.byDomain?.unverified ? { unverifiedMapping: true } : {}),
     data: (await res.json()) as T,
   };
+}
+
+/**
+ * Where the request parameters actually go.
+ *
+ * A GET endpoint has no body to carry them, so anything we built for it has to
+ * ride in the query string or it never arrives. Sending a body to a GET
+ * supplier looks like it works — the payment settles and a 200 comes back —
+ * but the endpoint answers a question we never asked, and we have paid for it.
+ */
+export function requestUrl(supplier: Supplier, body: unknown): string {
+  if (supplier.method !== "GET") return supplier.url;
+  const url = new URL(supplier.url);
+  for (const [k, v] of Object.entries((body ?? {}) as Record<string, unknown>)) {
+    if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
+  }
+  return url.toString();
+}
+
+/**
+ * What the operating wallet can actually spend, in USD.
+ *
+ * Checked before paying rather than after failing. A reseller that discovers it
+ * is broke halfway through an order has already taken the buyer's money and
+ * still has nothing to hand back; discovering it one call earlier turns that
+ * into a refusal the buyer can act on.
+ *
+ * Returns null if the balance cannot be read, which is deliberately not the
+ * same as zero — an unreachable RPC must not block a sale the wallet could
+ * have paid for. The purchase then fails the old way, which is no worse than
+ * before this check existed.
+ */
+export async function floatUsd(address: string, timeoutMs = 10_000): Promise<number | null> {
+  const call = {
+    jsonrpc: "2.0",
+    id: 1,
+    method: "eth_call",
+    params: [
+      { to: USDC_BASE, data: `0x70a08231${address.toLowerCase().replace(/^0x/, "").padStart(64, "0")}` },
+      "latest",
+    ],
+  };
+  try {
+    const res = await fetch(BASE_RPC, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(call),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { result?: string };
+    if (!json.result) return null;
+    return Number(BigInt(json.result)) / 1e6;
+  } catch {
+    return null;
+  }
 }

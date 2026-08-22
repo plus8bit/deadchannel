@@ -195,6 +195,44 @@ export const BUNDLE_ROUTE: PaidRoute = {
   outputExample: {
     domain: "figma.com",
     company: { vendors: [{ name: "Greenhouse", category: "hr", evidence: "SPF: include:mg-spf.greenhouse.io" }] },
-    people: { data: { results: [] }, source: "FullEnrich People Search", costUsd: 0.15 },
+    contacts: { data: { results: [] }, source: "FullEnrich People Search", kind: "named-people", costUsd: 0.15 },
+  },
+};
+
+/**
+ * The cheap half of the same idea.
+ *
+ * Same dossier, but the contacts are what the company publishes about itself
+ * rather than who works there — scraped from its own site for $0.003 instead
+ * of bought from a people-data provider for $0.15. That is a different answer,
+ * not a worse version of the same one, so it gets its own shelf and its own
+ * price rather than being served quietly when the expensive shelf was paid for.
+ *
+ * At $0.02 it is also the shelf that works on a small float: thirty of these
+ * fit in the wallet space of one call to /people.
+ */
+export const CONTACTS_ROUTE: PaidRoute = {
+  path: "/contacts",
+  method: "POST",
+  serviceName: "Hosaka",
+  description:
+    "Company dossier plus every contact point the company publishes — emails, phones and social accounts scraped from its own site. Returns each third-party vendor the company can be proven to use with the record proving it. For reaching a company rather than a named person.",
+  tags: ["contacts", "b2b", "enrichment", "company-data", "email"],
+  mimeType: "application/json",
+  inputExample: { domain: "figma.com" },
+  inputSchema: {
+    type: "object",
+    properties: { domain: { type: "string", description: "Company domain, e.g. figma.com" } },
+    required: ["domain"],
+  },
+  outputExample: {
+    domain: "figma.com",
+    company: { vendors: [{ name: "Greenhouse", category: "hr", evidence: "SPF: include:mg-spf.greenhouse.io" }] },
+    contacts: {
+      data: { emails: ["support@figma.com"], phones: [] },
+      source: "OpenWebNinja website contacts scraper",
+      kind: "published-contact-points",
+      costUsd: 0.003,
+    },
   },
 };

@@ -1,7 +1,62 @@
-# deadchannel
+# deadchannel & Hosaka
 
-A risk oracle for x402 endpoints. Give it a URL, it tells an agent whether that
-endpoint is alive, honestly priced, and safe to call — **without spending a cent**.
+Two services that sell to AI agents over [x402](https://x402.org), paid per call
+in USDC. No signup, no API key, no subscription — an agent calls, pays, and gets
+an answer.
+
+| | what it sells | price |
+| --- | --- | --- |
+| **Hosaka** | which third-party vendors a company uses, proven from its own DNS, plus contacts | $0.01 – $0.25 |
+| **deadchannel** | whether an x402 endpoint is alive, honestly priced and safe to call | $0.001 |
+
+## Hosaka — company data for agents
+
+Available as an MCP server, so any MCP client can buy from it directly:
+
+```bash
+npx -y hosaka-mcp
+```
+
+```json
+{
+  "mcpServers": {
+    "hosaka": {
+      "command": "npx",
+      "args": ["-y", "hosaka-mcp"],
+      "env": { "HOSAKA_PRIVATE_KEY": "0x…" }
+    }
+  }
+}
+```
+
+`HOSAKA_PRIVATE_KEY` is a wallet holding a little USDC on Base. Four tools at
+four prices, so a cheap question never pays for an expensive answer:
+
+| tool | price | what you get |
+| --- | --- | --- |
+| `hosaka_lookup` | $0.01 | domain age, registrar, mail and DNS provider, DMARC, HTTPS, vendor count |
+| `hosaka_contacts` | $0.02 | the dossier, plus the emails and phones the company publishes about itself |
+| `hosaka_dossier` | $0.07 | every third-party vendor the company can be proven to use, each with its proof |
+| `hosaka_people` | $0.25 | the dossier, plus named people who work there |
+
+**Why the dossier is worth having.** A company proves it owns its domain to
+every SaaS product it buys by placing a DNS verification record, and authorises
+every sender it uses in its SPF record. Those two lists are a purchase history
+the company published itself.
+
+Asking for `figma.com` returns Anthropic, OpenAI, Adobe, Atlassian, MongoDB
+Atlas, Greenhouse, Docusign, Stripe, Notion, Dropbox and Zendesk — each with the
+exact record that proves it, so a buyer can check rather than trust.
+
+Page fingerprints require a loaded script or CDN host, never a mention: a site
+listing a vendor's logo among its integrations is not a site that uses it.
+
+Live at [hosaka-agents.vercel.app](https://hosaka-agents.vercel.app).
+
+## deadchannel — a risk oracle for x402 endpoints
+
+Give it a URL, it tells an agent whether that endpoint is alive, honestly priced,
+and safe to call — **without spending a cent**.
 
 Roughly 17% of probed x402 endpoints are dead or traps, and the Bazaar discovery
 layer ships no ranking, quality, or reputation signal by its own admission. An

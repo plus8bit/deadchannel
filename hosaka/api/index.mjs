@@ -419,7 +419,15 @@ async function servePaid(req, cfg, facilitator, deps) {
   let verification;
   try {
     verification = await facilitator.verify(signature, terms);
-  } catch {
+  } catch (err) {
+    const refusal = refusalFrom(err);
+    if (refusal) {
+      return {
+        status: 402,
+        headers: { [HEADER_REQUIRED]: encodeHeader(required) },
+        body: { error: "payment invalid", reason: refusal }
+      };
+    }
     return { status: 502, headers: {}, body: { error: "payment verification unavailable" } };
   }
   if (!verification.isValid) {
@@ -438,7 +446,11 @@ async function servePaid(req, cfg, facilitator, deps) {
   let settlement;
   try {
     settlement = await facilitator.settle(signature, terms);
-  } catch {
+  } catch (err) {
+    const refusal = refusalFrom(err);
+    if (refusal) {
+      return { status: 402, headers: {}, body: { error: "settlement refused", reason: refusal } };
+    }
     return { status: 502, headers: {}, body: { error: "settlement unavailable, you were not charged" } };
   }
   if (!settlement.success) {
@@ -458,6 +470,17 @@ async function servePaid(req, cfg, facilitator, deps) {
       priceUsd: priced.priceUsd
     }
   };
+}
+function refusalFrom(err) {
+  if (!(err instanceof FacilitatorError)) return null;
+  if (err.status === null || err.status < 400 || err.status >= 500) return null;
+  const body = err.body ?? "";
+  try {
+    const parsed = JSON.parse(body);
+    return parsed.invalidReason ?? parsed.errorReason ?? parsed.message ?? body.slice(0, 200);
+  } catch {
+    return body.slice(0, 200) || `facilitator returned ${err.status}`;
+  }
 }
 function withPrice(cfg, priceUsd) {
   return { ...cfg, priceUsd, priceAtomic: toAtomic(priceUsd, USDC_DECIMALS) };

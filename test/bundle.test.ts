@@ -14,9 +14,11 @@ import { describe, it } from "node:test";
  * If this fails, run `npm run build:fn` and commit the result.
  */
 /** Every shop that ships a committed bundle, and how to rebuild it. */
-const BUNDLES = [
+const BUNDLES: { name: string; entry: string; committed: string; script: string; external?: boolean }[] = [
   { name: "deadchannel", entry: "src/server/vercel-entry.ts", committed: "../api/index.mjs", script: "build:fn" },
   { name: "hosaka", entry: "src/hosaka/server/vercel-entry.ts", committed: "../hosaka/api/index.mjs", script: "build:hosaka" },
+  // Published to npm, where a stale build is downloaded by strangers.
+  { name: "hosaka-mcp", entry: "src/hosaka/mcp/server.ts", committed: "../packages/hosaka-mcp/src/server.mjs", script: "build:mcp", external: true },
 ];
 
 describe("committed serverless bundles", () => {
@@ -33,6 +35,7 @@ describe("committed serverless bundles", () => {
             "--platform=node",
             "--target=node22",
             "--format=esm",
+            ...(bundle.external ? ["--packages=external"] : []),
             `--outfile=${out}`,
             "--log-level=error",
           ],

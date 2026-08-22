@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Config } from "./config.ts";
 import { USDC_DECIMALS, toAtomic } from "./config.ts";
-import { FacilitatorClient } from "./facilitator.ts";
+import { FacilitatorClient, FacilitatorError } from "./facilitator.ts";
 import type { PaidRoute } from "./x402.ts";
 import {
   HEADER_REQUIRED,
@@ -93,7 +93,18 @@ export async function servePaid<Req, Res>(
   let verification;
   try {
     verification = await facilitator.verify(signature, terms);
-  } catch {
+  } catch (err) {
+    // A 4xx means the facilitator looked at the payment and refused it — an
+    // empty wallet, a bad signature. Reporting that as our outage tells the
+    // buyer to wait when the fix is on their side.
+    const refusal = refusalFrom(err);
+    if (refusal) {
+      return {
+        status: 402,
+        headers: { [HEADER_REQUIRED]: encodeHeader(required) },
+        body: { error: "payment invalid", reason: refusal },
+      };
+    }
     return { status: 502, headers: {}, body: { error: "payment verification unavailable" } };
   }
   if (!verification.isValid) {
@@ -115,7 +126,11 @@ export async function servePaid<Req, Res>(
   let settlement;
   try {
     settlement = await facilitator.settle(signature, terms);
-  } catch {
+  } catch (err) {
+    const refusal = refusalFrom(err);
+    if (refusal) {
+      return { status: 402, headers: {}, body: { error: "settlement refused", reason: refusal } };
+    }
     return { status: 502, headers: {}, body: { error: "settlement unavailable, you were not charged" } };
   }
   if (!settlement.success) {
@@ -136,6 +151,25 @@ export async function servePaid<Req, Res>(
       priceUsd: priced.priceUsd,
     },
   };
+}
+
+/**
+ * Reads a facilitator's refusal out of an error, or null when the failure was
+ * ours to own — a timeout, a 5xx, a network fault.
+ *
+ * The distinction matters to the buyer: one of these they can fix by funding a
+ * wallet, the other they can only wait out.
+ */
+function refusalFrom(err: unknown): string | null {
+  if (!(err instanceof FacilitatorError)) return null;
+  if (err.status === null || err.status < 400 || err.status >= 500) return null;
+  const body = err.body ?? "";
+  try {
+    const parsed = JSON.parse(body) as { invalidReason?: string; errorReason?: string; message?: string };
+    return parsed.invalidReason ?? parsed.errorReason ?? parsed.message ?? body.slice(0, 200);
+  } catch {
+    return body.slice(0, 200) || `facilitator returned ${err.status}`;
+  }
 }
 
 /**

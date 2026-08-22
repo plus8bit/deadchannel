@@ -13,8 +13,15 @@ import type { PaidRoute } from "../../server/x402.ts";
  * way onto the chart; the dossier is what the chart is for.
  */
 
-export const PRICE_LOOKUP = 0.005;
-export const PRICE_DOSSIER = 0.05;
+/**
+ * Priced against the companies actually selling company enrichment, not the
+ * pricier people-data tier: the field runs $0.02 to $0.075 with a $0.068
+ * median. The dossier sits just under the closest comparable by content, and
+ * the look-up stays in the cheapest tier because its job is to collect distinct
+ * payers, which is the only thing the catalog ranks on.
+ */
+export const PRICE_LOOKUP = 0.01;
+export const PRICE_DOSSIER = 0.07;
 /** Registration and DNS move slowly; a day-old profile is still a true one. */
 const TTL_MS = 24 * 60 * 60 * 1000;
 

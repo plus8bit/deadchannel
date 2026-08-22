@@ -166,8 +166,8 @@ indexed  : active=true
 A second shop on the same payout address, selling company facts to agents.
 
 ```
-POST /lookup    $0.005   domain age, registrar, mail and DNS provider, DMARC, HTTPS
-POST /dossier   $0.05    every third-party vendor we can prove, with the proof
+POST /lookup    $0.01   domain age, registrar, mail and DNS provider, DMARC, HTTPS
+POST /dossier   $0.07    every third-party vendor we can prove, with the proof
 ```
 
 Live at **https://hosaka-agents.vercel.app**, settling on Base mainnet.

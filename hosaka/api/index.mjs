@@ -970,8 +970,8 @@ var MemoryStore = class {
 };
 
 // src/hosaka/server/routes.ts
-var PRICE_LOOKUP = 5e-3;
-var PRICE_DOSSIER = 0.05;
+var PRICE_LOOKUP = 0.01;
+var PRICE_DOSSIER = 0.07;
 var TTL_MS = 24 * 60 * 60 * 1e3;
 var warehouse = new MemoryStore({ maxItems: 5e3 });
 function parseDomainRequest(body) {

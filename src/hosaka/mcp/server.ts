@@ -52,7 +52,7 @@ server.tool(
     description:
       "Fast facts about a company from its domain: how old the domain is, its registrar, mail and DNS " +
       "providers, whether DMARC and HTTPS are configured, and how many third-party vendors are visible. " +
-      "Costs $0.005 in USDC.",
+      "Costs $0.01 in USDC.",
     inputSchema: DOMAIN_SCHEMA,
   },
   async (args) => {
@@ -72,7 +72,7 @@ server.tool(
       "Everything hosaka_lookup returns, plus every third-party vendor the company can be proven to use " +
       "— CRM, email, analytics, cloud, HR, payments — each with the DNS record, SPF include or loaded " +
       "script that proves it. Also returns raw DNS, registration, certificate and site facts. " +
-      "Costs $0.05 in USDC.",
+      "Costs $0.07 in USDC.",
     inputSchema: DOMAIN_SCHEMA,
   },
   async (args) => {

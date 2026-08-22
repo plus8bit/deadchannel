@@ -6,8 +6,8 @@ Company facts for AI agents, paid per call in USDC on Base. No signup, no API ke
 
 | tool | price | what you get |
 | --- | --- | --- |
-| `hosaka_lookup` | $0.005 | domain age, registrar, mail and DNS provider, DMARC, HTTPS, vendor count |
-| `hosaka_dossier` | $0.05 | every third-party vendor the company can be proven to use, each with its proof |
+| `hosaka_lookup` | $0.01 | domain age, registrar, mail and DNS provider, DMARC, HTTPS, vendor count |
+| `hosaka_dossier` | $0.07 | every third-party vendor the company can be proven to use, each with its proof |
 
 ## Why the dossier is worth having
 

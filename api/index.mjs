@@ -14,7 +14,7 @@ var deadchannel_config_default = {
 // src/server/algorand.ts
 import { createHash } from "node:crypto";
 var ALGORAND_MAINNET = "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=";
-var ALGORAND_TESTNET = "algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDeUmYyoI+Ai3o=";
+var ALGORAND_TESTNET = "algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=";
 var USDC_ASA_MAINNET = "31566704";
 var USDC_ASA_TESTNET = "10458941";
 var GOPLAUSIBLE_FEE_PAYER = "ZMFK2OI7ZBD2U27ISERZC4S6LKM6WMFJPZQ4MYNJDZ2VNBNMBA67RA22AA";
@@ -415,7 +415,7 @@ var CAIP2 = {
   "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k": { name: "algorand", testnet: false },
   "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=": { name: "algorand", testnet: false },
   "algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDe": { name: "algorand-testnet", testnet: true },
-  "algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDeUmYyoI+Ai3o=": { name: "algorand-testnet", testnet: true }
+  "algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=": { name: "algorand-testnet", testnet: true }
 };
 var CAIP2_LOWER = Object.fromEntries(
   Object.entries(CAIP2).map(([k, v]) => [k.toLowerCase(), v])

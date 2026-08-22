@@ -12,9 +12,16 @@ import { createHash } from "node:crypto";
  * sponsors, so the buyer needs no ALGO of its own.
  */
 
-/** Algorand MainNet, identified by its genesis hash. */
+/**
+ * Algorand networks, identified by genesis hash.
+ *
+ * Both strings are copied from the facilitator's own /supported response
+ * rather than reconstructed. The first 32 characters of the two TestNet
+ * spellings in circulation are identical, so a hash guessed from a prefix
+ * looks right, matches nothing, and fails only at settlement.
+ */
 export const ALGORAND_MAINNET = "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=";
-export const ALGORAND_TESTNET = "algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDeUmYyoI+Ai3o=";
+export const ALGORAND_TESTNET = "algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=";
 
 /** USDC as an Algorand Standard Asset. Six decimals, same as everywhere else. */
 export const USDC_ASA_MAINNET = "31566704";

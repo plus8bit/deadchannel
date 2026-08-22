@@ -47,7 +47,7 @@ const CAIP2: Record<string, { name: string; testnet: boolean }> = {
   "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k": { name: "algorand", testnet: false },
   "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=": { name: "algorand", testnet: false },
   "algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDe": { name: "algorand-testnet", testnet: true },
-  "algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDeUmYyoI+Ai3o=": { name: "algorand-testnet", testnet: true },
+  "algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=": { name: "algorand-testnet", testnet: true },
 };
 
 /** Some facilitators lowercase the reference part, so match case-insensitively too. */

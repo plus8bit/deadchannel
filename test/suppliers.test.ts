@@ -138,17 +138,21 @@ describe("the resale shelves", () => {
     assert.equal(new Set(kinds).size, kinds.length, "tiers must not share a kind");
   });
 
-  it("declares an inferred request shape instead of hiding it", () => {
-    for (const s of Object.values(SUPPLIERS)) {
-      if (!s.byDomain) continue;
-      // Every supplier we buy from by domain publishes no input schema, so
-      // every mapping is inferred. The day one of them documents itself, this
-      // assertion is what forces the flag to be dropped rather than left lying.
-      assert.equal(s.byDomain.unverified, true, `${s.id} mapping must be marked inferred`);
-    }
+  it("marks a request shape as inferred until a purchase proves it", () => {
+    // No supplier in this category publishes an input schema, so every mapping
+    // starts as a guess. The flag is what tells a buyer that an empty result
+    // may be our fault rather than an absence of data — and dropping it is
+    // only allowed once a real call has established the field.
+    assert.equal(SUPPLIERS["fullenrich-people"]!.byDomain?.unverified, true, "still unproven");
     assert.deepEqual(SUPPLIERS["fullenrich-people"]!.byDomain?.build("figma.com"), {
       company_domain: "figma.com",
     });
+
+    // Established by paying once with a different value in each candidate
+    // parameter and reading which came back. See scripts/learn-parameter.mjs.
+    const proven = SUPPLIERS["openwebninja-contacts"]!;
+    assert.equal(proven.byDomain?.unverified, undefined, "proven mappings must not claim to be guesses");
+    assert.deepEqual(proven.byDomain?.build("figma.com"), { query: "figma.com" });
   });
 
   it("puts parameters where a GET supplier can actually read them", async () => {
@@ -158,7 +162,6 @@ describe("the resale shelves", () => {
     // A GET has no body. Sending one looks like it works — the payment settles
     // and a 200 comes back — but the endpoint answered a question we never
     // asked and we paid for it.
-    assert.equal(url.searchParams.get("domain"), "figma.com");
     assert.equal(url.searchParams.get("query"), "figma.com");
 
     const post = SUPPLIERS["fullenrich-people"]!;

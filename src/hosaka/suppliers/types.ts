@@ -88,21 +88,11 @@ export const SUPPLIERS: Record<string, Supplier> = {
     method: "GET",
     listPriceUsd: 0.003,
     maxPriceUsd: 0.005,
-    // No input schema, no description, no tags — nothing published at all. So
-    // the first request carries every plausible spelling of the one parameter
-    // it can possibly want. Unknown query parameters are ignored by almost
-    // every API, which turns five guesses into one $0.003 purchase instead of
-    // five. Once a real response names the field, this collapses to that field.
-    byDomain: {
-      build: (domain) => ({
-        query: domain,
-        website_url: `https://${domain}`,
-        domain,
-        url: `https://${domain}`,
-        website: domain,
-      }),
-      unverified: true,
-    },
+    // Nothing published at all — no input schema, no description, no tags. The
+    // field name was established by paying once with a different value in each
+    // candidate parameter and reading which one came back: see
+    // scripts/learn-parameter.mjs. It is `query`; the rest were ignored.
+    byDomain: { build: (domain) => ({ query: domain }) },
   },
   "linkedpanda-profile": {
     id: "linkedpanda-profile",

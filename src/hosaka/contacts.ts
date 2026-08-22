@@ -22,12 +22,45 @@ export interface ContactSummary {
   social: Record<string, string>;
   /**
    * Addresses found on the company's pages that belong to someone else —
-   * partners, vendors, individuals, documentation examples.
+   * partners, vendors, individuals.
    */
   foundElsewhere: string[];
+  /**
+   * Addresses at the company's own domain that nobody reads: documentation
+   * stand-ins like `acct_1234abcd@stripe.com`, lifted from a support article
+   * explaining what an address of that shape means.
+   */
+  likelyPlaceholder: string[];
   /** How many of the raw addresses survived, so the filtering is auditable. */
   kept: number;
   discarded: number;
+}
+
+/**
+ * Addresses that exist only to be looked at.
+ *
+ * A documentation page showing what a generated address looks like puts a real
+ * string at a real domain on a real page, and every test a scraper can apply
+ * says it is a contact. Only the shape gives it away.
+ *
+ * Deliberately conservative, and wrong in the recoverable direction: a suspect
+ * address is moved to its own list, never dropped, so a false positive costs a
+ * reader one glance and a false negative costs a buyer one bounced email.
+ */
+const PLACEHOLDER = [
+  /example/i,
+  // Object identifiers: a short word, an underscore, then something with a
+  // digit in it. `acct_1234abcd`, `cus_9f2b1`, `order_00123`.
+  /^[a-z]{2,10}_(?=[a-z0-9]*\d)[a-z0-9]{5,}$/i,
+  /^(your|my)[._-]?(e?mail|name|address)?$/i,
+  /^(first|last)[._-]?name$/i,
+  /^(someone|somebody|username|user|recipient|placeholder)$/i,
+];
+
+function isPlaceholder(email: string): boolean {
+  const at = email.lastIndexOf("@");
+  const local = at < 0 ? email : email.slice(0, at);
+  return PLACEHOLDER.some((re) => (re.source.includes("example") ? re.test(email) : re.test(local)));
 }
 
 /** Does an address belong to this company: same domain, or a subdomain of it. */
@@ -86,7 +119,9 @@ export function summarise(domain: string, raw: unknown): ContactSummary | null {
   if (!first) return null;
 
   const emails = rows(first["emails"]);
-  const mine = emails.filter((e) => ownedBy(e.value, domain)).map((e) => e.value);
+  const owned = emails.filter((e) => ownedBy(e.value, domain)).map((e) => e.value);
+  const mine = owned.filter((e) => !isPlaceholder(e));
+  const fake = owned.filter((e) => isPlaceholder(e));
   const theirs = emails.filter((e) => !ownedBy(e.value, domain)).map((e) => e.value);
 
   const social: Record<string, string> = {};
@@ -100,7 +135,8 @@ export function summarise(domain: string, raw: unknown): ContactSummary | null {
     phones: [...new Set(rows(first["phone_numbers"]).filter((p) => onOwnSite(p.sources, domain)).map((p) => p.value))],
     social,
     foundElsewhere: [...new Set(theirs)],
+    likelyPlaceholder: [...new Set(fake)],
     kept: new Set(mine).size,
-    discarded: new Set(theirs).size,
+    discarded: new Set(theirs).size + new Set(fake).size,
   };
 }

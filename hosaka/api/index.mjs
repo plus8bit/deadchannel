@@ -48070,21 +48070,11 @@ var SUPPLIERS = {
     method: "GET",
     listPriceUsd: 3e-3,
     maxPriceUsd: 5e-3,
-    // No input schema, no description, no tags — nothing published at all. So
-    // the first request carries every plausible spelling of the one parameter
-    // it can possibly want. Unknown query parameters are ignored by almost
-    // every API, which turns five guesses into one $0.003 purchase instead of
-    // five. Once a real response names the field, this collapses to that field.
-    byDomain: {
-      build: (domain) => ({
-        query: domain,
-        website_url: `https://${domain}`,
-        domain,
-        url: `https://${domain}`,
-        website: domain
-      }),
-      unverified: true
-    }
+    // Nothing published at all — no input schema, no description, no tags. The
+    // field name was established by paying once with a different value in each
+    // candidate parameter and reading which one came back: see
+    // scripts/learn-parameter.mjs. It is `query`; the rest were ignored.
+    byDomain: { build: (domain) => ({ query: domain }) }
   },
   "linkedpanda-profile": {
     id: "linkedpanda-profile",
@@ -48606,6 +48596,20 @@ function normalize2(input) {
 }
 
 // src/hosaka/contacts.ts
+var PLACEHOLDER = [
+  /example/i,
+  // Object identifiers: a short word, an underscore, then something with a
+  // digit in it. `acct_1234abcd`, `cus_9f2b1`, `order_00123`.
+  /^[a-z]{2,10}_(?=[a-z0-9]*\d)[a-z0-9]{5,}$/i,
+  /^(your|my)[._-]?(e?mail|name|address)?$/i,
+  /^(first|last)[._-]?name$/i,
+  /^(someone|somebody|username|user|recipient|placeholder)$/i
+];
+function isPlaceholder(email) {
+  const at = email.lastIndexOf("@");
+  const local = at < 0 ? email : email.slice(0, at);
+  return PLACEHOLDER.some((re) => re.source.includes("example") ? re.test(email) : re.test(local));
+}
 function ownedBy(email, domain) {
   const at = email.lastIndexOf("@");
   if (at < 0) return false;
@@ -48647,7 +48651,9 @@ function summarise(domain, raw) {
   const first2 = list[0] ?? null;
   if (!first2) return null;
   const emails = rows(first2["emails"]);
-  const mine = emails.filter((e) => ownedBy(e.value, domain)).map((e) => e.value);
+  const owned = emails.filter((e) => ownedBy(e.value, domain)).map((e) => e.value);
+  const mine = owned.filter((e) => !isPlaceholder(e));
+  const fake = owned.filter((e) => isPlaceholder(e));
   const theirs = emails.filter((e) => !ownedBy(e.value, domain)).map((e) => e.value);
   const social = {};
   for (const k of SOCIAL) {
@@ -48659,8 +48665,9 @@ function summarise(domain, raw) {
     phones: [...new Set(rows(first2["phone_numbers"]).filter((p) => onOwnSite(p.sources, domain)).map((p) => p.value))],
     social,
     foundElsewhere: [...new Set(theirs)],
+    likelyPlaceholder: [...new Set(fake)],
     kept: new Set(mine).size,
-    discarded: new Set(theirs).size
+    discarded: new Set(theirs).size + new Set(fake).size
   };
 }
 

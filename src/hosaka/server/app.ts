@@ -7,7 +7,9 @@ import { FacilitatorClient, FacilitatorError } from "../../server/facilitator.ts
 import { facilitatorAuth } from "../../server/facilitator-auth.ts";
 import { applyOutcome, servePaid } from "../../server/paid.ts";
 import type { PaidHandlerDeps } from "../../server/paid.ts";
+import { PRICE_BUNDLE, runBundle } from "./bundle.ts";
 import {
+  BUNDLE_ROUTE,
   DOSSIER_ROUTE,
   LOOKUP_ROUTE,
   PRICE_DOSSIER,
@@ -31,6 +33,7 @@ type Shelf = PaidHandlerDeps<DomainRequest, unknown>;
 const SHELVES: Shelf[] = [
   { route: LOOKUP_ROUTE, parse: parseDomainRequest, run: runLookup, priceUsd: PRICE_LOOKUP },
   { route: DOSSIER_ROUTE, parse: parseDomainRequest, run: runDossier, priceUsd: PRICE_DOSSIER },
+  { route: BUNDLE_ROUTE, parse: parseDomainRequest, run: runBundle, priceUsd: PRICE_BUNDLE },
 ];
 
 export function createHandler(cfg: Config, facilitator: FacilitatorClient) {

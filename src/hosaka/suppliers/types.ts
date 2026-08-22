@@ -17,10 +17,22 @@ export interface Supplier {
   listPriceUsd: number;
   /** Refuse to pay more than this, however the endpoint prices itself today. */
   maxPriceUsd: number;
+  /**
+   * Builds the request body from a company domain.
+   *
+   * Marked `unverified` where the supplier publishes no input schema — which is
+   * most of them, including both top earners in this category. The field name
+   * is then taken from the supplier's own prose, and the first real purchase
+   * confirms or corrects it. Nothing here is guessed silently: an unverified
+   * mapping is stated in the receipt the buyer gets back.
+   */
+  byDomain?: { build: (domain: string) => Record<string, unknown>; unverified?: boolean };
 }
 
 export interface Purchase<T> {
   supplier: string;
+  /** True when the request shape was inferred rather than documented. */
+  unverifiedMapping?: boolean;
   /** What the endpoint actually charged, read from the settlement. */
   paidUsd: number;
   transaction: string | null;
@@ -65,6 +77,9 @@ export const SUPPLIERS: Record<string, Supplier> = {
     method: "POST",
     listPriceUsd: 0.15,
     maxPriceUsd: 0.2,
+    // "filter by company domain/name/LinkedIn URL" — the field name is not
+    // published, so this is read off the description until a purchase proves it.
+    byDomain: { build: (domain) => ({ company_domain: domain }), unverified: true },
   },
   "linkedpanda-profile": {
     id: "linkedpanda-profile",

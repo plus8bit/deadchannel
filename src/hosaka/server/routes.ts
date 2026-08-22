@@ -169,3 +169,32 @@ export const DOSSIER_ROUTE: PaidRoute = {
     gaps: [],
   },
 };
+
+/**
+ * The resale shelf.
+ *
+ * Priced at $0.35 against a supplier cost of $0.15: cheaper than the market's
+ * top earner at $0.28 while carrying strictly more — their contacts plus a
+ * company dossier they do not sell. Being both cheaper and fuller than the
+ * leader is the only position worth taking from behind.
+ */
+export const BUNDLE_ROUTE: PaidRoute = {
+  path: "/people",
+  method: "POST",
+  serviceName: "Hosaka",
+  description:
+    "Company dossier and the people who work there, in one call. Returns every third-party vendor the company can be proven to use with the record proving each, plus contacts sourced from a people-data provider. Cheaper than buying the contacts alone elsewhere.",
+  tags: ["contacts", "people-data", "b2b", "enrichment", "company-data"],
+  mimeType: "application/json",
+  inputExample: { domain: "figma.com" },
+  inputSchema: {
+    type: "object",
+    properties: { domain: { type: "string", description: "Company domain, e.g. figma.com" } },
+    required: ["domain"],
+  },
+  outputExample: {
+    domain: "figma.com",
+    company: { vendors: [{ name: "Greenhouse", category: "hr", evidence: "SPF: include:mg-spf.greenhouse.io" }] },
+    people: { data: { results: [] }, source: "FullEnrich People Search", costUsd: 0.15 },
+  },
+};

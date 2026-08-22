@@ -103,3 +103,36 @@ describe("the supplier list", () => {
     }
   });
 });
+
+describe("the resale shelf", () => {
+  it("is priced below the market leader while carrying more", async () => {
+    const { PRICE_BUNDLE } = await import("../src/hosaka/server/bundle.ts");
+    const cost = SUPPLIERS["fullenrich-people"]!.listPriceUsd;
+    // PDL Person Enrich, the top earner in this whole market, sells contacts
+    // alone at $0.28. Undercutting it while adding a dossier is the position.
+    assert.ok(PRICE_BUNDLE < 0.28, "must undercut the leader");
+    assert.ok(PRICE_BUNDLE > cost, "must cover what the contacts cost us");
+    assert.ok(PRICE_BUNDLE - cost >= 0.15, `margin is only $${(PRICE_BUNDLE - cost).toFixed(2)}`);
+  });
+
+  it("declares an inferred request shape instead of hiding it", () => {
+    const s = SUPPLIERS["fullenrich-people"]!;
+    assert.ok(s.byDomain, "the shelf needs a domain lookup");
+    assert.equal(s.byDomain?.unverified, true, "this supplier publishes no input schema");
+    assert.deepEqual(s.byDomain?.build("figma.com"), { company_domain: "figma.com" });
+  });
+
+  it("cannot sell the bundle without an operating wallet, and says so", async () => {
+    const { runBundle } = await import("../src/hosaka/server/bundle.ts");
+    await assert.rejects(
+      () => runBundle({ domain: "figma.com" }),
+      (err: SupplierError) => {
+        // Throwing is what keeps the buyer from paying for half an answer:
+        // the payment layer settles only after the handler returns.
+        assert.equal(err.upstream, false);
+        assert.match(err.message, /HOSAKA_OPERATING_KEY/);
+        return true;
+      },
+    );
+  });
+});

@@ -109,6 +109,7 @@ export async function buy<T>(
     supplier: supplier.id,
     paidUsd: asking,
     transaction: settlement?.transaction ?? null,
+    ...(supplier.byDomain?.unverified ? { unverifiedMapping: true } : {}),
     data: (await res.json()) as T,
   };
 }

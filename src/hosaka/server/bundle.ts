@@ -64,4 +64,12 @@ export async function runBundle(req: { domain: string }): Promise<BundleResponse
   };
 }
 
-export const PRICE_BUNDLE = 0.35;
+/**
+ * $0.25 against a $0.15 supplier cost.
+ *
+ * The number is set by what it has to beat: the market's top earner sells
+ * contacts alone at $0.28, so anything at or above that loses the only
+ * advantage worth having from behind. This undercuts it by a ninth and still
+ * carries the dossier they do not sell, on a 67% markup over cost.
+ */
+export const PRICE_BUNDLE = 0.25;

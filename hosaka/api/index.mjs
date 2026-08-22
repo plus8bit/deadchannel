@@ -48561,7 +48561,7 @@ async function runBundle(req) {
     collectedAt: (/* @__PURE__ */ new Date()).toISOString()
   };
 }
-var PRICE_BUNDLE = 0.35;
+var PRICE_BUNDLE = 0.25;
 
 // src/hosaka/store.ts
 var MemoryStore = class {

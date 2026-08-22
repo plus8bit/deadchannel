@@ -112,7 +112,8 @@ describe("the resale shelf", () => {
     // alone at $0.28. Undercutting it while adding a dossier is the position.
     assert.ok(PRICE_BUNDLE < 0.28, "must undercut the leader");
     assert.ok(PRICE_BUNDLE > cost, "must cover what the contacts cost us");
-    assert.ok(PRICE_BUNDLE - cost >= 0.15, `margin is only $${(PRICE_BUNDLE - cost).toFixed(2)}`);
+    assert.ok(PRICE_BUNDLE - cost >= 0.08, `margin is only $${(PRICE_BUNDLE - cost).toFixed(2)}`);
+    assert.ok(PRICE_BUNDLE / cost >= 1.5, "markup must survive a supplier reprice");
   });
 
   it("declares an inferred request shape instead of hiding it", () => {

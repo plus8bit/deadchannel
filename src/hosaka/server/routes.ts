@@ -173,7 +173,7 @@ export const DOSSIER_ROUTE: PaidRoute = {
 /**
  * The resale shelf.
  *
- * Priced at $0.35 against a supplier cost of $0.15: cheaper than the market's
+ * Priced at $0.25 against a supplier cost of $0.15: cheaper than the market's
  * top earner at $0.28 while carrying strictly more — their contacts plus a
  * company dossier they do not sell. Being both cheaper and fuller than the
  * leader is the only position worth taking from behind.

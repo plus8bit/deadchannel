@@ -101,6 +101,7 @@ function parseOption(
     assetSymbol: resolved.symbol,
     assetDecimals: resolved.decimals,
     payTo: readString(o["payTo"]),
+    extra: asRecord(o["extra"]),
     resource: readString(o["resource"]) ?? readString(rootResource?.["url"]),
     description: readString(o["description"]) ?? readString(rootResource?.["description"]),
     mimeType: readString(o["mimeType"]) ?? readString(rootResource?.["mimeType"]),

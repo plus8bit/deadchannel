@@ -23,6 +23,10 @@ const REGISTRY = new Map<string, AssetInfo>([
   ["0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e", { symbol: "USDC", decimals: 6, usd: 1 }], // Avalanche
   ["epjfwdd5aufqssqem2qn1xzybapc8g4weggkzwytdt1v", { symbol: "USDC", decimals: 6, usd: 1 }], // Solana
   ["4zmmc9srt5ri5x14gagxhahii3gnpaeerypjgzjdncdu", { symbol: "USDC", decimals: 6, usd: 1 }], // Solana devnet
+  // Algorand names an asset by its integer ASA id, not an address. 31566704 is
+  // USDC on MainNet; 10458941 is USDC on TestNet.
+  ["31566704", { symbol: "USDC", decimals: 6, usd: 1 }],
+  ["10458941", { symbol: "USDC", decimals: 6, usd: 1 }],
 ]);
 
 export interface ResolvedAsset {

@@ -31,6 +31,14 @@ export interface PaymentOption {
   priceUsd: number | null;
   asset: string | null;
   assetSymbol: string | null;
+  /**
+   * Whatever the endpoint attached to this option, kept verbatim.
+   *
+   * Not decoration: it carries the EIP-712 domain on EVM, the fee payer on
+   * Solana and Algorand, and the entry tag for the Algorand challenge. Dropping
+   * it during normalization made every challenge entrant invisible to us.
+   */
+  extra: Record<string, unknown> | null;
   assetDecimals: number | null;
   payTo: string | null;
   resource: string | null;

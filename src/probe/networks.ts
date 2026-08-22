@@ -38,9 +38,16 @@ const CAIP2: Record<string, { name: string; testnet: boolean }> = {
   "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp": { name: "solana", testnet: false },
   "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1": { name: "solana-devnet", testnet: true },
   "solana:4uhcVJyU9pJkvQyS88uRDiswHXSCkY3z": { name: "solana-testnet", testnet: true },
-  // Algorand identifies a network by the base64 genesis hash, case preserved.
+  // Algorand identifies a network by the base64 genesis hash. CAIP-2 caps a
+  // reference at 32 characters, so the spec-shaped id is the hash truncated —
+  // but the facilitator actually serving Algorand sends the full 44-character
+  // hash, padding included. Both forms appear in the wild and both must
+  // resolve; matching only the spec-shaped one left every Algorand endpoint
+  // reading as an unknown network, which is 1126 of them.
   "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k": { name: "algorand", testnet: false },
+  "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=": { name: "algorand", testnet: false },
   "algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDe": { name: "algorand-testnet", testnet: true },
+  "algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDeUmYyoI+Ai3o=": { name: "algorand-testnet", testnet: true },
 };
 
 /** Some facilitators lowercase the reference part, so match case-insensitively too. */

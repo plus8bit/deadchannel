@@ -49026,128 +49026,201 @@ function hosakaLanding(cfg) {
   return `<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Hosaka \u2014 company data for agents</title>
 <meta name="description" content="Every third-party vendor a company can be proven to use, read from its own DNS. Sold to AI agents per call in USDC. No signup, no API key.">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<meta name="theme-color" content="#08090C">
+<meta name="theme-color" content="#07080B">
 <meta property="og:title" content="Hosaka \u2014 company data for agents">
 <meta property="og:description" content="Every third-party vendor a company can be proven to use, read from its own DNS. Paid per call in USDC.">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<!--
+  the sky above the port was the color of television, tuned to a dead channel.
+  you found the comments. try typing: jack in
+-->
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --void:#08090C; --panel:#0D0F14; --line:#191D25;
-  --bone:#D6D9DE; --dim:#79808C; --faint:#464C57;
-  --seal:#FF3B2F; --jade:#43D9A3;
+  --void:#07080B; --panel:#0C0E13; --panel2:#101319; --line:#191D26;
+  --bone:#D7DAE0; --dim:#7B828E; --faint:#454B56;
+  --seal:#FF3B2F; --jade:#43D9A3; --matrix:#2F6BFF;
   --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
   --disp:"Chakra Petch",system-ui,sans-serif;
+  --pad:clamp(18px,5vw,26px);
 }
-html{background:var(--void)}
-body{background:var(--void);color:var(--bone);font:15px/1.7 var(--mono);-webkit-font-smoothing:antialiased;position:relative;overflow-x:hidden}
-/* CRT scanline, at the edge of visibility */
-body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:99;
-  background:repeating-linear-gradient(180deg,rgba(255,255,255,.017) 0 1px,transparent 1px 3px)}
-.wrap{max-width:880px;margin:0 auto;padding:72px 26px 110px;position:relative}
+html{background:var(--void);-webkit-text-size-adjust:100%}
+body{background:var(--void);color:var(--bone);font:15px/1.7 var(--mono);
+  -webkit-font-smoothing:antialiased;overflow-x:hidden;position:relative}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:60;
+  background:repeating-linear-gradient(180deg,rgba(255,255,255,.016) 0 1px,transparent 1px 3px)}
 
-/* staggered reveal, once, on load */
-@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
-.r{animation:rise .7s cubic-bezier(.2,.7,.3,1) both}
-@media(prefers-reduced-motion:reduce){.r{animation:none}}
+/* \u2500\u2500 the matrix: a grid receding to a horizon, drifting \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+.grid{position:fixed;left:0;right:0;bottom:0;height:52vh;z-index:0;pointer-events:none;
+  perspective:280px;perspective-origin:50% 0;opacity:.5;
+  mask-image:linear-gradient(to top,#000 8%,transparent 92%);
+  -webkit-mask-image:linear-gradient(to top,#000 8%,transparent 92%)}
+.grid i{position:absolute;left:-60%;right:-60%;top:0;height:300%;
+  transform:rotateX(76deg);transform-origin:50% 0;
+  background-image:
+    linear-gradient(to right,rgba(47,107,255,.30) 1px,transparent 1px),
+    linear-gradient(to bottom,rgba(47,107,255,.30) 1px,transparent 1px);
+  background-size:56px 56px;animation:drift 7s linear infinite}
+@keyframes drift{to{background-position:0 56px}}
+body.jacked .grid{opacity:.95}
+body.jacked .grid i{background-image:
+  linear-gradient(to right,rgba(67,217,163,.42) 1px,transparent 1px),
+  linear-gradient(to bottom,rgba(67,217,163,.42) 1px,transparent 1px);
+  animation-duration:1.6s}
 
-header{position:relative;padding-bottom:8px}
-.kana{position:absolute;right:-6px;top:-30px;font-family:var(--disp);font-weight:700;
-  font-size:clamp(70px,17vw,150px);line-height:1;color:#11141A;letter-spacing:.04em;
-  user-select:none;pointer-events:none;z-index:0}
+/* \u2500\u2500 dead channel: the load state is static that dissolves \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+#static{position:fixed;inset:0;z-index:70;pointer-events:none;
+  opacity:1;transition:opacity 1.05s ease-out}
+#static.gone{opacity:0}
+
+.wrap{max-width:900px;margin:0 auto;padding:clamp(48px,9vw,84px) var(--pad) 110px;
+  position:relative;z-index:2}
+
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.r{animation:rise .75s cubic-bezier(.2,.7,.3,1) both}
+
+/* \u2500\u2500 hero \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+header{position:relative}
+.kana{position:absolute;right:-4px;top:clamp(-26px,-4vw,-14px);font-family:var(--disp);
+  font-weight:700;font-size:clamp(64px,16vw,148px);line-height:1;color:#0F1219;
+  letter-spacing:.04em;user-select:none;pointer-events:none;z-index:0;
+  transition:color .5s}
+body.jacked .kana{color:#132A22}
 h1{position:relative;z-index:1;font-family:var(--disp);font-weight:700;
-  font-size:clamp(44px,9vw,78px);line-height:.94;letter-spacing:-.02em}
+  font-size:clamp(40px,10vw,80px);line-height:.94;letter-spacing:-.02em}
 h1 em{font-style:normal;color:var(--seal)}
-.rule{height:1px;margin:26px 0 22px;background:linear-gradient(90deg,var(--seal),var(--line) 42%,transparent)}
-.tag{position:relative;z-index:1;color:var(--dim);max-width:63ch}
+h1 .cur{color:var(--seal);animation:blink 1.15s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.rule{height:1px;margin:24px 0 22px;
+  background:linear-gradient(90deg,var(--seal),var(--line) 40%,transparent)}
+.tag{position:relative;z-index:1;color:var(--dim);max-width:62ch}
 .tag b{color:var(--bone);font-weight:500}
 
-.meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:28px}
-.chip{border:1px solid var(--line);background:var(--panel);padding:6px 12px;
-  font-size:11.5px;letter-spacing:.09em;color:var(--dim);text-transform:uppercase}
-.chip i{font-style:normal;color:var(--jade)}
+/* the shuriken from the Ninsei window */
+.shuri{position:absolute;right:2px;top:clamp(96px,26vw,168px);width:clamp(46px,11vw,74px);
+  height:auto;opacity:.5;z-index:1;animation:spin 26s linear infinite;
+  filter:drop-shadow(0 0 14px rgba(255,59,47,.25))}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:640px){.shuri{opacity:.32}}
 
-h2{font-family:var(--disp);font-weight:500;font-size:12px;letter-spacing:.24em;
-  text-transform:uppercase;color:var(--seal);margin:62px 0 20px;
+.meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:30px;position:relative;z-index:1}
+.chip{border:1px solid var(--line);background:var(--panel);padding:6px 12px;
+  font-size:11px;letter-spacing:.09em;color:var(--dim);text-transform:uppercase;
+  white-space:nowrap}
+.chip i{font-style:normal;color:var(--jade)}
+.chip b{color:var(--bone);font-weight:500}
+
+h2{font-family:var(--disp);font-weight:600;font-size:12px;letter-spacing:.24em;
+  text-transform:uppercase;color:var(--seal);margin:clamp(46px,9vw,68px) 0 20px;
   display:flex;align-items:center;gap:14px}
 h2::after{content:"";flex:1;height:1px;background:var(--line)}
 p{color:var(--dim);max-width:68ch;margin-bottom:14px}
 p strong{color:var(--bone);font-weight:500}
 
-.proof{display:grid;grid-template-columns:repeat(auto-fit,minmax(255px,1fr));
-  gap:1px;background:var(--line);border:1px solid var(--line);margin:4px 0 18px}
-.p{background:var(--panel);padding:14px 16px;transition:background .25s}
-.p:hover{background:#12151C}
-.p b{font-family:var(--disp);font-weight:500;font-size:15px;letter-spacing:.01em}
+/* \u2500\u2500 evidence, decrypting as it arrives \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+.proof{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+  gap:1px;background:var(--line);border:1px solid var(--line);margin:4px 0 20px}
+.p{background:var(--panel);padding:14px 16px;transition:background .3s,box-shadow .3s;
+  position:relative;overflow:hidden}
+.p::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;
+  background:var(--seal);transform:scaleY(0);transform-origin:top;transition:transform .3s}
+.p:hover{background:var(--panel2)}
+.p:hover::before{transform:scaleY(1)}
+.p b{font-family:var(--disp);font-weight:600;font-size:15px;letter-spacing:.01em;color:var(--bone)}
 .p code{display:block;color:var(--faint);font-size:11px;margin-top:6px;
   word-break:break-all;line-height:1.55}
 
 table{border-collapse:collapse;width:100%;font-size:13.5px}
-td{padding:11px 14px 11px 0;border-bottom:1px solid var(--line);vertical-align:top;color:var(--dim)}
-td:first-child{color:var(--bone);white-space:nowrap;width:1%;padding-right:24px}
+td{padding:12px 14px 12px 0;border-bottom:1px solid var(--line);vertical-align:top;color:var(--dim)}
+td:first-child{color:var(--bone);white-space:nowrap;width:1%;padding-right:22px}
 td.n{color:var(--seal);font-weight:700;text-align:right;width:1%;white-space:nowrap;font-size:14px}
-tr:hover td{background:#0B0D11}
+tr{transition:background .2s}
+tr:hover td{background:var(--panel)}
+@media(max-width:620px){
+  table,tbody,tr,td{display:block;width:auto}
+  tr{border-bottom:1px solid var(--line);padding:12px 0;position:relative}
+  td{border:0;padding:2px 0}
+  td:first-child{padding-right:72px}
+  td.n{position:absolute;right:0;top:12px;text-align:right}
+}
 
 pre{background:var(--panel);border:1px solid var(--line);border-left:2px solid var(--seal);
-  padding:16px 18px;overflow-x:auto;font-size:12.5px;line-height:1.75;color:var(--bone)}
+  padding:15px 16px;overflow-x:auto;font-size:12.5px;line-height:1.75;color:var(--bone);
+  -webkit-overflow-scrolling:touch}
 pre .c{color:var(--faint)}
 pre .s{color:var(--jade)}
 
 a{color:var(--bone);text-decoration:none;border-bottom:1px solid var(--faint);transition:.2s}
 a:hover{color:var(--seal);border-bottom-color:var(--seal)}
-footer{margin-top:70px;padding-top:24px;border-top:1px solid var(--line);
+footer{margin-top:clamp(52px,10vw,76px);padding-top:24px;border-top:1px solid var(--line);
   color:var(--faint);font-size:12px;line-height:1.9}
-@media(max-width:560px){.kana{opacity:.55;top:-14px}}
-</style></head><body><div class="wrap">
+.hint{margin-top:14px;color:#2C313A;font-size:11px;letter-spacing:.06em}
+
+@media(prefers-reduced-motion:reduce){
+  .r,.grid i,.shuri,h1 .cur{animation:none!important}
+  #static{display:none}
+}
+</style></head><body>
+
+<canvas id="static" aria-hidden="true"></canvas>
+<div class="grid" aria-hidden="true"><i></i></div>
+
+<div class="wrap">
 
 <header class="r">
   <div class="kana" aria-hidden="true">\u30DB\u30B5\u30AB</div>
-  <h1>HOSAKA<em>.</em></h1>
+  <svg class="shuri" viewBox="0 0 100 100" aria-hidden="true" fill="none"
+       stroke="var(--seal)" stroke-width="1.6" stroke-linejoin="round">
+    <path d="M50 3 L61 39 L97 50 L61 61 L50 97 L39 61 L3 50 L39 39 Z"/>
+    <path d="M50 22 L57 43 L78 50 L57 57 L50 78 L43 57 L22 50 L43 43 Z" opacity=".55"/>
+    <circle cx="50" cy="50" r="6" opacity=".8"/>
+  </svg>
+  <h1>HOSAKA<em>.</em><span class="cur">_</span></h1>
   <div class="rule"></div>
   <p class="tag">Company data for AI agents, paid per call in USDC. It reads a company's <b>own DNS</b> to find every third-party vendor it can be proven to use, and hands back the record that proves each one.</p>
   <div class="meta">
     <span class="chip"><i>&#9679;</i> LIVE &middot; ${chains}</span>
     <span class="chip">NO SIGNUP &middot; NO API KEY</span>
-    <span class="chip">FROM $${PRICE_LOOKUP} A CALL</span>
+    <span class="chip">FROM <b>$${PRICE_LOOKUP}</b> A CALL</span>
     <span class="chip">OPEN SOURCE</span>
   </div>
 </header>
 
-<section class="r" style="animation-delay:.09s">
+<section class="r" style="animation-delay:.10s">
 <h2>The receipts are public</h2>
 <p>A company proves it owns its domain to <strong>every SaaS product it buys</strong> by placing a verification record in DNS, and authorises every sender it uses in its SPF record. Those two lists are a purchase history the company published itself, sitting in the open, that nobody reads.</p>
 <p>Ask for <strong>figma.com</strong>:</p>
 <div class="proof">
-  <div class="p"><b>Anthropic</b><code>TXT anthropic-domain-verification-4rt01s=&hellip;</code></div>
-  <div class="p"><b>OpenAI</b><code>TXT openai-domain-verification=dv-JGOTRvDBX9eV2Gk8&hellip;</code></div>
-  <div class="p"><b>Greenhouse</b><code>SPF include:mg-spf.greenhouse.io</code></div>
-  <div class="p"><b>Zendesk</b><code>SPF include:mail.zendesk.com</code></div>
-  <div class="p"><b>Docusign</b><code>TXT docusign=f6914af5-107a-4dfa-9793-e34a09f627f0</code></div>
-  <div class="p"><b>Atlassian</b><code>TXT atlassian-domain-verification=oDxpYa6fakpgoav&hellip;</code></div>
+  <div class="p"><b>Anthropic</b><code data-dec>TXT anthropic-domain-verification-4rt01s=&hellip;</code></div>
+  <div class="p"><b>OpenAI</b><code data-dec>TXT openai-domain-verification=dv-JGOTRvDBX9eV2Gk8&hellip;</code></div>
+  <div class="p"><b>Greenhouse</b><code data-dec>SPF include:mg-spf.greenhouse.io</code></div>
+  <div class="p"><b>Zendesk</b><code data-dec>SPF include:mail.zendesk.com</code></div>
+  <div class="p"><b>Docusign</b><code data-dec>TXT docusign=f6914af5-107a-4dfa-9793-e34a09f627f0</code></div>
+  <div class="p"><b>Atlassian</b><code data-dec>TXT atlassian-domain-verification=oDxpYa6fakpgoav&hellip;</code></div>
 </div>
 <p>Seventeen vendors for that one domain, each with its evidence, so a buyer can <strong>check rather than trust</strong>. Page fingerprints require a loaded script or CDN host, never a mention: a site listing a vendor's logo among its integrations is not a site that uses it.</p>
 </section>
 
-<section class="r" style="animation-delay:.18s">
+<section class="r" style="animation-delay:.16s">
 <h2>Shelves</h2>
-<table>
+<table><tbody>
 <tr><td>POST /lookup</td><td>domain age, registrar, mail and DNS provider, DMARC, HTTPS, vendor count</td><td class="n">$${PRICE_LOOKUP}</td></tr>
 <tr><td>POST /contacts</td><td>the dossier, plus the emails and phones the company publishes about itself</td><td class="n">$${TIERS.contacts.priceUsd}</td></tr>
 <tr><td>POST /dossier</td><td>every vendor the company can be proven to use, each with its evidence</td><td class="n">$${PRICE_DOSSIER}</td></tr>
 <tr><td>POST /people</td><td>the dossier, plus named people who work there</td><td class="n">$${TIERS.people.priceUsd}</td></tr>
-</table>
+</tbody></table>
 <p style="margin-top:18px">Four prices, so a cheap question never pays for an expensive answer.</p>
 </section>
 
-<section class="r" style="animation-delay:.27s">
+<section class="r" style="animation-delay:.22s">
 <h2>Use it</h2>
 <pre><span class="c"># any x402 client; the 402 carries the price and terms</span>
 curl -X POST <span class="s">${cfg.publicUrl}/dossier</span> \\
@@ -49157,23 +49230,116 @@ curl -X POST <span class="s">${cfg.publicUrl}/dossier</span> \\
 <pre>npx -y <span class="s">hosaka-mcp</span></pre>
 </section>
 
-<section class="r" style="animation-delay:.36s">
+<section class="r" style="animation-delay:.28s">
 <h2>The expensive shelves are resale</h2>
 <p>Contacts and people cannot be produced from public records, so we buy them &mdash; from another x402 seller, <strong>in the same call</strong>, only once an order arrives. No inventory, no contract, no subscription. The supply chain is machines paying machines.</p>
 <p>Every supplier carries a ceiling, so we refuse to buy above what we charge, and the wallet is checked before the purchase rather than after: a shop that finds out it is broke halfway through an order has already taken the buyer's money and has nothing to hand back.</p>
 </section>
 
-<section class="r" style="animation-delay:.45s">
-<h2>The other half</h2>
-<p><a href="https://deadchannel.vercel.app">deadchannel</a> grades any x402 endpoint before an agent spends money on it &mdash; alive, honestly priced, safe to call, or not. Built because we needed it ourselves while probing the catalog.</p>
+<section class="r" style="animation-delay:.34s">
+<h2>Countermeasures</h2>
+<p><a href="https://deadchannel.vercel.app">deadchannel</a> grades any x402 endpoint before an agent spends money on it &mdash; alive, honestly priced, safe to call, or a trap. Built because we needed it ourselves while probing the catalog, and named for the first line of the book this shop is named after.</p>
 </section>
 
-<footer class="r" style="animation-delay:.54s">
+<footer class="r" style="animation-delay:.40s">
 Source <a href="https://github.com/plus8bit/deadchannel">github.com/plus8bit/deadchannel</a> &middot; zero runtime dependencies &middot; MIT<br>
 Machine-readable card at <a href="${cfg.publicUrl}/index.json">/index.json</a> &middot; descriptors at <a href="${cfg.publicUrl}/llms.txt">/llms.txt</a>
+<div class="hint">ONO-SENDAI CYBERSPACE 7 &middot; TYPE TO JACK IN</div>
 </footer>
 
-</div></body></html>`;
+</div>
+
+<script>
+(function(){
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* the sky above the port: static that dissolves into the grid */
+  var cv = document.getElementById("static");
+  if (cv && !reduce) {
+    var ctx = cv.getContext("2d"), W = 0, H = 0, raf = 0, t0 = 0;
+    function size(){ W = cv.width = Math.ceil(innerWidth/3); H = cv.height = Math.ceil(innerHeight/3);
+      cv.style.width = "100%"; cv.style.height = "100%"; }
+    size();
+    var img = ctx.createImageData(W, H);
+    function frame(ts){
+      if (!t0) t0 = ts;
+      var d = img.data;
+      for (var i = 0; i < d.length; i += 4){
+        var v = (Math.random()*255)|0;
+        d[i] = d[i+1] = d[i+2] = v; d[i+3] = 26;
+      }
+      ctx.putImageData(img, 0, 0);
+      if (ts - t0 < 900) raf = requestAnimationFrame(frame);
+      else { cv.classList.add("gone"); setTimeout(function(){ cv.remove(); }, 1100); }
+    }
+    raf = requestAnimationFrame(frame);
+  } else if (cv) { cv.remove(); }
+
+  /* evidence decrypts as it scrolls in */
+  var CHARS = "ABCDEF0123456789abcdef=-.:/";
+  function decrypt(el){
+    var real = el.textContent, n = real.length, step = 0;
+    var id = setInterval(function(){
+      step++;
+      var out = "";
+      for (var i = 0; i < n; i++){
+        if (i < step*1.6) out += real[i];
+        else out += CHARS[(Math.random()*CHARS.length)|0];
+      }
+      el.textContent = out;
+      if (step*1.6 >= n){ clearInterval(id); el.textContent = real; }
+    }, 26);
+  }
+  var codes = [].slice.call(document.querySelectorAll("[data-dec]"));
+  if (!reduce && "IntersectionObserver" in window){
+    var io = new IntersectionObserver(function(es){
+      es.forEach(function(e){
+        if (e.isIntersecting){ io.unobserve(e.target); decrypt(e.target); }
+      });
+    }, { threshold: .35 });
+    codes.forEach(function(c){ io.observe(c); });
+  }
+
+  /* jack in */
+  var buf = "";
+  var eggs = {
+    "jack in": function(){
+      document.body.classList.toggle("jacked");
+      say("cyberspace. a consensual hallucination experienced daily by billions.");
+    },
+    "wintermute": function(){ say("wintermute. cold and silence, a cybernetic spider."); },
+    "dixie": function(){ say("the flatline: 'hey, bro.' \u2014 a construct that laughs without breathing."); },
+    "zion": function(){ say("zion cluster. dub playing, always."); },
+    "case": function(){ say("case. twenty-four, a cowboy, and burned by mycotoxin."); }
+  };
+  function say(text){
+    var el = document.querySelector(".hint");
+    if (!el) return;
+    el.textContent = text.toUpperCase();
+    el.style.color = "#43D9A3";
+    clearTimeout(say._t);
+    say._t = setTimeout(function(){
+      el.textContent = "ONO-SENDAI CYBERSPACE 7 \xB7 TYPE TO JACK IN";
+      el.style.color = "";
+    }, 5200);
+  }
+  addEventListener("keydown", function(e){
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var t = e.target;
+    if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+    buf = (buf + e.key.toLowerCase()).slice(-14);
+    Object.keys(eggs).forEach(function(k){ if (buf.indexOf(k) !== -1){ buf = ""; eggs[k](); } });
+  });
+
+  if (window.console && console.log) {
+    console.log("%cThe sky above the port was the color of television, tuned to a dead channel.",
+      "color:#FF3B2F;font:600 13px ui-monospace,monospace");
+    console.log("%chosaka \xB7 company data for agents \xB7 npx -y hosaka-mcp",
+      "color:#43D9A3;font:12px ui-monospace,monospace");
+  }
+})();
+</script>
+</body></html>`;
 }
 
 // src/hosaka/server/app.ts

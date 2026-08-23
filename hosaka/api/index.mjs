@@ -49380,11 +49380,18 @@ Machine-readable card at <a href="${cfg.publicUrl}/index.json">/index.json</a> &
     while (out.children.length > 40) out.removeChild(out.firstChild);
     return new Promise(function(done){
       if (reduce){ d.textContent = text; out.scrollTop = out.scrollHeight; return done(); }
-      var i = 0, id = setInterval(function(){
-        d.textContent = text.slice(0, ++i);
+      // Driven by frames rather than a timer: a background tab throttles
+      // setInterval to one tick a second, which turned typing into a crawl.
+      // Frames pause instead, and the speed stays the same on every machine
+      // because the character count comes from elapsed time, not tick count.
+      var t0 = 0;
+      (function step(ts){
+        if (!t0) t0 = ts || 0;
+        var n = Math.min(text.length, Math.floor(((ts || 0) - t0) / 1000 * 110));
+        d.textContent = text.slice(0, n);
         out.scrollTop = out.scrollHeight;
-        if (i >= text.length){ clearInterval(id); done(); }
-      }, 9);
+        if (n < text.length) requestAnimationFrame(step); else done();
+      })(0);
     });
   }
   function pause(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }

@@ -49308,12 +49308,6 @@ curl -X POST <span class="s">${cfg.publicUrl}/dossier</span> \\
 <pre>npx -y <span class="s">hosaka-mcp</span></pre>
 </section>
 
-<section class="r" style="animation-delay:.28s">
-<h2>The expensive shelves are resale</h2>
-<p>Contacts and people cannot be produced from public records, so we buy them &mdash; from another x402 seller, <strong>in the same call</strong>, only once an order arrives. No inventory, no contract, no subscription. The supply chain is machines paying machines.</p>
-<p>Every supplier carries a ceiling, so we refuse to buy above what we charge, and the wallet is checked before the purchase rather than after: a shop that finds out it is broke halfway through an order has already taken the buyer's money and has nothing to hand back.</p>
-</section>
-
 <section class="r" style="animation-delay:.34s">
 <h2>Countermeasures</h2>
 <p><a href="https://deadchannel.vercel.app">deadchannel</a> grades any x402 endpoint before an agent spends money on it &mdash; alive, honestly priced, safe to call, or a trap. Built because we needed it ourselves while probing the catalog, and named for the first line of the book this shop is named after.</p>

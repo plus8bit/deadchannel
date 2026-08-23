@@ -56,15 +56,18 @@ body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:60;
   background:repeating-linear-gradient(180deg,rgba(255,255,255,.016) 0 1px,transparent 1px 3px)}
 
 /* ── the matrix: a grid receding to a horizon, drifting ─────────────── */
-.grid{position:fixed;left:0;right:0;bottom:0;height:52vh;z-index:0;pointer-events:none;
-  perspective:280px;perspective-origin:50% 0;opacity:.5;
-  mask-image:linear-gradient(to top,#000 8%,transparent 92%);
-  -webkit-mask-image:linear-gradient(to top,#000 8%,transparent 92%)}
-.grid i{position:absolute;left:-60%;right:-60%;top:0;height:300%;
-  transform:rotateX(76deg);transform-origin:50% 0;
+.grid{position:fixed;left:0;right:0;bottom:0;height:56vh;z-index:0;pointer-events:none;
+  perspective:300px;perspective-origin:50% 0;opacity:.75;
+  /* Without this the rotated plane inside reaches past the viewport and widens
+     the page, which on a phone pushes every line of text off the right edge. */
+  overflow:hidden;
+  mask-image:linear-gradient(to top,#000 4%,transparent 88%);
+  -webkit-mask-image:linear-gradient(to top,#000 4%,transparent 88%)}
+.grid i{position:absolute;left:-80%;right:-80%;top:0;height:340%;
+  transform:rotateX(74deg);transform-origin:50% 0;
   background-image:
-    linear-gradient(to right,rgba(47,107,255,.30) 1px,transparent 1px),
-    linear-gradient(to bottom,rgba(47,107,255,.30) 1px,transparent 1px);
+    linear-gradient(to right,rgba(47,107,255,.42) 1px,transparent 1px),
+    linear-gradient(to bottom,rgba(47,107,255,.42) 1px,transparent 1px);
   background-size:56px 56px;animation:drift 7s linear infinite}
 @keyframes drift{to{background-position:0 56px}}
 body.jacked .grid{opacity:.95}

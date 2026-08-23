@@ -49128,8 +49128,17 @@ h1 .cur{color:var(--seal);animation:blink 1.15s steps(1) infinite;cursor:text}
 /* A real, focusable prompt. The decorative caret in the headline read as an
    input, people clicked it, and nothing happened \u2014 an affordance that lies is
    worse than no affordance. */
-.term{display:flex;align-items:center;gap:10px;margin-top:22px;padding:11px 14px;
-  border:1px solid var(--line);background:var(--panel);max-width:420px;
+#deck{margin-top:22px;max-width:min(100%,560px)}
+#out{font-size:12.5px;line-height:1.65;max-height:0;overflow:hidden auto;
+  transition:max-height .4s ease;color:var(--jade);
+  border-left:1px solid transparent;padding-left:0}
+#out.on{max-height:210px;border-left-color:var(--line);padding-left:13px;
+  margin-bottom:10px}
+#out .in{color:var(--faint)}
+#out .k{color:var(--bone)}
+#out .warn{color:var(--seal)}
+.term{display:flex;align-items:center;gap:10px;padding:11px 14px;
+  border:1px solid var(--line);background:var(--panel);
   transition:border-color .25s}
 .term:focus-within{border-color:var(--seal)}
 .term span{color:var(--seal);user-select:none}
@@ -49200,13 +49209,7 @@ footer{margin-top:clamp(52px,10vw,76px);padding-top:24px;border-top:1px solid va
 .hint{margin-top:14px;color:#2C313A;font-size:11px;letter-spacing:.06em}
 /* The easter egg used to answer in the footer, which nobody has on screen when
    they are typing at the top of the page. */
-#toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,140%);z-index:80;
-  max-width:min(92vw,620px);padding:11px 16px;border:1px solid var(--jade);
-  background:rgba(7,8,11,.94);color:var(--jade);font-size:12px;letter-spacing:.05em;
-  text-align:center;line-height:1.5;opacity:0;visibility:hidden;
-  transition:transform .45s cubic-bezier(.2,.8,.3,1),opacity .3s,visibility .3s;
-  pointer-events:none;box-shadow:0 0 26px rgba(67,217,163,.14)}
-#toast.up{transform:translate(-50%,0);opacity:1;visibility:visible}
+
 
 @media(prefers-reduced-motion:reduce){
   .r,.grid i,.shuri,h1 .cur{animation:none!important}
@@ -49236,11 +49239,14 @@ footer{margin-top:clamp(52px,10vw,76px);padding-top:24px;border-top:1px solid va
     <span class="chip">FROM <b>$${PRICE_LOOKUP}</b> A CALL</span>
     <span class="chip">OPEN SOURCE</span>
   </div>
+  <div id="deck">
+  <div id="out" aria-live="polite"></div>
   <div class="term">
     <span>&gt;</span>
     <input id="cmd" type="text" spellcheck="false" autocomplete="off"
-           autocapitalize="off" autocorrect="off" placeholder="jack in"
-           aria-label="terminal \u2014 try: jack in">
+           autocapitalize="off" autocorrect="off" placeholder="figma.com \u2014 or: jack in"
+           aria-label="terminal \u2014 try a domain, or: jack in">
+  </div>
   </div>
 </header>
 
@@ -49294,12 +49300,10 @@ curl -X POST <span class="s">${cfg.publicUrl}/dossier</span> \\
 <footer class="r" style="animation-delay:.40s">
 Source <a href="https://github.com/plus8bit/deadchannel">github.com/plus8bit/deadchannel</a> &middot; zero runtime dependencies &middot; MIT<br>
 Machine-readable card at <a href="${cfg.publicUrl}/index.json">/index.json</a> &middot; descriptors at <a href="${cfg.publicUrl}/llms.txt">/llms.txt</a>
-<div class="hint">ONO-SENDAI CYBERSPACE 7 &middot; THE PROMPT AT THE TOP TAKES COMMANDS</div>
+<div class="hint">ONO-SENDAI CYBERSPACE 7 &middot; THE PROMPT TAKES A DOMAIN, OR <b style="color:#6B7280">HELP</b></div>
 </footer>
 
 </div>
-
-<div id="toast" role="status" aria-live="polite"></div>
 
 <script>
 (function(){
@@ -49363,60 +49367,111 @@ Machine-readable card at <a href="${cfg.publicUrl}/index.json">/index.json</a> &
     codes.forEach(function(c){ io.observe(c); });
   }
 
-  /* jack in */
-  var buf = "";
-  var eggs = {
-    "jack in": function(){
-      document.body.classList.toggle("jacked");
-      say("cyberspace. a consensual hallucination experienced daily by billions.");
-    },
-    "wintermute": function(){ say("wintermute. cold and silence, a cybernetic spider."); },
-    "dixie": function(){ say("the flatline: 'hey, bro.' \u2014 a construct that laughs without breathing."); },
-    "zion": function(){ say("zion cluster. dub playing, always."); },
-    "case": function(){ say("case. twenty-four, a cowboy, and burned by mycotoxin."); }
-  };
-  function say(text){
-    var el = document.getElementById("toast");
-    if (!el) return;
-    el.textContent = text;
-    el.classList.add("up");
-    clearTimeout(say._t);
-    say._t = setTimeout(function(){ el.classList.remove("up"); }, 5200);
-  }
-  function match(text){
-    var found = false;
-    Object.keys(eggs).forEach(function(k){
-      if (!found && text.indexOf(k) !== -1){ found = true; eggs[k](); }
+  /* \u2500\u2500 the deck \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+  var out = document.getElementById("out");
+  var cmd = document.getElementById("cmd");
+  var busy = false;
+
+  function write(text, cls){
+    var d = document.createElement("div");
+    if (cls) d.className = cls;
+    out.classList.add("on");
+    out.appendChild(d);
+    while (out.children.length > 40) out.removeChild(out.firstChild);
+    return new Promise(function(done){
+      if (reduce){ d.textContent = text; out.scrollTop = out.scrollHeight; return done(); }
+      var i = 0, id = setInterval(function(){
+        d.textContent = text.slice(0, ++i);
+        out.scrollTop = out.scrollHeight;
+        if (i >= text.length){ clearInterval(id); done(); }
+      }, 9);
     });
-    return found;
+  }
+  function pause(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+  function short(a){ return a.length > 20 ? a.slice(0, 10) + "\u2026" + a.slice(-6) : a; }
+
+  var LORE = {
+    "jack in": ["jacking in\u2026",
+      "cyberspace. a consensual hallucination experienced daily",
+      "by billions of legitimate operators, in every nation."],
+    "wintermute": ["wintermute. cold and silence, a cybernetic spider",
+      "patiently spinning webs of Ice."],
+    "dixie": ["the flatline: \u2018hey, bro.\u2019",
+      "a construct that laughs without breathing."],
+    "zion": ["zion cluster. built by workers who refused to go home.",
+      "dub playing, always."],
+    "case": ["case. twenty-four, a cowboy, and burned by mycotoxin.",
+      "they damaged his nervous system with a wartime russian toxin."],
+    "help": ["type a domain to see its live payment terms, or one of:",
+      "jack in \xB7 wintermute \xB7 dixie \xB7 zion \xB7 case"]
+  };
+
+  /* A domain, loosely: has a dot, no spaces, no scheme. Good enough to decide
+     whether to ask the server, and the server decides properly. */
+  function looksLikeDomain(v){
+    return v.indexOf(".") > 0 && v.indexOf(" ") === -1 && v.indexOf("/") === -1 && v.length < 80;
   }
 
-  /* the prompt, which is where people will actually type */
-  var cmd = document.getElementById("cmd");
+  /* The real 402, fetched without paying. This is the whole protocol in one
+     screen: an agent asks, the server answers with terms, nothing settles. */
+  async function quote(domain){
+    await write("probing " + location.host + "/lookup \u2026");
+    var res, req;
+    try {
+      res = await fetch("/lookup", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ domain: domain })
+      });
+      req = JSON.parse(atob(res.headers.get("payment-required") || ""));
+    } catch (e) {
+      await write("no answer. the deck is cold.", "warn");
+      return;
+    }
+    await write(res.status + " " + (req.error || "payment required"), "k");
+    var list = req.accepts || [];
+    for (var i = 0; i < list.length; i++){
+      var a = list[i];
+      var net = String(a.network || "").split(":")[0];
+      var usd = (Number(a.amount) / 1e6).toFixed(3);
+      await write("  " + (net + "        ").slice(0, 9) + "$" + usd + "  asset " + short(String(a.asset)));
+    }
+    await write("  payTo    " + short(String((list[0] || {}).payTo || "")));
+    await pause(120);
+    await write("nothing was charged. this is what an agent reads first.");
+  }
+
+  async function run(raw){
+    if (busy) return;
+    var v = raw.toLowerCase().trim();
+    if (!v) return;
+    busy = true;
+    cmd.value = "";
+    await write("> " + raw, "in");
+    if (LORE[v]){
+      if (v === "jack in") document.body.classList.toggle("jacked");
+      for (var i = 0; i < LORE[v].length; i++) await write(LORE[v][i]);
+    } else if (looksLikeDomain(v)) {
+      await quote(v);
+    } else {
+      await write("no such construct. try a domain, or: help", "warn");
+    }
+    busy = false;
+    cmd.focus();
+  }
+
   var cur = document.querySelector("h1 .cur");
   if (cur && cmd) cur.addEventListener("click", function(){ cmd.focus(); });
   if (cmd){
-    cmd.addEventListener("input", function(){
-      if (match(cmd.value.toLowerCase().trim())) cmd.value = "";
-    });
     cmd.addEventListener("keydown", function(e){
-      if (e.key === "Enter"){
-        e.preventDefault();
-        if (!match(cmd.value.toLowerCase().trim())) say("no such construct. try: jack in");
-        cmd.value = "";
-      }
+      if (e.key === "Enter"){ e.preventDefault(); run(cmd.value); }
+    });
+    /* the lore words fire as soon as they are complete, no Enter needed */
+    cmd.addEventListener("input", function(){
+      var v = cmd.value.toLowerCase().trim();
+      if (LORE[v] && v !== "help") run(cmd.value);
     });
   }
-
-  /* and anywhere on the page, for anyone who guesses */
-  addEventListener("keydown", function(e){
-    if (e.metaKey || e.ctrlKey || e.altKey) return;
-    var t = e.target;
-    if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
-    if (!e.key || e.key.length > 1) return;
-    buf = (buf + e.key.toLowerCase()).slice(-14);
-    if (match(buf)) buf = "";
-  });
 
   /* copy buttons on every code block */
   [].slice.call(document.querySelectorAll("pre")).forEach(function(pre){

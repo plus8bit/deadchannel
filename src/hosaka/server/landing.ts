@@ -97,6 +97,9 @@ body.jacked .kana{color:#132A22}
 h1{position:relative;z-index:1;font-family:var(--disp);font-weight:700;
   font-size:clamp(40px,10vw,80px);line-height:.94;letter-spacing:-.02em}
 h1 em{font-style:normal;color:var(--seal)}
+/* Clicking it focuses the real prompt below, so the affordance tells the truth
+   instead of blinking at a field that is not there. */
+h1 .cur{color:var(--seal);animation:blink 1.15s steps(1) infinite;cursor:text}
 @keyframes blink{50%{opacity:0}}
 .rule{height:1px;margin:24px 0 22px;
   background:linear-gradient(90deg,var(--seal),var(--line) 40%,transparent)}
@@ -221,7 +224,7 @@ footer{margin-top:clamp(52px,10vw,76px);padding-top:24px;border-top:1px solid va
     <path d="M50 22 L57 43 L78 50 L57 57 L50 78 L43 57 L22 50 L43 43 Z" opacity=".55"/>
     <circle cx="50" cy="50" r="6" opacity=".8"/>
   </svg>
-  <h1>HOSAKA<em>.</em></h1>
+  <h1>HOSAKA<em>.</em><span class="cur" aria-hidden="true">_</span></h1>
   <div class="rule"></div>
   <p class="tag">Company data for AI agents, paid per call in USDC. It reads a company's <b>own DNS</b> to find every third-party vendor it can be proven to use, and hands back the record that proves each one.</p>
   <div class="meta">
@@ -387,6 +390,8 @@ Machine-readable card at <a href="${cfg.publicUrl}/index.json">/index.json</a> &
 
   /* the prompt, which is where people will actually type */
   var cmd = document.getElementById("cmd");
+  var cur = document.querySelector("h1 .cur");
+  if (cur && cmd) cur.addEventListener("click", function(){ cmd.focus(); });
   if (cmd){
     cmd.addEventListener("input", function(){
       if (match(cmd.value.toLowerCase().trim())) cmd.value = "";

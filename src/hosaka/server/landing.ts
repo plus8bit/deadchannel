@@ -458,6 +458,10 @@ Machine-readable card at <a href="${cfg.publicUrl}/index.json">/index.json</a> &
       await write(pv.vendors + " vendors, across " + pv.categories.join(", "), "k");
       if (pv.sample && pv.sample.length) await write("  including " + pv.sample.join(" and "));
     }
+    var infra = [];
+    if (pv.mailProvider) infra.push("mail on " + pv.mailProvider);
+    if (pv.dnsProvider) infra.push("dns on " + pv.dnsProvider);
+    if (infra.length) await write("  " + infra.join(", "));
     if (pv.ageYears) await write("  domain is " + pv.ageYears + " years old");
     await pause(140);
     await write("each vendor comes with the DNS record that proves it.");
@@ -477,7 +481,15 @@ Machine-readable card at <a href="${cfg.publicUrl}/index.json">/index.json</a> &
     } else if (looksLikeDomain(v)) {
       await quote(v);
     } else {
-      await write("no such construct. try a domain, or: help", "warn");
+      // A name is the most common wrong guess, and the reason is worth saying:
+      // every shelf here takes a domain, so a person's name has nothing to
+      // look up.
+      if (v.indexOf(" ") !== -1 || v.indexOf(".") === -1){
+        await write("i read domains, not names.", "warn");
+        await write("try the company's website instead \u2014 like stripe.com");
+      } else {
+        await write("no such construct. try a domain, or: help", "warn");
+      }
     }
     busy = false;
     cmd.focus();

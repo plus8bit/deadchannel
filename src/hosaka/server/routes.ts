@@ -132,6 +132,11 @@ export async function runPreview(req: DomainRequest) {
     categories,
     sample: profile.vendors.slice(0, 2).map((v) => v.name),
     ageYears: profile.registration?.value.ageYears ?? null,
+    // Free to produce and the clearest possible demonstration of what this
+    // shop does: read the records a company publishes about itself. Naming the
+    // provider gives away no evidence — the record proving it stays paid.
+    mailProvider: providerFor("mx", profile.dns?.value.mx ?? []),
+    dnsProvider: providerFor("ns", profile.dns?.value.ns ?? []),
     free: true,
     full: "POST /dossier returns every vendor with the record that proves it",
   };

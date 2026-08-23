@@ -1238,19 +1238,38 @@ function shape(r) {
 // src/server/descriptors.ts
 function llmsTxt(cfg) {
   const url = `${cfg.publicUrl}${PROBE_ROUTE.path}`;
-  return `# deadchannel
+  const chains = cfg.algorandPayTo ? `${cfg.network.label} and Algorand` : cfg.network.label;
+  return `# deadchannel & Hosaka
 
-> Risk check for any x402 endpoint. Returns a verdict, a 0-100 risk score and the
-> specific problems found, so an agent can decide whether an endpoint is safe to
-> call before it spends money on finding out.
+> Two services that sell to AI agents over x402, paid per call in USDC.
+> deadchannel is a risk check for any x402 endpoint: a verdict, a 0-100 risk
+> score and the specific problems found, so an agent can decide whether an
+> endpoint is safe to call before it spends money finding out.
+> Hosaka sells company facts from a domain: every third-party vendor a company
+> can be proven to use, each with the DNS record or loaded script that proves
+> it, plus the contact points it publishes and the people who work there.
 
 Payment is x402 v2: send the request, get a 402 carrying the price, sign, retry.
-No signup and no API key. ${cfg.priceUsd} USD in USDC per call on ${cfg.network.label}.
-You are charged only when the check produces a result; a failure settles nothing.
+No signup, no API key, no subscription. Settles on ${chains}, so a buyer pays on
+whichever chain it already holds USDC.
+You are charged only when the call produces a result; a failure settles nothing.
 
-## Endpoint
+## Hosaka \u2014 company data (https://hosaka-agents.vercel.app)
 
-- [POST ${PROBE_ROUTE.path}](${url}): the check. Body: \`{"url": "<x402 resource to check>", "method": "<optional verb>", "samples": <1-5>}\`
+- POST /lookup \u2014 $0.01 \u2014 domain age, registrar, mail and DNS provider, DMARC, HTTPS, vendor count
+- POST /contacts \u2014 $0.02 \u2014 the dossier, plus the emails and phones the company publishes
+- POST /dossier \u2014 $0.07 \u2014 every provable vendor, each with its evidence
+- POST /people \u2014 $0.25 \u2014 the dossier, plus named people who work there
+
+Body for all four: \`{"domain": "figma.com"}\`. Asking for figma.com returns
+Anthropic, OpenAI, Adobe, Atlassian, MongoDB Atlas, Greenhouse, Docusign,
+Stripe, Notion, Dropbox and Zendesk, each with the record that proves it.
+
+Also available as an MCP server: \`npx -y hosaka-mcp\`
+
+## deadchannel \u2014 endpoint risk check (${cfg.publicUrl})
+
+- [POST ${PROBE_ROUTE.path}](${url}): ${cfg.priceUsd} USD in USDC. The check. Body: \`{"url": "<x402 resource to check>", "method": "<optional verb>", "samples": <1-5>}\`
 
 ## Verdicts
 

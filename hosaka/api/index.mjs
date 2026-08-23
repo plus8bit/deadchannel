@@ -49424,8 +49424,10 @@ Machine-readable card at <a href="${cfg.publicUrl}/index.json">/index.json</a> &
     b.textContent = "copy";
     b.setAttribute("aria-label", "copy to clipboard");
     b.addEventListener("click", function(){
-      var text = pre.innerText.replace(/^#.*
-/, "").trim();
+      // No regex here on purpose: an escape sequence inside this template
+      // literal becomes a real line break in the served script, which broke
+      // the pattern and took the whole page's JavaScript down with it.
+      var text = pre.innerText.trim();
       var done = function(){
         b.textContent = "copied"; b.classList.add("done");
         setTimeout(function(){ b.textContent = "copy"; b.classList.remove("done"); }, 1800);

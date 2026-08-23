@@ -49112,7 +49112,9 @@ h1 .cur{color:var(--seal);animation:blink 1.15s steps(1) infinite}
   height:auto;opacity:.5;z-index:1;animation:spin 26s linear infinite;
   filter:drop-shadow(0 0 14px rgba(255,59,47,.25))}
 @keyframes spin{to{transform:rotate(360deg)}}
-@media(max-width:640px){.shuri{opacity:.32}}
+/* On a phone it lands on top of a line of text, and a decoration that costs
+   legibility is not worth keeping. */
+@media(max-width:700px){.shuri{display:none}}
 
 .meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:30px;position:relative;z-index:1}
 .chip{border:1px solid var(--line);background:var(--panel);padding:6px 12px;

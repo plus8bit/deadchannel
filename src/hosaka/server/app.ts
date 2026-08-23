@@ -5,7 +5,7 @@ import { ConfigError, loadConfig } from "../../server/config.ts";
 import type { Config } from "../../server/config.ts";
 import { FacilitatorClient, FacilitatorError } from "../../server/facilitator.ts";
 import { facilitatorsFor } from "../../server/facilitator-router.ts";
-import { hosakaLanding } from "./landing.ts";
+import { hosakaLanding, HOSAKA_FAVICON } from "./landing.ts";
 import { ALGORAND_MAINNET } from "../../server/algorand.ts";
 import type { FacilitatorFor } from "../../server/facilitator-router.ts";
 import { facilitatorAuth } from "../../server/facilitator-auth.ts";
@@ -69,6 +69,16 @@ async function handle(
     return;
   }
 
+  if (path === "/favicon.svg" || path === "/favicon.ico") {
+    // Referenced by the page since it had a page; never actually served.
+    res.writeHead(200, {
+      "content-type": "image/svg+xml; charset=utf-8",
+      "content-length": Buffer.byteLength(HOSAKA_FAVICON),
+      "cache-control": "public, max-age=86400",
+    });
+    res.end(HOSAKA_FAVICON);
+    return;
+  }
   if (path === "/health") return send(res, 200, { ok: true, network: cfg.network.label });
   if (path === "/facilitator") return send(res, ...(await facilitatorStatus(cfg, facilitator)));
   if (path === "/warehouse") return send(res, 200, await warehouseStats());

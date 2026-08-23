@@ -49021,6 +49021,15 @@ var PRICE_BUNDLE = TIERS.people.priceUsd;
 var PRICE_CONTACTS = TIERS.contacts.priceUsd;
 
 // src/hosaka/server/landing.ts
+var HOSAKA_FAVICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+<defs><mask id="m">
+  <rect width="32" height="32" fill="#fff"/>
+  <path d="M16 4.5 L19.4 12.6 L27.5 16 L19.4 19.4 L16 27.5 L12.6 19.4 L4.5 16 L12.6 12.6 Z" fill="#000"/>
+  <circle cx="16" cy="16" r="2.6" fill="#fff"/>
+  <circle cx="16" cy="16" r="1.1" fill="#000"/>
+</mask></defs>
+<rect width="32" height="32" rx="7" fill="#FF3B2F" mask="url(#m)"/>
+</svg>`;
 function hosakaLanding(cfg) {
   const chains = cfg.algorandPayTo ? "BASE / ALGORAND" : cfg.network.label.toUpperCase();
   return `<!doctype html>
@@ -49554,6 +49563,15 @@ async function handle(req, res, cfg, facilitator) {
   if (req.method === "OPTIONS") {
     res.setHeader("access-control-allow-methods", "GET, POST, OPTIONS");
     res.writeHead(204).end();
+    return;
+  }
+  if (path === "/favicon.svg" || path === "/favicon.ico") {
+    res.writeHead(200, {
+      "content-type": "image/svg+xml; charset=utf-8",
+      "content-length": Buffer.byteLength(HOSAKA_FAVICON),
+      "cache-control": "public, max-age=86400"
+    });
+    res.end(HOSAKA_FAVICON);
     return;
   }
   if (path === "/health") return send(res, 200, { ok: true, network: cfg.network.label });

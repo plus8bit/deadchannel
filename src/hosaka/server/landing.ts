@@ -18,6 +18,26 @@ import type { Config } from "../../server/config.ts";
  * reads fine without them, and every one of them stops under
  * prefers-reduced-motion.
  */
+/**
+ * A hanko — the vermillion seal a Japanese company stamps on paper it stands
+ * behind — with the shuriken from the hero cut out of it.
+ *
+ * Drawn rather than lettered on purpose. A katakana glyph rendered by hand at
+ * favicon size is a good way to publish a character that is subtly wrong to
+ * anyone who reads Japanese, and a browser tab is not the place to find that
+ * out. The star is unambiguous at sixteen pixels and already belongs to the
+ * page.
+ */
+export const HOSAKA_FAVICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+<defs><mask id="m">
+  <rect width="32" height="32" fill="#fff"/>
+  <path d="M16 4.5 L19.4 12.6 L27.5 16 L19.4 19.4 L16 27.5 L12.6 19.4 L4.5 16 L12.6 12.6 Z" fill="#000"/>
+  <circle cx="16" cy="16" r="2.6" fill="#fff"/>
+  <circle cx="16" cy="16" r="1.1" fill="#000"/>
+</mask></defs>
+<rect width="32" height="32" rx="7" fill="#FF3B2F" mask="url(#m)"/>
+</svg>`;
+
 export function hosakaLanding(cfg: Config): string {
   const chains = cfg.algorandPayTo ? "BASE / ALGORAND" : cfg.network.label.toUpperCase();
   return `<!doctype html>

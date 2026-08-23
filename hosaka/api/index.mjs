@@ -49130,6 +49130,8 @@ footer{margin-top:70px;padding-top:24px;border-top:1px solid var(--line);
   <div class="p"><b>OpenAI</b><code>TXT openai-domain-verification=dv-JGOTRvDBX9eV2Gk8&hellip;</code></div>
   <div class="p"><b>Greenhouse</b><code>SPF include:mg-spf.greenhouse.io</code></div>
   <div class="p"><b>Zendesk</b><code>SPF include:mail.zendesk.com</code></div>
+  <div class="p"><b>Docusign</b><code>TXT docusign=f6914af5-107a-4dfa-9793-e34a09f627f0</code></div>
+  <div class="p"><b>Atlassian</b><code>TXT atlassian-domain-verification=oDxpYa6fakpgoav&hellip;</code></div>
 </div>
 <p>Seventeen vendors for that one domain, each with its evidence, so a buyer can <strong>check rather than trust</strong>. Page fingerprints require a loaded script or CDN host, never a mention: a site listing a vendor's logo among its integrations is not a site that uses it.</p>
 </section>

@@ -49157,9 +49157,11 @@ tr:hover td{background:var(--panel)}
   tr{display:grid;grid-template-columns:1fr auto;gap:2px 12px;
      border-bottom:1px solid var(--line);padding:13px 0}
   td{display:block;border:0;padding:0;min-width:0}
-  td:first-child{padding-right:0;white-space:normal}
-  td:nth-child(2){grid-column:1/-1;color:var(--dim)}
-  td.n{text-align:right;align-self:start}
+  /* Placed explicitly. Auto-placement put the price on its own third row,
+     because the full-width description forces a new row before it. */
+  td:first-child{grid-area:1/1;padding-right:0;white-space:normal}
+  td.n{grid-area:1/2;text-align:right;align-self:start}
+  td:nth-child(2){grid-area:2/1/3/3;color:var(--dim)}
 }
 
 pre{background:var(--panel);border:1px solid var(--line);border-left:2px solid var(--seal);

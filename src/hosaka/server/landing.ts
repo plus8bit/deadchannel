@@ -146,12 +146,17 @@ td:first-child{color:var(--bone);white-space:nowrap;width:1%;padding-right:22px}
 td.n{color:var(--seal);font-weight:700;text-align:right;width:1%;white-space:nowrap;font-size:14px}
 tr{transition:background .2s}
 tr:hover td{background:var(--panel)}
+/* Absolute positioning let the price escape the row on narrow screens. A flex
+   row cannot: the label and the price share one line and the description sits
+   under both, so nothing can land outside the container. */
 @media(max-width:620px){
-  table,tbody,tr,td{display:block;width:auto}
-  tr{border-bottom:1px solid var(--line);padding:12px 0;position:relative}
-  td{border:0;padding:2px 0}
-  td:first-child{padding-right:72px}
-  td.n{position:absolute;right:0;top:12px;text-align:right}
+  table,tbody{display:block;width:auto}
+  tr{display:grid;grid-template-columns:1fr auto;gap:2px 12px;
+     border-bottom:1px solid var(--line);padding:13px 0}
+  td{display:block;border:0;padding:0;min-width:0}
+  td:first-child{padding-right:0;white-space:normal}
+  td:nth-child(2){grid-column:1/-1;color:var(--dim)}
+  td.n{text-align:right;align-self:start}
 }
 
 pre{background:var(--panel);border:1px solid var(--line);border-left:2px solid var(--seal);
@@ -165,6 +170,14 @@ a:hover{color:var(--seal);border-bottom-color:var(--seal)}
 footer{margin-top:clamp(52px,10vw,76px);padding-top:24px;border-top:1px solid var(--line);
   color:var(--faint);font-size:12px;line-height:1.9}
 .hint{margin-top:14px;color:#2C313A;font-size:11px;letter-spacing:.06em}
+/* The easter egg used to answer in the footer, which nobody has on screen when
+   they are typing at the top of the page. */
+#toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,140%);z-index:80;
+  max-width:min(92vw,620px);padding:11px 16px;border:1px solid var(--jade);
+  background:rgba(7,8,11,.94);color:var(--jade);font-size:12px;letter-spacing:.05em;
+  text-align:center;line-height:1.5;transition:transform .45s cubic-bezier(.2,.8,.3,1);
+  pointer-events:none;box-shadow:0 0 26px rgba(67,217,163,.14)}
+#toast.up{transform:translate(-50%,0)}
 
 @media(prefers-reduced-motion:reduce){
   .r,.grid i,.shuri,h1 .cur{animation:none!important}
@@ -246,10 +259,12 @@ curl -X POST <span class="s">${cfg.publicUrl}/dossier</span> \\
 <footer class="r" style="animation-delay:.40s">
 Source <a href="https://github.com/plus8bit/deadchannel">github.com/plus8bit/deadchannel</a> &middot; zero runtime dependencies &middot; MIT<br>
 Machine-readable card at <a href="${cfg.publicUrl}/index.json">/index.json</a> &middot; descriptors at <a href="${cfg.publicUrl}/llms.txt">/llms.txt</a>
-<div class="hint">ONO-SENDAI CYBERSPACE 7 &middot; TYPE TO JACK IN</div>
+<div class="hint">ONO-SENDAI CYBERSPACE 7 &middot; TYPE <b style="color:#6B7280">JACK IN</b> ANYWHERE ON THIS PAGE</div>
 </footer>
 
 </div>
+
+<div id="toast" role="status" aria-live="polite"></div>
 
 <script>
 (function(){
@@ -257,25 +272,36 @@ Machine-readable card at <a href="${cfg.publicUrl}/index.json">/index.json</a> &
 
   /* the sky above the port: static that dissolves into the grid */
   var cv = document.getElementById("static");
+  function dropStatic(){ if (cv && cv.parentNode) cv.remove(); }
   if (cv && !reduce) {
-    var ctx = cv.getContext("2d"), W = 0, H = 0, raf = 0, t0 = 0;
-    function size(){ W = cv.width = Math.ceil(innerWidth/3); H = cv.height = Math.ceil(innerHeight/3);
-      cv.style.width = "100%"; cv.style.height = "100%"; }
-    size();
-    var img = ctx.createImageData(W, H);
-    function frame(ts){
-      if (!t0) t0 = ts;
-      var d = img.data;
-      for (var i = 0; i < d.length; i += 4){
-        var v = (Math.random()*255)|0;
-        d[i] = d[i+1] = d[i+2] = v; d[i+3] = 26;
-      }
-      ctx.putImageData(img, 0, 0);
-      if (ts - t0 < 900) raf = requestAnimationFrame(frame);
-      else { cv.classList.add("gone"); setTimeout(function(){ cv.remove(); }, 1100); }
-    }
-    raf = requestAnimationFrame(frame);
-  } else if (cv) { cv.remove(); }
+    try {
+      var ctx = cv.getContext("2d");
+      // Never zero: a viewport measured before layout settles produced a
+      // zero-width buffer, createImageData threw, and the noise froze opaque.
+      var W = Math.max(1, Math.ceil((innerWidth || 320) / 3));
+      var H = Math.max(1, Math.ceil((innerHeight || 480) / 3));
+      cv.width = W; cv.height = H;
+      cv.style.width = "100%"; cv.style.height = "100%";
+      var img = ctx.createImageData(W, H), t0 = 0;
+      var frame = function(ts){
+        try {
+          if (!t0) t0 = ts;
+          var d = img.data;
+          for (var i = 0; i < d.length; i += 4){
+            var v = (Math.random()*255)|0;
+            d[i] = d[i+1] = d[i+2] = v; d[i+3] = 26;
+          }
+          ctx.putImageData(img, 0, 0);
+          if (ts - t0 < 900) requestAnimationFrame(frame);
+          else { cv.classList.add("gone"); setTimeout(dropStatic, 1100); }
+        } catch (e) { dropStatic(); }
+      };
+      requestAnimationFrame(frame);
+      // Whatever happens, the overlay is gone well before it could sit on the
+      // page looking like a failed load.
+      setTimeout(function(){ cv.classList.add("gone"); setTimeout(dropStatic, 1100); }, 2600);
+    } catch (e) { dropStatic(); }
+  } else { dropStatic(); }
 
   /* evidence decrypts as it scrolls in */
   var CHARS = "ABCDEF0123456789abcdef=-.:/";
@@ -315,15 +341,12 @@ Machine-readable card at <a href="${cfg.publicUrl}/index.json">/index.json</a> &
     "case": function(){ say("case. twenty-four, a cowboy, and burned by mycotoxin."); }
   };
   function say(text){
-    var el = document.querySelector(".hint");
+    var el = document.getElementById("toast");
     if (!el) return;
-    el.textContent = text.toUpperCase();
-    el.style.color = "#43D9A3";
+    el.textContent = text;
+    el.classList.add("up");
     clearTimeout(say._t);
-    say._t = setTimeout(function(){
-      el.textContent = "ONO-SENDAI CYBERSPACE 7 · TYPE TO JACK IN";
-      el.style.color = "";
-    }, 5200);
+    say._t = setTimeout(function(){ el.classList.remove("up"); }, 5200);
   }
   addEventListener("keydown", function(e){
     if (e.metaKey || e.ctrlKey || e.altKey) return;

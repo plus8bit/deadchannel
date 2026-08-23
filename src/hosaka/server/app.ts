@@ -5,6 +5,7 @@ import { ConfigError, loadConfig } from "../../server/config.ts";
 import type { Config } from "../../server/config.ts";
 import { FacilitatorClient, FacilitatorError } from "../../server/facilitator.ts";
 import { facilitatorsFor } from "../../server/facilitator-router.ts";
+import { hosakaLanding } from "./landing.ts";
 import { ALGORAND_MAINNET } from "../../server/algorand.ts";
 import type { FacilitatorFor } from "../../server/facilitator-router.ts";
 import { facilitatorAuth } from "../../server/facilitator-auth.ts";
@@ -71,6 +72,8 @@ async function handle(
   if (path === "/health") return send(res, 200, { ok: true, network: cfg.network.label });
   if (path === "/facilitator") return send(res, ...(await facilitatorStatus(cfg, facilitator)));
   if (path === "/warehouse") return send(res, 200, await warehouseStats());
+  // A person and an agent arrive at the same URL wanting opposite things.
+  if (path === "/" && prefersHtml(req)) return sendHtml(res, hosakaLanding(cfg));
   if (path === "/" || path === "/index.json") return send(res, 200, card(cfg));
 
   const shelf = SHELVES.find((s) => s.route.path === path);
@@ -205,4 +208,26 @@ async function main(): Promise<void> {
 
 if (import.meta.filename === process.argv[1]) {
   await main();
+}
+
+/** Prefers HTML only when the client asked for it ahead of JSON, as browsers do. */
+function prefersHtml(req: IncomingMessage): boolean {
+  const accept = req.headers["accept"] ?? "";
+  const value = Array.isArray(accept) ? accept.join(",") : accept;
+  if (!value.includes("text/html")) return false;
+  const html = value.indexOf("text/html");
+  const json = value.indexOf("application/json");
+  return json === -1 || html < json;
+}
+
+function sendHtml(res: ServerResponse, body: string): void {
+  res.writeHead(200, {
+    "content-type": "text/html; charset=utf-8",
+    "content-length": Buffer.byteLength(body),
+    "cache-control": "public, max-age=300",
+    // Without this a CDN caches the page against the bare URL and later serves
+    // it to an agent that asked for JSON.
+    vary: "accept",
+  });
+  res.end(body);
 }

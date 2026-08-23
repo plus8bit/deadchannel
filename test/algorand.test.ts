@@ -181,3 +181,38 @@ describe("every handler picks terms the same way", () => {
     assert.deepEqual(offenders, [], `these select terms by position: ${offenders.join(", ")}`);
   });
 });
+
+describe("the root serves each visitor what it asked for", () => {
+  it("gives a browser HTML and an agent JSON, from the same URL", async () => {
+    const { createHandler } = await import("../src/hosaka/server/app.ts");
+    const { loadConfig } = await import("../src/server/config.ts");
+    const { createServer } = await import("node:http");
+
+    const cfg = loadConfig(
+      { X402_NETWORK: "base", X402_PAY_TO: "0x712c78928080Adb009E31315c0c3c7473dA9648a", PUBLIC_URL: "https://example.test" },
+      {},
+    );
+    const server = createServer(createHandler(cfg, (() => {
+      throw new Error("no facilitator needed for the root");
+    }) as never));
+    await new Promise<void>((r) => server.listen(0, r));
+    const port = (server.address() as { port: number }).port;
+
+    try {
+      const page = await fetch(`http://127.0.0.1:${port}/`, { headers: { accept: "text/html,*/*" } });
+      assert.match(page.headers.get("content-type") ?? "", /text\/html/);
+      // Vary matters as much as the body: without it a CDN caches the page
+      // against the bare URL and then serves it to an agent asking for JSON.
+      assert.match(page.headers.get("vary") ?? "", /accept/i);
+      const html = await page.text();
+      assert.match(html, /Hosaka/, "the page must name the shop");
+      assert.match(html, /hosaka-mcp/, "the page must show how an agent connects");
+
+      const card = await fetch(`http://127.0.0.1:${port}/`, { headers: { accept: "application/json" } });
+      assert.match(card.headers.get("content-type") ?? "", /application\/json/);
+      assert.equal(((await card.json()) as { service: string }).service, "Hosaka");
+    } finally {
+      server.close();
+    }
+  });
+});

@@ -4304,7 +4304,7 @@ function nfkd(str) {
     throw new TypeError("invalid mnemonic type: " + typeof str);
   return str.normalize("NFKD");
 }
-function normalize(str) {
+function normalize2(str) {
   const norm = nfkd(str);
   const words = norm.split(" ");
   if (![12, 15, 18, 21, 24].includes(words.length))
@@ -4335,7 +4335,7 @@ function entropyToMnemonic(entropy, wordlist11) {
   return words.join(isJapanese(wordlist11) ? "\u3000" : " ");
 }
 function mnemonicToSeedSync(mnemonic, passphrase = "") {
-  return pbkdf2(sha512, normalize(mnemonic).nfkd, psalt(passphrase), { c: 2048, dkLen: 64 });
+  return pbkdf2(sha512, normalize2(mnemonic).nfkd, psalt(passphrase), { c: 2048, dkLen: 64 });
 }
 var isJapanese, calcChecksum, psalt;
 var init_esm3 = __esm({
@@ -30771,7 +30771,7 @@ var init_getEstimateGasError = __esm({
 });
 
 // node_modules/viem/_esm/utils/formatters/extract.js
-function extract(value_, { format: format2 }) {
+function extract2(value_, { format: format2 }) {
   if (!format2)
     return {};
   const value = {};
@@ -31307,7 +31307,7 @@ async function fillTransaction(client, parameters) {
   const format2 = chainFormat || formatTransactionRequest;
   const request = format2({
     // Pick out extra data that might exist on the chain's transaction request type.
-    ...extract(rest, { format: chainFormat }),
+    ...extract2(rest, { format: chainFormat }),
     account: account ? parseAccount(account) : void 0,
     accessList,
     authorizationList,
@@ -31701,7 +31701,7 @@ async function estimateGas(client, args) {
     const format2 = chainFormat || formatTransactionRequest;
     const request = format2({
       // Pick out extra data that might exist on the chain's transaction request type.
-      ...extract(rest, { format: chainFormat }),
+      ...extract2(rest, { format: chainFormat }),
       account,
       accessList,
       authorizationList,
@@ -33979,7 +33979,7 @@ async function call(client, args) {
     const format2 = chainFormat || formatTransactionRequest;
     const request = format2({
       // Pick out extra data that might exist on the chain's transaction request type.
-      ...extract(rest, { format: chainFormat }),
+      ...extract2(rest, { format: chainFormat }),
       accessList,
       account,
       authorizationList,
@@ -35601,7 +35601,7 @@ async function createAccessList(client, args) {
     const format2 = chainFormat || formatTransactionRequest;
     const request = format2({
       // Pick out extra data that might exist on the chain's transaction request type.
-      ...extract(rest, { format: chainFormat }),
+      ...extract2(rest, { format: chainFormat }),
       account,
       blobs,
       data,
@@ -37872,7 +37872,7 @@ function fromHex4(signature) {
     yParity
   };
 }
-function extract2(value) {
+function extract3(value) {
   if (typeof value.r === "undefined")
     return void 0;
   if (typeof value.s === "undefined")
@@ -38027,7 +38027,7 @@ function from8(authorization, options = {}) {
 }
 function fromRpc3(authorization) {
   const { address, chainId, nonce } = authorization;
-  const signature = extract2(authorization);
+  const signature = extract3(authorization);
   return {
     address,
     chainId: Number(chainId),
@@ -38048,7 +38048,7 @@ function hash2(authorization, options = {}) {
 }
 function toTuple2(authorization) {
   const { address, chainId, nonce } = authorization;
-  const signature = extract2(authorization);
+  const signature = extract3(authorization);
   return [
     chainId ? fromNumber(chainId) : "0x",
     address,
@@ -47863,6 +47863,463 @@ function facilitatorsFor(cfg, env = process.env) {
 // src/hosaka/server/app.ts
 import { createServer } from "node:http";
 
+// src/hosaka/sources/dns.ts
+var RESOLVERS = [
+  "https://cloudflare-dns.com/dns-query",
+  "https://dns.google/resolve"
+];
+async function query(name, type, timeoutMs) {
+  for (const base of RESOLVERS) {
+    try {
+      const res = await fetch(`${base}?name=${encodeURIComponent(name)}&type=${type}`, {
+        headers: { accept: "application/dns-json" },
+        signal: AbortSignal.timeout(timeoutMs)
+      });
+      if (!res.ok) continue;
+      const body = await res.json();
+      return body.Answer ?? [];
+    } catch {
+    }
+  }
+  return [];
+}
+function unquote(data) {
+  return data.replace(/"\s*"/g, "").replace(/^"|"$/g, "");
+}
+async function collectDns(domain, timeoutMs = 6e3) {
+  const [a, mx, ns, txt, dmarcTxt] = await Promise.all([
+    query(domain, "A", timeoutMs),
+    query(domain, "MX", timeoutMs),
+    query(domain, "NS", timeoutMs),
+    query(domain, "TXT", timeoutMs),
+    query(`_dmarc.${domain}`, "TXT", timeoutMs)
+  ]);
+  const txtValues = txt.map((r) => unquote(r.data));
+  return {
+    a: a.map((r) => r.data),
+    // MX arrives as "10 mail.example.com." — keep the host, drop priority and dot.
+    mx: mx.map((r) => r.data.replace(/^\d+\s+/, "").replace(/\.$/, "")),
+    ns: ns.map((r) => r.data.replace(/\.$/, "")),
+    txtCount: txtValues.length,
+    spf: txtValues.find((v) => v.toLowerCase().startsWith("v=spf1")) ?? null,
+    dmarc: dmarcTxt.map((r) => unquote(r.data)).find((v) => v.toLowerCase().startsWith("v=dmarc1")) ?? null
+  };
+}
+async function collectTxt(domain, timeoutMs = 6e3) {
+  return (await query(domain, "TXT", timeoutMs)).map((r) => unquote(r.data));
+}
+
+// src/hosaka/sources/rdap.ts
+async function endpoints(domain, timeoutMs) {
+  const urls = [`https://rdap.org/domain/${encodeURIComponent(domain)}`];
+  const tld = domain.split(".").pop() ?? "";
+  try {
+    const res = await fetch("https://data.iana.org/rdap/dns.json", {
+      signal: AbortSignal.timeout(timeoutMs)
+    });
+    if (res.ok) {
+      const dns = await res.json();
+      for (const [tlds, servers] of dns.services ?? []) {
+        if (!tlds.includes(tld)) continue;
+        for (const server of servers) {
+          urls.push(`${server.replace(/\/$/, "")}/domain/${encodeURIComponent(domain)}`);
+        }
+      }
+    }
+  } catch {
+  }
+  return urls;
+}
+async function collectRegistration(domain, timeoutMs = 8e3) {
+  let lastError = "no rdap endpoint answered";
+  let body = null;
+  for (const url of await endpoints(domain, timeoutMs)) {
+    try {
+      const res = await fetch(url, {
+        headers: { accept: "application/rdap+json" },
+        redirect: "follow",
+        signal: AbortSignal.timeout(timeoutMs)
+      });
+      if (!res.ok) {
+        lastError = `${new URL(url).host} returned ${res.status}`;
+        continue;
+      }
+      body = await res.json();
+      break;
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : String(err);
+    }
+  }
+  if (!body) throw new Error(lastError);
+  const parsed = body;
+  const events = new Map((parsed.events ?? []).map((e) => [e.eventAction, e.eventDate]));
+  const registered = events.get("registration") ?? null;
+  return {
+    registered,
+    expires: events.get("expiration") ?? null,
+    registrar: registrarName(parsed.entities ?? []),
+    status: parsed.status ?? [],
+    ageYears: registered ? yearsSince(registered) : null
+  };
+}
+function registrarName(entities) {
+  const registrar = entities.find((e) => e.roles?.includes("registrar"));
+  const vcard = registrar?.vcardArray?.[1] ?? [];
+  const fn = vcard.find((entry) => Array.isArray(entry) && entry[0] === "fn");
+  return Array.isArray(fn) && typeof fn[3] === "string" ? fn[3] : null;
+}
+function yearsSince(iso) {
+  const then = Date.parse(iso);
+  if (!Number.isFinite(then)) return null;
+  return Math.floor((Date.now() - then) / (365.25 * 864e5));
+}
+
+// src/hosaka/sources/tls.ts
+import { connect } from "node:tls";
+function collectTls(domain, timeoutMs = 8e3) {
+  return new Promise((resolve, reject) => {
+    const socket = connect(
+      { host: domain, port: 443, servername: domain, rejectUnauthorized: false },
+      () => {
+        const cert = socket.getPeerCertificate(false);
+        socket.destroy();
+        if (!cert || Object.keys(cert).length === 0) {
+          reject(new Error("no certificate presented"));
+          return;
+        }
+        resolve({
+          // Node types these as string | string[]; a multi-valued O is legal.
+          issuer: first(cert.issuer?.O) ?? first(cert.issuer?.CN),
+          validFrom: cert.valid_from ? new Date(cert.valid_from).toISOString() : null,
+          validTo: cert.valid_to ? new Date(cert.valid_to).toISOString() : null,
+          altNames: (cert.subjectaltname ?? "").split(",").map((s) => s.trim().replace(/^DNS:/, "")).filter((s) => s.length > 0)
+        });
+      }
+    );
+    socket.setTimeout(timeoutMs, () => {
+      socket.destroy();
+      reject(new Error("tls handshake timed out"));
+    });
+    socket.on("error", (err) => {
+      socket.destroy();
+      reject(err);
+    });
+  });
+}
+function first(value) {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value ?? null;
+}
+
+// src/hosaka/sources/web.ts
+var MAX_BYTES = 400 * 1024;
+var UA = "Mozilla/5.0 (compatible; hosaka/1.0; +https://github.com/plus8bit/deadchannel)";
+async function collectWeb(domain, timeoutMs = 1e4) {
+  const res = await fetch(`https://${domain}`, {
+    redirect: "follow",
+    headers: { "user-agent": UA, accept: "text/html,*/*" },
+    signal: AbortSignal.timeout(timeoutMs)
+  });
+  const html = await readCapped(res);
+  return {
+    facts: {
+      status: res.status,
+      finalUrl: res.url || null,
+      title: extract(html, /<title[^>]*>([\s\S]{1,300}?)<\/title>/i),
+      description: extract(html, /<meta[^>]+name=["']description["'][^>]+content=["']([\s\S]{1,400}?)["']/i),
+      server: res.headers.get("server"),
+      poweredBy: res.headers.get("x-powered-by"),
+      hsts: res.headers.has("strict-transport-security"),
+      htmlBytes: Buffer.byteLength(html)
+    },
+    html
+  };
+}
+async function readCapped(res) {
+  if (!res.body) return "";
+  const reader = res.body.getReader();
+  const chunks = [];
+  let total = 0;
+  try {
+    while (total < MAX_BYTES) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) {
+        chunks.push(Buffer.from(value));
+        total += value.byteLength;
+      }
+    }
+  } catch {
+  } finally {
+    void reader.cancel().catch(() => {
+    });
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+function extract(html, re) {
+  const m = re.exec(html);
+  if (!m?.[1]) return null;
+  return m[1].replace(/\s+/g, " ").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
+}
+
+// src/hosaka/vendors.ts
+var TXT_RULES = [
+  { name: "Google Workspace", category: "productivity", pattern: /google-site-verification/i },
+  { name: "Microsoft 365", category: "productivity", pattern: /^ms=|microsoft-domain-verification/i },
+  { name: "Atlassian", category: "engineering", pattern: /atlassian-domain-verification/i },
+  { name: "Anthropic", category: "ai", pattern: /anthropic-domain-verification/i },
+  { name: "OpenAI", category: "ai", pattern: /openai-domain-verification/i },
+  { name: "Slack", category: "communication", pattern: /slack-domain-verification/i },
+  { name: "Zoom", category: "communication", pattern: /zoom-domain-verification/i },
+  { name: "Docusign", category: "legal", pattern: /docusign=/i },
+  { name: "Adobe", category: "design", pattern: /adobe-idp-site-verification|adobe-sign-verification/i },
+  { name: "Canva", category: "design", pattern: /canva-site-verification/i },
+  { name: "Figma", category: "design", pattern: /figma-domain-verification/i },
+  { name: "Stripe", category: "payments", pattern: /stripe-verification/i },
+  { name: "Facebook / Meta", category: "advertising", pattern: /facebook-domain-verification/i },
+  { name: "Apple", category: "platform", pattern: /apple-domain-verification/i },
+  { name: "Miro", category: "productivity", pattern: /miro-verification/i },
+  { name: "Notion", category: "productivity", pattern: /notion-domain-verification/i },
+  { name: "Dropbox", category: "storage", pattern: /dropbox-domain-verification/i },
+  { name: "Webex", category: "communication", pattern: /cisco-ci-domain-verification/i },
+  { name: "Citrix", category: "it", pattern: /citrix-verification-code/i },
+  { name: "Mongo Atlas", category: "engineering", pattern: /mongodb-site-verification/i },
+  { name: "Loom", category: "productivity", pattern: /loom-site-verification/i },
+  { name: "Klaviyo", category: "marketing", pattern: /klaviyo-site-verification/i }
+];
+var SPF_RULES = [
+  { name: "Google Workspace", category: "email", pattern: /_spf\.google\.com/i },
+  { name: "Microsoft 365", category: "email", pattern: /spf\.protection\.outlook\.com/i },
+  { name: "Salesforce", category: "crm", pattern: /_spf\.salesforce\.com|_spfblock\.salesforce/i },
+  { name: "HubSpot", category: "crm", pattern: /spf\.hubspot|hubspotemail/i },
+  { name: "Marketo", category: "marketing", pattern: /mktomail|marketo/i },
+  { name: "Mailchimp", category: "marketing", pattern: /spf\.mandrillapp|servers\.mcsv\.net/i },
+  { name: "SendGrid", category: "email", pattern: /sendgrid\.net/i },
+  { name: "Mailgun", category: "email", pattern: /mailgun\.org/i },
+  { name: "Postmark", category: "email", pattern: /spf\.mtasv\.net/i },
+  { name: "Amazon SES", category: "email", pattern: /amazonses\.com/i },
+  { name: "Zendesk", category: "support", pattern: /mail\.zendesk\.com/i },
+  { name: "Intercom", category: "support", pattern: /_spf\.intercom|intercom-mail/i },
+  { name: "Freshworks", category: "support", pattern: /freshemail|freshdesk/i },
+  { name: "Atlassian", category: "engineering", pattern: /_spf\.atlassian\.net/i },
+  { name: "Workday", category: "hr", pattern: /workday\.com/i },
+  { name: "Greenhouse", category: "hr", pattern: /greenhouse\.io/i },
+  { name: "Docusign", category: "legal", pattern: /spf\.docusign/i },
+  { name: "Qualtrics", category: "research", pattern: /qualtrics\.com/i },
+  { name: "Braze", category: "marketing", pattern: /braze\.com/i },
+  { name: "Customer.io", category: "marketing", pattern: /customeriomail/i },
+  { name: "Klaviyo", category: "marketing", pattern: /klaviyomail/i }
+];
+var MX_RULES = [
+  { name: "Google Workspace", category: "email", pattern: /aspmx.*google|googlemail/i },
+  { name: "Microsoft 365", category: "email", pattern: /mail\.protection\.outlook/i },
+  { name: "Proofpoint", category: "security", pattern: /pphosted|proofpoint/i },
+  { name: "Mimecast", category: "security", pattern: /mimecast/i },
+  { name: "Zoho Mail", category: "email", pattern: /zoho/i },
+  { name: "Fastmail", category: "email", pattern: /messagingengine/i },
+  { name: "Barracuda", category: "security", pattern: /barracudanetworks/i }
+];
+var NS_RULES = [
+  { name: "AWS Route 53", category: "cloud", pattern: /awsdns/i },
+  { name: "Cloudflare", category: "cloud", pattern: /\.ns\.cloudflare\.com|cloudflare/i },
+  { name: "Azure DNS", category: "cloud", pattern: /azure-dns/i },
+  { name: "Google Cloud DNS", category: "cloud", pattern: /googledomains|google\.com$/i },
+  { name: "NS1", category: "cloud", pattern: /nsone\.net/i },
+  { name: "Akamai", category: "cloud", pattern: /akam\.net|akamai/i },
+  { name: "DNSimple", category: "cloud", pattern: /dnsimple/i },
+  { name: "Vercel", category: "hosting", pattern: /vercel-dns/i }
+];
+var WEB_RULES = [
+  { name: "Google Analytics", category: "analytics", pattern: /googletagmanager\.com\/gtag|google-analytics\.com\/analytics/i },
+  { name: "Segment", category: "analytics", pattern: /cdn\.segment\.(com|io)\//i },
+  { name: "Amplitude", category: "analytics", pattern: /cdn\.amplitude\.com|api\.amplitude\.com/i },
+  { name: "Mixpanel", category: "analytics", pattern: /cdn\.mxpnl\.com|api\.mixpanel\.com/i },
+  { name: "Hotjar", category: "analytics", pattern: /static\.hotjar\.com|script\.hotjar\.com/i },
+  { name: "Intercom", category: "support", pattern: /widget\.intercom\.io|js\.intercomcdn\.com/i },
+  { name: "Zendesk", category: "support", pattern: /static\.zdassets\.com|ekr\.zdassets\.com/i },
+  { name: "Drift", category: "support", pattern: /js\.driftt\.com/i },
+  { name: "HubSpot", category: "crm", pattern: /js\.hs-scripts\.com|js\.hsforms\.net|track\.hubspot\.com/i },
+  { name: "Stripe", category: "payments", pattern: /js\.stripe\.com\/v\d/i },
+  { name: "Shopify", category: "ecommerce", pattern: /cdn\.shopify\.com\/s\/|myshopify\.com/i },
+  { name: "Sentry", category: "engineering", pattern: /browser\.sentry-cdn\.com|ingest\.sentry\.io/i },
+  { name: "Datadog", category: "engineering", pattern: /datadoghq-browser-agent|browser-intake-datadoghq/i },
+  { name: "Next.js", category: "framework", pattern: /\/_next\/static\/|__NEXT_DATA__/i },
+  { name: "Vue", category: "framework", pattern: /__VUE__|vue@\d|vue\.runtime/i },
+  { name: "WordPress", category: "cms", pattern: /\/wp-content\/|\/wp-includes\//i },
+  { name: "Webflow", category: "cms", pattern: /assets\.website-files\.com|webflow\.js/i },
+  { name: "Contentful", category: "cms", pattern: /images\.ctfassets\.net|cdn\.contentful\.com/i },
+  { name: "Cloudflare", category: "cloud", pattern: /static\.cloudflareinsights\.com|\/cdn-cgi\//i }
+];
+function match(rules, values, label, confidence) {
+  const found = [];
+  for (const rule of rules) {
+    for (const value of values) {
+      const m = rule.pattern.exec(value);
+      if (!m) continue;
+      found.push({
+        name: rule.name,
+        category: rule.category,
+        // Quote the fragment that matched, not the haystack. Evidence pointing
+        // at 400KB of HTML is not evidence a buyer can check.
+        evidence: `${label}: ${excerpt(value, m.index, m[0].length)}`,
+        confidence
+      });
+      break;
+    }
+  }
+  return found;
+}
+function excerpt(value, index2, length) {
+  if (value.length <= 90) return value;
+  const start = Math.max(0, index2 - 20);
+  const end = Math.min(value.length, index2 + length + 30);
+  return `${start > 0 ? "\u2026" : ""}${value.slice(start, end).replace(/\s+/g, " ")}${end < value.length ? "\u2026" : ""}`;
+}
+function detectVendors(input) {
+  const found = [];
+  found.push(...match(TXT_RULES, input.txt, "DNS TXT", "high"));
+  const spfParts = (input.dns?.spf ?? "").split(/\s+/).filter((p) => p.length > 0);
+  found.push(...match(SPF_RULES, spfParts, "SPF", "high"));
+  found.push(...match(MX_RULES, input.dns?.mx ?? [], "MX", "high"));
+  found.push(...match(NS_RULES, input.dns?.ns ?? [], "NS", "high"));
+  if (input.html) {
+    const headers = [input.web?.server ?? "", input.web?.poweredBy ?? ""].filter(Boolean);
+    found.push(...match(WEB_RULES, [input.html, ...headers], "page", "medium"));
+  }
+  const best = /* @__PURE__ */ new Map();
+  for (const v of found) {
+    const seen = best.get(v.name);
+    if (!seen || seen.confidence === "medium" && v.confidence === "high") best.set(v.name, v);
+  }
+  return [...best.values()].sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
+}
+function providerFor(kind, hosts) {
+  if (hosts.length === 0) return null;
+  const rules = kind === "mx" ? MX_RULES : NS_RULES;
+  for (const rule of rules) {
+    if (hosts.some((h) => rule.pattern.test(h))) return rule.name;
+  }
+  return hosts[0] ?? null;
+}
+
+// src/hosaka/profile.ts
+var FREE = 0;
+async function buildProfile(domain, options = {}) {
+  const host = normalize(domain);
+  const t = options.timeoutMs ?? 9e3;
+  const gaps = [];
+  const [dns, txt, registration, tls, web] = await Promise.all([
+    settle(collectDns(host, t), "dns", gaps),
+    settle(collectTxt(host, t), "dns-txt", gaps),
+    settle(collectRegistration(host, t), "rdap", gaps),
+    settle(collectTls(host, t), "tls", gaps),
+    settle(collectWeb(host, t), "web", gaps)
+  ]);
+  const status = web?.facts.status ?? null;
+  if (status !== null && status >= 400) {
+    gaps.push(`web: the site answered ${status}, so title, description and page fingerprints are missing`);
+  }
+  return {
+    domain: host,
+    collectedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    dns: fact(dns, "observed", "DNS over HTTPS"),
+    registration: fact(registration, "observed", "RDAP registry"),
+    tls: fact(tls, "observed", "TLS handshake"),
+    web: fact(web?.facts ?? null, "observed", "HTTP response"),
+    vendors: detectVendors({
+      txt: txt ?? [],
+      dns: dns ?? null,
+      web: web?.facts ?? null,
+      html: web?.html ?? null
+    }),
+    gaps,
+    costUsd: FREE
+  };
+}
+async function settle(promise, name, gaps) {
+  try {
+    return await promise;
+  } catch (err) {
+    gaps.push(`${name}: ${err instanceof Error ? err.message : String(err)}`);
+    return null;
+  }
+}
+function fact(value, from15, source) {
+  return value === null ? null : { value, from: from15, source };
+}
+function normalize(input) {
+  const trimmed = input.trim().toLowerCase();
+  const withScheme = /^https?:\/\//.test(trimmed) ? trimmed : `https://${trimmed}`;
+  let host;
+  try {
+    host = new URL(withScheme).hostname;
+  } catch {
+    throw new Error(`not a usable domain: ${input}`);
+  }
+  return host.replace(/^www\./, "");
+}
+
+// src/hosaka/store.ts
+var MemoryStore = class {
+  #items = /* @__PURE__ */ new Map();
+  #maxItems;
+  #now;
+  #hits = 0;
+  #misses = 0;
+  constructor(options = {}) {
+    this.#maxItems = options.maxItems ?? 5e3;
+    this.#now = options.now ?? Date.now;
+  }
+  async get(key) {
+    const item = this.#items.get(key);
+    if (!item) {
+      this.#misses++;
+      return null;
+    }
+    if (item.expiresAt <= this.#now()) {
+      this.#items.delete(key);
+      this.#misses++;
+      return null;
+    }
+    this.#hits++;
+    return item;
+  }
+  async put(key, value, options) {
+    const now = this.#now();
+    const previous = this.#items.get(key);
+    this.#items.delete(key);
+    this.#items.set(key, {
+      value,
+      storedAt: now,
+      expiresAt: now + options.ttlMs,
+      costUsd: (previous?.costUsd ?? 0) + options.costUsd,
+      sold: previous?.sold ?? 0
+    });
+    this.#evict();
+  }
+  async recordSale(key) {
+    const item = this.#items.get(key);
+    if (item) item.sold++;
+  }
+  async stats() {
+    let sold = 0;
+    let costUsd = 0;
+    for (const item of this.#items.values()) {
+      sold += item.sold;
+      costUsd += item.costUsd;
+    }
+    return { items: this.#items.size, sold, costUsd, hits: this.#hits, misses: this.#misses };
+  }
+  /** Insertion-ordered Map: the first key is the oldest. */
+  #evict() {
+    while (this.#items.size > this.#maxItems) {
+      const oldest = this.#items.keys().next();
+      if (oldest.done) break;
+      this.#items.delete(oldest.value);
+    }
+  }
+};
+
 // src/server/x402.ts
 var HEADER_REQUIRED = "PAYMENT-REQUIRED";
 var HEADER_SIGNATURE = "PAYMENT-SIGNATURE";
@@ -48108,6 +48565,161 @@ function applyOutcome(res, outcome) {
   res.end(payload);
 }
 
+// src/hosaka/server/routes.ts
+var PRICE_LOOKUP = 0.01;
+var PRICE_DOSSIER = 0.07;
+var TTL_MS = 24 * 60 * 60 * 1e3;
+var warehouse = new MemoryStore({ maxItems: 5e3 });
+function parseDomainRequest(body) {
+  if (typeof body !== "object" || body === null) throw new BadInput("body must be a JSON object");
+  const raw = body["domain"];
+  if (typeof raw !== "string" || raw.trim().length === 0) {
+    throw new BadInput('`domain` is required, e.g. {"domain":"figma.com"}');
+  }
+  let domain;
+  try {
+    domain = normalize(raw);
+  } catch (err) {
+    throw new BadInput(err instanceof Error ? err.message : "unusable domain");
+  }
+  if (!domain.includes(".") || domain.length > 253) throw new BadInput(`not a domain: ${raw}`);
+  if (isPrivateHost(domain)) throw new BadInput("`domain` must be a public host");
+  return { domain };
+}
+function isPrivateHost(host) {
+  if (/^(localhost|.*\.(localhost|internal|local|home|lan))$/.test(host)) return true;
+  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+  if (!v4) return false;
+  const [a, b] = [Number(v4[1]), Number(v4[2])];
+  return a === 10 || a === 127 || a === 0 || a === 172 && b >= 16 && b <= 31 || a === 192 && b === 168 || a === 169 && b === 254;
+}
+async function stocked(domain) {
+  const held = await warehouse.get(domain);
+  if (held) {
+    await warehouse.recordSale(domain);
+    return { profile: held.value, fromWarehouse: true };
+  }
+  const profile = await buildProfile(domain);
+  await warehouse.put(domain, profile, { ttlMs: TTL_MS, costUsd: profile.costUsd });
+  await warehouse.recordSale(domain);
+  return { profile, fromWarehouse: false };
+}
+async function runLookup(req) {
+  const { profile } = await stocked(req.domain);
+  return {
+    domain: profile.domain,
+    ageYears: profile.registration?.value.ageYears ?? null,
+    registrar: profile.registration?.value.registrar ?? null,
+    // Asked of the records directly: the deduplicated vendor list keeps only
+    // the strongest evidence per vendor, which loses the MX/NS attribution.
+    mailProvider: providerFor("mx", profile.dns?.value.mx ?? []),
+    dnsProvider: providerFor("ns", profile.dns?.value.ns ?? []),
+    dmarc: Boolean(profile.dns?.value.dmarc),
+    https: Boolean(profile.tls),
+    title: profile.web?.value.title ?? null,
+    vendorCount: profile.vendors.length,
+    collectedAt: profile.collectedAt
+  };
+}
+async function runDossier(req) {
+  const { profile } = await stocked(req.domain);
+  return profile;
+}
+function warehouseStats() {
+  return warehouse.stats();
+}
+var LOOKUP_ROUTE = {
+  path: "/lookup",
+  method: "POST",
+  serviceName: "Hosaka",
+  description: "Fast company look-up from a domain: age, registrar, mail and DNS provider, DMARC, HTTPS, and how many third-party vendors we can see. One call, no signup, no API key.",
+  tags: ["company-data", "enrichment", "domain", "b2b", "technographics"],
+  mimeType: "application/json",
+  inputExample: { domain: "figma.com" },
+  inputSchema: {
+    type: "object",
+    properties: { domain: { type: "string", description: "Company domain, e.g. figma.com" } },
+    required: ["domain"]
+  },
+  outputExample: {
+    domain: "figma.com",
+    ageYears: 27,
+    registrar: "Amazon Registrar, Inc.",
+    mailProvider: "Google Workspace",
+    dnsProvider: "AWS Route 53",
+    dmarc: true,
+    https: true,
+    title: "Figma: The collaborative canvas for design, code, and AI",
+    vendorCount: 17
+  }
+};
+var DOSSIER_ROUTE = {
+  path: "/dossier",
+  method: "POST",
+  serviceName: "Hosaka",
+  description: "Full company dossier from a domain: every third-party vendor we can prove they use, with the DNS record or script that proves it, plus registration, mail, certificate and site facts. Technographics without a subscription.",
+  tags: ["technographics", "company-data", "vendor-stack", "b2b", "enrichment"],
+  mimeType: "application/json",
+  inputExample: { domain: "figma.com" },
+  inputSchema: {
+    type: "object",
+    properties: { domain: { type: "string", description: "Company domain, e.g. figma.com" } },
+    required: ["domain"]
+  },
+  outputExample: {
+    domain: "figma.com",
+    vendors: [
+      { name: "Stripe", category: "payments", evidence: "DNS TXT: stripe-verification=82ce\u2026", confidence: "high" },
+      { name: "Greenhouse", category: "hr", evidence: "SPF: include:greenhouse.io", confidence: "high" }
+    ],
+    registration: { value: { ageYears: 27, registrar: "Amazon Registrar, Inc." }, from: "observed" },
+    gaps: []
+  }
+};
+var BUNDLE_ROUTE = {
+  path: "/people",
+  method: "POST",
+  serviceName: "Hosaka",
+  description: "Company dossier and the people who work there, in one call. Returns every third-party vendor the company can be proven to use with the record proving each, plus contacts sourced from a people-data provider. Cheaper than buying the contacts alone elsewhere.",
+  tags: ["contacts", "people-data", "b2b", "enrichment", "company-data"],
+  mimeType: "application/json",
+  inputExample: { domain: "figma.com" },
+  inputSchema: {
+    type: "object",
+    properties: { domain: { type: "string", description: "Company domain, e.g. figma.com" } },
+    required: ["domain"]
+  },
+  outputExample: {
+    domain: "figma.com",
+    company: { vendors: [{ name: "Greenhouse", category: "hr", evidence: "SPF: include:mg-spf.greenhouse.io" }] },
+    contacts: { data: { results: [] }, source: "FullEnrich People Search", kind: "named-people", costUsd: 0.15 }
+  }
+};
+var CONTACTS_ROUTE = {
+  path: "/contacts",
+  method: "POST",
+  serviceName: "Hosaka",
+  description: "Company dossier plus every contact point the company publishes \u2014 emails, phones and social accounts scraped from its own site. Returns each third-party vendor the company can be proven to use with the record proving it. For reaching a company rather than a named person.",
+  tags: ["contacts", "b2b", "enrichment", "company-data", "email"],
+  mimeType: "application/json",
+  inputExample: { domain: "figma.com" },
+  inputSchema: {
+    type: "object",
+    properties: { domain: { type: "string", description: "Company domain, e.g. figma.com" } },
+    required: ["domain"]
+  },
+  outputExample: {
+    domain: "figma.com",
+    company: { vendors: [{ name: "Greenhouse", category: "hr", evidence: "SPF: include:mg-spf.greenhouse.io" }] },
+    contacts: {
+      data: { emails: ["support@figma.com"], phones: [] },
+      source: "OpenWebNinja website contacts scraper",
+      kind: "published-contact-points",
+      costUsd: 3e-3
+    }
+  }
+};
+
 // src/hosaka/suppliers/types.ts
 var SupplierError = class extends Error {
   supplier;
@@ -48278,402 +48890,6 @@ async function floatUsd(address, timeoutMs = 1e4) {
   }
 }
 
-// src/hosaka/sources/dns.ts
-var RESOLVERS = [
-  "https://cloudflare-dns.com/dns-query",
-  "https://dns.google/resolve"
-];
-async function query(name, type, timeoutMs) {
-  for (const base of RESOLVERS) {
-    try {
-      const res = await fetch(`${base}?name=${encodeURIComponent(name)}&type=${type}`, {
-        headers: { accept: "application/dns-json" },
-        signal: AbortSignal.timeout(timeoutMs)
-      });
-      if (!res.ok) continue;
-      const body = await res.json();
-      return body.Answer ?? [];
-    } catch {
-    }
-  }
-  return [];
-}
-function unquote(data) {
-  return data.replace(/"\s*"/g, "").replace(/^"|"$/g, "");
-}
-async function collectDns(domain, timeoutMs = 6e3) {
-  const [a, mx, ns, txt, dmarcTxt] = await Promise.all([
-    query(domain, "A", timeoutMs),
-    query(domain, "MX", timeoutMs),
-    query(domain, "NS", timeoutMs),
-    query(domain, "TXT", timeoutMs),
-    query(`_dmarc.${domain}`, "TXT", timeoutMs)
-  ]);
-  const txtValues = txt.map((r) => unquote(r.data));
-  return {
-    a: a.map((r) => r.data),
-    // MX arrives as "10 mail.example.com." — keep the host, drop priority and dot.
-    mx: mx.map((r) => r.data.replace(/^\d+\s+/, "").replace(/\.$/, "")),
-    ns: ns.map((r) => r.data.replace(/\.$/, "")),
-    txtCount: txtValues.length,
-    spf: txtValues.find((v) => v.toLowerCase().startsWith("v=spf1")) ?? null,
-    dmarc: dmarcTxt.map((r) => unquote(r.data)).find((v) => v.toLowerCase().startsWith("v=dmarc1")) ?? null
-  };
-}
-async function collectTxt(domain, timeoutMs = 6e3) {
-  return (await query(domain, "TXT", timeoutMs)).map((r) => unquote(r.data));
-}
-
-// src/hosaka/sources/rdap.ts
-async function endpoints(domain, timeoutMs) {
-  const urls = [`https://rdap.org/domain/${encodeURIComponent(domain)}`];
-  const tld = domain.split(".").pop() ?? "";
-  try {
-    const res = await fetch("https://data.iana.org/rdap/dns.json", {
-      signal: AbortSignal.timeout(timeoutMs)
-    });
-    if (res.ok) {
-      const dns = await res.json();
-      for (const [tlds, servers] of dns.services ?? []) {
-        if (!tlds.includes(tld)) continue;
-        for (const server of servers) {
-          urls.push(`${server.replace(/\/$/, "")}/domain/${encodeURIComponent(domain)}`);
-        }
-      }
-    }
-  } catch {
-  }
-  return urls;
-}
-async function collectRegistration(domain, timeoutMs = 8e3) {
-  let lastError = "no rdap endpoint answered";
-  let body = null;
-  for (const url of await endpoints(domain, timeoutMs)) {
-    try {
-      const res = await fetch(url, {
-        headers: { accept: "application/rdap+json" },
-        redirect: "follow",
-        signal: AbortSignal.timeout(timeoutMs)
-      });
-      if (!res.ok) {
-        lastError = `${new URL(url).host} returned ${res.status}`;
-        continue;
-      }
-      body = await res.json();
-      break;
-    } catch (err) {
-      lastError = err instanceof Error ? err.message : String(err);
-    }
-  }
-  if (!body) throw new Error(lastError);
-  const parsed = body;
-  const events = new Map((parsed.events ?? []).map((e) => [e.eventAction, e.eventDate]));
-  const registered = events.get("registration") ?? null;
-  return {
-    registered,
-    expires: events.get("expiration") ?? null,
-    registrar: registrarName(parsed.entities ?? []),
-    status: parsed.status ?? [],
-    ageYears: registered ? yearsSince(registered) : null
-  };
-}
-function registrarName(entities) {
-  const registrar = entities.find((e) => e.roles?.includes("registrar"));
-  const vcard = registrar?.vcardArray?.[1] ?? [];
-  const fn = vcard.find((entry) => Array.isArray(entry) && entry[0] === "fn");
-  return Array.isArray(fn) && typeof fn[3] === "string" ? fn[3] : null;
-}
-function yearsSince(iso) {
-  const then = Date.parse(iso);
-  if (!Number.isFinite(then)) return null;
-  return Math.floor((Date.now() - then) / (365.25 * 864e5));
-}
-
-// src/hosaka/sources/tls.ts
-import { connect } from "node:tls";
-function collectTls(domain, timeoutMs = 8e3) {
-  return new Promise((resolve, reject) => {
-    const socket = connect(
-      { host: domain, port: 443, servername: domain, rejectUnauthorized: false },
-      () => {
-        const cert = socket.getPeerCertificate(false);
-        socket.destroy();
-        if (!cert || Object.keys(cert).length === 0) {
-          reject(new Error("no certificate presented"));
-          return;
-        }
-        resolve({
-          // Node types these as string | string[]; a multi-valued O is legal.
-          issuer: first(cert.issuer?.O) ?? first(cert.issuer?.CN),
-          validFrom: cert.valid_from ? new Date(cert.valid_from).toISOString() : null,
-          validTo: cert.valid_to ? new Date(cert.valid_to).toISOString() : null,
-          altNames: (cert.subjectaltname ?? "").split(",").map((s) => s.trim().replace(/^DNS:/, "")).filter((s) => s.length > 0)
-        });
-      }
-    );
-    socket.setTimeout(timeoutMs, () => {
-      socket.destroy();
-      reject(new Error("tls handshake timed out"));
-    });
-    socket.on("error", (err) => {
-      socket.destroy();
-      reject(err);
-    });
-  });
-}
-function first(value) {
-  if (Array.isArray(value)) return value[0] ?? null;
-  return value ?? null;
-}
-
-// src/hosaka/sources/web.ts
-var MAX_BYTES = 400 * 1024;
-var UA = "Mozilla/5.0 (compatible; hosaka/1.0; +https://github.com/plus8bit/deadchannel)";
-async function collectWeb(domain, timeoutMs = 1e4) {
-  const res = await fetch(`https://${domain}`, {
-    redirect: "follow",
-    headers: { "user-agent": UA, accept: "text/html,*/*" },
-    signal: AbortSignal.timeout(timeoutMs)
-  });
-  const html = await readCapped(res);
-  return {
-    facts: {
-      status: res.status,
-      finalUrl: res.url || null,
-      title: extract3(html, /<title[^>]*>([\s\S]{1,300}?)<\/title>/i),
-      description: extract3(html, /<meta[^>]+name=["']description["'][^>]+content=["']([\s\S]{1,400}?)["']/i),
-      server: res.headers.get("server"),
-      poweredBy: res.headers.get("x-powered-by"),
-      hsts: res.headers.has("strict-transport-security"),
-      htmlBytes: Buffer.byteLength(html)
-    },
-    html
-  };
-}
-async function readCapped(res) {
-  if (!res.body) return "";
-  const reader = res.body.getReader();
-  const chunks = [];
-  let total = 0;
-  try {
-    while (total < MAX_BYTES) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (value) {
-        chunks.push(Buffer.from(value));
-        total += value.byteLength;
-      }
-    }
-  } catch {
-  } finally {
-    void reader.cancel().catch(() => {
-    });
-  }
-  return Buffer.concat(chunks).toString("utf8");
-}
-function extract3(html, re) {
-  const m = re.exec(html);
-  if (!m?.[1]) return null;
-  return m[1].replace(/\s+/g, " ").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
-}
-
-// src/hosaka/vendors.ts
-var TXT_RULES = [
-  { name: "Google Workspace", category: "productivity", pattern: /google-site-verification/i },
-  { name: "Microsoft 365", category: "productivity", pattern: /^ms=|microsoft-domain-verification/i },
-  { name: "Atlassian", category: "engineering", pattern: /atlassian-domain-verification/i },
-  { name: "Anthropic", category: "ai", pattern: /anthropic-domain-verification/i },
-  { name: "OpenAI", category: "ai", pattern: /openai-domain-verification/i },
-  { name: "Slack", category: "communication", pattern: /slack-domain-verification/i },
-  { name: "Zoom", category: "communication", pattern: /zoom-domain-verification/i },
-  { name: "Docusign", category: "legal", pattern: /docusign=/i },
-  { name: "Adobe", category: "design", pattern: /adobe-idp-site-verification|adobe-sign-verification/i },
-  { name: "Canva", category: "design", pattern: /canva-site-verification/i },
-  { name: "Figma", category: "design", pattern: /figma-domain-verification/i },
-  { name: "Stripe", category: "payments", pattern: /stripe-verification/i },
-  { name: "Facebook / Meta", category: "advertising", pattern: /facebook-domain-verification/i },
-  { name: "Apple", category: "platform", pattern: /apple-domain-verification/i },
-  { name: "Miro", category: "productivity", pattern: /miro-verification/i },
-  { name: "Notion", category: "productivity", pattern: /notion-domain-verification/i },
-  { name: "Dropbox", category: "storage", pattern: /dropbox-domain-verification/i },
-  { name: "Webex", category: "communication", pattern: /cisco-ci-domain-verification/i },
-  { name: "Citrix", category: "it", pattern: /citrix-verification-code/i },
-  { name: "Mongo Atlas", category: "engineering", pattern: /mongodb-site-verification/i },
-  { name: "Loom", category: "productivity", pattern: /loom-site-verification/i },
-  { name: "Klaviyo", category: "marketing", pattern: /klaviyo-site-verification/i }
-];
-var SPF_RULES = [
-  { name: "Google Workspace", category: "email", pattern: /_spf\.google\.com/i },
-  { name: "Microsoft 365", category: "email", pattern: /spf\.protection\.outlook\.com/i },
-  { name: "Salesforce", category: "crm", pattern: /_spf\.salesforce\.com|_spfblock\.salesforce/i },
-  { name: "HubSpot", category: "crm", pattern: /spf\.hubspot|hubspotemail/i },
-  { name: "Marketo", category: "marketing", pattern: /mktomail|marketo/i },
-  { name: "Mailchimp", category: "marketing", pattern: /spf\.mandrillapp|servers\.mcsv\.net/i },
-  { name: "SendGrid", category: "email", pattern: /sendgrid\.net/i },
-  { name: "Mailgun", category: "email", pattern: /mailgun\.org/i },
-  { name: "Postmark", category: "email", pattern: /spf\.mtasv\.net/i },
-  { name: "Amazon SES", category: "email", pattern: /amazonses\.com/i },
-  { name: "Zendesk", category: "support", pattern: /mail\.zendesk\.com/i },
-  { name: "Intercom", category: "support", pattern: /_spf\.intercom|intercom-mail/i },
-  { name: "Freshworks", category: "support", pattern: /freshemail|freshdesk/i },
-  { name: "Atlassian", category: "engineering", pattern: /_spf\.atlassian\.net/i },
-  { name: "Workday", category: "hr", pattern: /workday\.com/i },
-  { name: "Greenhouse", category: "hr", pattern: /greenhouse\.io/i },
-  { name: "Docusign", category: "legal", pattern: /spf\.docusign/i },
-  { name: "Qualtrics", category: "research", pattern: /qualtrics\.com/i },
-  { name: "Braze", category: "marketing", pattern: /braze\.com/i },
-  { name: "Customer.io", category: "marketing", pattern: /customeriomail/i },
-  { name: "Klaviyo", category: "marketing", pattern: /klaviyomail/i }
-];
-var MX_RULES = [
-  { name: "Google Workspace", category: "email", pattern: /aspmx.*google|googlemail/i },
-  { name: "Microsoft 365", category: "email", pattern: /mail\.protection\.outlook/i },
-  { name: "Proofpoint", category: "security", pattern: /pphosted|proofpoint/i },
-  { name: "Mimecast", category: "security", pattern: /mimecast/i },
-  { name: "Zoho Mail", category: "email", pattern: /zoho/i },
-  { name: "Fastmail", category: "email", pattern: /messagingengine/i },
-  { name: "Barracuda", category: "security", pattern: /barracudanetworks/i }
-];
-var NS_RULES = [
-  { name: "AWS Route 53", category: "cloud", pattern: /awsdns/i },
-  { name: "Cloudflare", category: "cloud", pattern: /\.ns\.cloudflare\.com|cloudflare/i },
-  { name: "Azure DNS", category: "cloud", pattern: /azure-dns/i },
-  { name: "Google Cloud DNS", category: "cloud", pattern: /googledomains|google\.com$/i },
-  { name: "NS1", category: "cloud", pattern: /nsone\.net/i },
-  { name: "Akamai", category: "cloud", pattern: /akam\.net|akamai/i },
-  { name: "DNSimple", category: "cloud", pattern: /dnsimple/i },
-  { name: "Vercel", category: "hosting", pattern: /vercel-dns/i }
-];
-var WEB_RULES = [
-  { name: "Google Analytics", category: "analytics", pattern: /googletagmanager\.com\/gtag|google-analytics\.com\/analytics/i },
-  { name: "Segment", category: "analytics", pattern: /cdn\.segment\.(com|io)\//i },
-  { name: "Amplitude", category: "analytics", pattern: /cdn\.amplitude\.com|api\.amplitude\.com/i },
-  { name: "Mixpanel", category: "analytics", pattern: /cdn\.mxpnl\.com|api\.mixpanel\.com/i },
-  { name: "Hotjar", category: "analytics", pattern: /static\.hotjar\.com|script\.hotjar\.com/i },
-  { name: "Intercom", category: "support", pattern: /widget\.intercom\.io|js\.intercomcdn\.com/i },
-  { name: "Zendesk", category: "support", pattern: /static\.zdassets\.com|ekr\.zdassets\.com/i },
-  { name: "Drift", category: "support", pattern: /js\.driftt\.com/i },
-  { name: "HubSpot", category: "crm", pattern: /js\.hs-scripts\.com|js\.hsforms\.net|track\.hubspot\.com/i },
-  { name: "Stripe", category: "payments", pattern: /js\.stripe\.com\/v\d/i },
-  { name: "Shopify", category: "ecommerce", pattern: /cdn\.shopify\.com\/s\/|myshopify\.com/i },
-  { name: "Sentry", category: "engineering", pattern: /browser\.sentry-cdn\.com|ingest\.sentry\.io/i },
-  { name: "Datadog", category: "engineering", pattern: /datadoghq-browser-agent|browser-intake-datadoghq/i },
-  { name: "Next.js", category: "framework", pattern: /\/_next\/static\/|__NEXT_DATA__/i },
-  { name: "Vue", category: "framework", pattern: /__VUE__|vue@\d|vue\.runtime/i },
-  { name: "WordPress", category: "cms", pattern: /\/wp-content\/|\/wp-includes\//i },
-  { name: "Webflow", category: "cms", pattern: /assets\.website-files\.com|webflow\.js/i },
-  { name: "Contentful", category: "cms", pattern: /images\.ctfassets\.net|cdn\.contentful\.com/i },
-  { name: "Cloudflare", category: "cloud", pattern: /static\.cloudflareinsights\.com|\/cdn-cgi\//i }
-];
-function match(rules, values, label, confidence) {
-  const found = [];
-  for (const rule of rules) {
-    for (const value of values) {
-      const m = rule.pattern.exec(value);
-      if (!m) continue;
-      found.push({
-        name: rule.name,
-        category: rule.category,
-        // Quote the fragment that matched, not the haystack. Evidence pointing
-        // at 400KB of HTML is not evidence a buyer can check.
-        evidence: `${label}: ${excerpt(value, m.index, m[0].length)}`,
-        confidence
-      });
-      break;
-    }
-  }
-  return found;
-}
-function excerpt(value, index2, length) {
-  if (value.length <= 90) return value;
-  const start = Math.max(0, index2 - 20);
-  const end = Math.min(value.length, index2 + length + 30);
-  return `${start > 0 ? "\u2026" : ""}${value.slice(start, end).replace(/\s+/g, " ")}${end < value.length ? "\u2026" : ""}`;
-}
-function detectVendors(input) {
-  const found = [];
-  found.push(...match(TXT_RULES, input.txt, "DNS TXT", "high"));
-  const spfParts = (input.dns?.spf ?? "").split(/\s+/).filter((p) => p.length > 0);
-  found.push(...match(SPF_RULES, spfParts, "SPF", "high"));
-  found.push(...match(MX_RULES, input.dns?.mx ?? [], "MX", "high"));
-  found.push(...match(NS_RULES, input.dns?.ns ?? [], "NS", "high"));
-  if (input.html) {
-    const headers = [input.web?.server ?? "", input.web?.poweredBy ?? ""].filter(Boolean);
-    found.push(...match(WEB_RULES, [input.html, ...headers], "page", "medium"));
-  }
-  const best = /* @__PURE__ */ new Map();
-  for (const v of found) {
-    const seen = best.get(v.name);
-    if (!seen || seen.confidence === "medium" && v.confidence === "high") best.set(v.name, v);
-  }
-  return [...best.values()].sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
-}
-function providerFor(kind, hosts) {
-  if (hosts.length === 0) return null;
-  const rules = kind === "mx" ? MX_RULES : NS_RULES;
-  for (const rule of rules) {
-    if (hosts.some((h) => rule.pattern.test(h))) return rule.name;
-  }
-  return hosts[0] ?? null;
-}
-
-// src/hosaka/profile.ts
-var FREE = 0;
-async function buildProfile(domain, options = {}) {
-  const host = normalize2(domain);
-  const t = options.timeoutMs ?? 9e3;
-  const gaps = [];
-  const [dns, txt, registration, tls, web] = await Promise.all([
-    settle(collectDns(host, t), "dns", gaps),
-    settle(collectTxt(host, t), "dns-txt", gaps),
-    settle(collectRegistration(host, t), "rdap", gaps),
-    settle(collectTls(host, t), "tls", gaps),
-    settle(collectWeb(host, t), "web", gaps)
-  ]);
-  const status = web?.facts.status ?? null;
-  if (status !== null && status >= 400) {
-    gaps.push(`web: the site answered ${status}, so title, description and page fingerprints are missing`);
-  }
-  return {
-    domain: host,
-    collectedAt: (/* @__PURE__ */ new Date()).toISOString(),
-    dns: fact(dns, "observed", "DNS over HTTPS"),
-    registration: fact(registration, "observed", "RDAP registry"),
-    tls: fact(tls, "observed", "TLS handshake"),
-    web: fact(web?.facts ?? null, "observed", "HTTP response"),
-    vendors: detectVendors({
-      txt: txt ?? [],
-      dns: dns ?? null,
-      web: web?.facts ?? null,
-      html: web?.html ?? null
-    }),
-    gaps,
-    costUsd: FREE
-  };
-}
-async function settle(promise, name, gaps) {
-  try {
-    return await promise;
-  } catch (err) {
-    gaps.push(`${name}: ${err instanceof Error ? err.message : String(err)}`);
-    return null;
-  }
-}
-function fact(value, from15, source) {
-  return value === null ? null : { value, from: from15, source };
-}
-function normalize2(input) {
-  const trimmed = input.trim().toLowerCase();
-  const withScheme = /^https?:\/\//.test(trimmed) ? trimmed : `https://${trimmed}`;
-  let host;
-  try {
-    host = new URL(withScheme).hostname;
-  } catch {
-    throw new Error(`not a usable domain: ${input}`);
-  }
-  return host.replace(/^www\./, "");
-}
-
 // src/hosaka/contacts.ts
 var PLACEHOLDER = [
   /example/i,
@@ -48804,221 +49020,159 @@ async function runBundle(req, tier) {
 var PRICE_BUNDLE = TIERS.people.priceUsd;
 var PRICE_CONTACTS = TIERS.contacts.priceUsd;
 
-// src/hosaka/store.ts
-var MemoryStore = class {
-  #items = /* @__PURE__ */ new Map();
-  #maxItems;
-  #now;
-  #hits = 0;
-  #misses = 0;
-  constructor(options = {}) {
-    this.#maxItems = options.maxItems ?? 5e3;
-    this.#now = options.now ?? Date.now;
-  }
-  async get(key) {
-    const item = this.#items.get(key);
-    if (!item) {
-      this.#misses++;
-      return null;
-    }
-    if (item.expiresAt <= this.#now()) {
-      this.#items.delete(key);
-      this.#misses++;
-      return null;
-    }
-    this.#hits++;
-    return item;
-  }
-  async put(key, value, options) {
-    const now = this.#now();
-    const previous = this.#items.get(key);
-    this.#items.delete(key);
-    this.#items.set(key, {
-      value,
-      storedAt: now,
-      expiresAt: now + options.ttlMs,
-      costUsd: (previous?.costUsd ?? 0) + options.costUsd,
-      sold: previous?.sold ?? 0
-    });
-    this.#evict();
-  }
-  async recordSale(key) {
-    const item = this.#items.get(key);
-    if (item) item.sold++;
-  }
-  async stats() {
-    let sold = 0;
-    let costUsd = 0;
-    for (const item of this.#items.values()) {
-      sold += item.sold;
-      costUsd += item.costUsd;
-    }
-    return { items: this.#items.size, sold, costUsd, hits: this.#hits, misses: this.#misses };
-  }
-  /** Insertion-ordered Map: the first key is the oldest. */
-  #evict() {
-    while (this.#items.size > this.#maxItems) {
-      const oldest = this.#items.keys().next();
-      if (oldest.done) break;
-      this.#items.delete(oldest.value);
-    }
-  }
-};
+// src/hosaka/server/landing.ts
+function hosakaLanding(cfg) {
+  const chains = cfg.algorandPayTo ? "BASE / ALGORAND" : cfg.network.label.toUpperCase();
+  return `<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hosaka \u2014 company data for agents</title>
+<meta name="description" content="Every third-party vendor a company can be proven to use, read from its own DNS. Sold to AI agents per call in USDC. No signup, no API key.">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta name="theme-color" content="#08090C">
+<meta property="og:title" content="Hosaka \u2014 company data for agents">
+<meta property="og:description" content="Every third-party vendor a company can be proven to use, read from its own DNS. Paid per call in USDC.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --void:#08090C; --panel:#0D0F14; --line:#191D25;
+  --bone:#D6D9DE; --dim:#79808C; --faint:#464C57;
+  --seal:#FF3B2F; --jade:#43D9A3;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --disp:"Chakra Petch",system-ui,sans-serif;
+}
+html{background:var(--void)}
+body{background:var(--void);color:var(--bone);font:15px/1.7 var(--mono);-webkit-font-smoothing:antialiased;position:relative;overflow-x:hidden}
+/* CRT scanline, at the edge of visibility */
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:99;
+  background:repeating-linear-gradient(180deg,rgba(255,255,255,.017) 0 1px,transparent 1px 3px)}
+.wrap{max-width:880px;margin:0 auto;padding:72px 26px 110px;position:relative}
 
-// src/hosaka/server/routes.ts
-var PRICE_LOOKUP = 0.01;
-var PRICE_DOSSIER = 0.07;
-var TTL_MS = 24 * 60 * 60 * 1e3;
-var warehouse = new MemoryStore({ maxItems: 5e3 });
-function parseDomainRequest(body) {
-  if (typeof body !== "object" || body === null) throw new BadInput("body must be a JSON object");
-  const raw = body["domain"];
-  if (typeof raw !== "string" || raw.trim().length === 0) {
-    throw new BadInput('`domain` is required, e.g. {"domain":"figma.com"}');
-  }
-  let domain;
-  try {
-    domain = normalize2(raw);
-  } catch (err) {
-    throw new BadInput(err instanceof Error ? err.message : "unusable domain");
-  }
-  if (!domain.includes(".") || domain.length > 253) throw new BadInput(`not a domain: ${raw}`);
-  if (isPrivateHost(domain)) throw new BadInput("`domain` must be a public host");
-  return { domain };
+/* staggered reveal, once, on load */
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.r{animation:rise .7s cubic-bezier(.2,.7,.3,1) both}
+@media(prefers-reduced-motion:reduce){.r{animation:none}}
+
+header{position:relative;padding-bottom:8px}
+.kana{position:absolute;right:-6px;top:-30px;font-family:var(--disp);font-weight:700;
+  font-size:clamp(70px,17vw,150px);line-height:1;color:#11141A;letter-spacing:.04em;
+  user-select:none;pointer-events:none;z-index:0}
+h1{position:relative;z-index:1;font-family:var(--disp);font-weight:700;
+  font-size:clamp(44px,9vw,78px);line-height:.94;letter-spacing:-.02em}
+h1 em{font-style:normal;color:var(--seal)}
+.rule{height:1px;margin:26px 0 22px;background:linear-gradient(90deg,var(--seal),var(--line) 42%,transparent)}
+.tag{position:relative;z-index:1;color:var(--dim);max-width:63ch}
+.tag b{color:var(--bone);font-weight:500}
+
+.meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:28px}
+.chip{border:1px solid var(--line);background:var(--panel);padding:6px 12px;
+  font-size:11.5px;letter-spacing:.09em;color:var(--dim);text-transform:uppercase}
+.chip i{font-style:normal;color:var(--jade)}
+
+h2{font-family:var(--disp);font-weight:500;font-size:12px;letter-spacing:.24em;
+  text-transform:uppercase;color:var(--seal);margin:62px 0 20px;
+  display:flex;align-items:center;gap:14px}
+h2::after{content:"";flex:1;height:1px;background:var(--line)}
+p{color:var(--dim);max-width:68ch;margin-bottom:14px}
+p strong{color:var(--bone);font-weight:500}
+
+.proof{display:grid;grid-template-columns:repeat(auto-fit,minmax(255px,1fr));
+  gap:1px;background:var(--line);border:1px solid var(--line);margin:4px 0 18px}
+.p{background:var(--panel);padding:14px 16px;transition:background .25s}
+.p:hover{background:#12151C}
+.p b{font-family:var(--disp);font-weight:500;font-size:15px;letter-spacing:.01em}
+.p code{display:block;color:var(--faint);font-size:11px;margin-top:6px;
+  word-break:break-all;line-height:1.55}
+
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+td{padding:11px 14px 11px 0;border-bottom:1px solid var(--line);vertical-align:top;color:var(--dim)}
+td:first-child{color:var(--bone);white-space:nowrap;width:1%;padding-right:24px}
+td.n{color:var(--seal);font-weight:700;text-align:right;width:1%;white-space:nowrap;font-size:14px}
+tr:hover td{background:#0B0D11}
+
+pre{background:var(--panel);border:1px solid var(--line);border-left:2px solid var(--seal);
+  padding:16px 18px;overflow-x:auto;font-size:12.5px;line-height:1.75;color:var(--bone)}
+pre .c{color:var(--faint)}
+pre .s{color:var(--jade)}
+
+a{color:var(--bone);text-decoration:none;border-bottom:1px solid var(--faint);transition:.2s}
+a:hover{color:var(--seal);border-bottom-color:var(--seal)}
+footer{margin-top:70px;padding-top:24px;border-top:1px solid var(--line);
+  color:var(--faint);font-size:12px;line-height:1.9}
+@media(max-width:560px){.kana{opacity:.55;top:-14px}}
+</style></head><body><div class="wrap">
+
+<header class="r">
+  <div class="kana" aria-hidden="true">\u30DB\u30B5\u30AB</div>
+  <h1>HOSAKA<em>.</em></h1>
+  <div class="rule"></div>
+  <p class="tag">Company data for AI agents, paid per call in USDC. It reads a company's <b>own DNS</b> to find every third-party vendor it can be proven to use, and hands back the record that proves each one.</p>
+  <div class="meta">
+    <span class="chip"><i>&#9679;</i> LIVE &middot; ${chains}</span>
+    <span class="chip">NO SIGNUP &middot; NO API KEY</span>
+    <span class="chip">FROM $${PRICE_LOOKUP} A CALL</span>
+    <span class="chip">OPEN SOURCE</span>
+  </div>
+</header>
+
+<section class="r" style="animation-delay:.09s">
+<h2>The receipts are public</h2>
+<p>A company proves it owns its domain to <strong>every SaaS product it buys</strong> by placing a verification record in DNS, and authorises every sender it uses in its SPF record. Those two lists are a purchase history the company published itself, sitting in the open, that nobody reads.</p>
+<p>Ask for <strong>figma.com</strong>:</p>
+<div class="proof">
+  <div class="p"><b>Anthropic</b><code>TXT anthropic-domain-verification-4rt01s=&hellip;</code></div>
+  <div class="p"><b>OpenAI</b><code>TXT openai-domain-verification=dv-JGOTRvDBX9eV2Gk8&hellip;</code></div>
+  <div class="p"><b>Greenhouse</b><code>SPF include:mg-spf.greenhouse.io</code></div>
+  <div class="p"><b>Zendesk</b><code>SPF include:mail.zendesk.com</code></div>
+</div>
+<p>Seventeen vendors for that one domain, each with its evidence, so a buyer can <strong>check rather than trust</strong>. Page fingerprints require a loaded script or CDN host, never a mention: a site listing a vendor's logo among its integrations is not a site that uses it.</p>
+</section>
+
+<section class="r" style="animation-delay:.18s">
+<h2>Shelves</h2>
+<table>
+<tr><td>POST /lookup</td><td>domain age, registrar, mail and DNS provider, DMARC, HTTPS, vendor count</td><td class="n">$${PRICE_LOOKUP}</td></tr>
+<tr><td>POST /contacts</td><td>the dossier, plus the emails and phones the company publishes about itself</td><td class="n">$${TIERS.contacts.priceUsd}</td></tr>
+<tr><td>POST /dossier</td><td>every vendor the company can be proven to use, each with its evidence</td><td class="n">$${PRICE_DOSSIER}</td></tr>
+<tr><td>POST /people</td><td>the dossier, plus named people who work there</td><td class="n">$${TIERS.people.priceUsd}</td></tr>
+</table>
+<p style="margin-top:18px">Four prices, so a cheap question never pays for an expensive answer.</p>
+</section>
+
+<section class="r" style="animation-delay:.27s">
+<h2>Use it</h2>
+<pre><span class="c"># any x402 client; the 402 carries the price and terms</span>
+curl -X POST <span class="s">${cfg.publicUrl}/dossier</span> \\
+  -H <span class="s">'content-type: application/json'</span> \\
+  -d <span class="s">'{"domain":"figma.com"}'</span></pre>
+<p style="margin-top:16px">Or let an agent find it alone. Published to npm and listed in the official MCP registry, so any MCP client discovers and pays for it with one line:</p>
+<pre>npx -y <span class="s">hosaka-mcp</span></pre>
+</section>
+
+<section class="r" style="animation-delay:.36s">
+<h2>The expensive shelves are resale</h2>
+<p>Contacts and people cannot be produced from public records, so we buy them &mdash; from another x402 seller, <strong>in the same call</strong>, only once an order arrives. No inventory, no contract, no subscription. The supply chain is machines paying machines.</p>
+<p>Every supplier carries a ceiling, so we refuse to buy above what we charge, and the wallet is checked before the purchase rather than after: a shop that finds out it is broke halfway through an order has already taken the buyer's money and has nothing to hand back.</p>
+</section>
+
+<section class="r" style="animation-delay:.45s">
+<h2>The other half</h2>
+<p><a href="https://deadchannel.vercel.app">deadchannel</a> grades any x402 endpoint before an agent spends money on it &mdash; alive, honestly priced, safe to call, or not. Built because we needed it ourselves while probing the catalog.</p>
+</section>
+
+<footer class="r" style="animation-delay:.54s">
+Source <a href="https://github.com/plus8bit/deadchannel">github.com/plus8bit/deadchannel</a> &middot; zero runtime dependencies &middot; MIT<br>
+Machine-readable card at <a href="${cfg.publicUrl}/index.json">/index.json</a> &middot; descriptors at <a href="${cfg.publicUrl}/llms.txt">/llms.txt</a>
+</footer>
+
+</div></body></html>`;
 }
-function isPrivateHost(host) {
-  if (/^(localhost|.*\.(localhost|internal|local|home|lan))$/.test(host)) return true;
-  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
-  if (!v4) return false;
-  const [a, b] = [Number(v4[1]), Number(v4[2])];
-  return a === 10 || a === 127 || a === 0 || a === 172 && b >= 16 && b <= 31 || a === 192 && b === 168 || a === 169 && b === 254;
-}
-async function stocked(domain) {
-  const held = await warehouse.get(domain);
-  if (held) {
-    await warehouse.recordSale(domain);
-    return { profile: held.value, fromWarehouse: true };
-  }
-  const profile = await buildProfile(domain);
-  await warehouse.put(domain, profile, { ttlMs: TTL_MS, costUsd: profile.costUsd });
-  await warehouse.recordSale(domain);
-  return { profile, fromWarehouse: false };
-}
-async function runLookup(req) {
-  const { profile } = await stocked(req.domain);
-  return {
-    domain: profile.domain,
-    ageYears: profile.registration?.value.ageYears ?? null,
-    registrar: profile.registration?.value.registrar ?? null,
-    // Asked of the records directly: the deduplicated vendor list keeps only
-    // the strongest evidence per vendor, which loses the MX/NS attribution.
-    mailProvider: providerFor("mx", profile.dns?.value.mx ?? []),
-    dnsProvider: providerFor("ns", profile.dns?.value.ns ?? []),
-    dmarc: Boolean(profile.dns?.value.dmarc),
-    https: Boolean(profile.tls),
-    title: profile.web?.value.title ?? null,
-    vendorCount: profile.vendors.length,
-    collectedAt: profile.collectedAt
-  };
-}
-async function runDossier(req) {
-  const { profile } = await stocked(req.domain);
-  return profile;
-}
-function warehouseStats() {
-  return warehouse.stats();
-}
-var LOOKUP_ROUTE = {
-  path: "/lookup",
-  method: "POST",
-  serviceName: "Hosaka",
-  description: "Fast company look-up from a domain: age, registrar, mail and DNS provider, DMARC, HTTPS, and how many third-party vendors we can see. One call, no signup, no API key.",
-  tags: ["company-data", "enrichment", "domain", "b2b", "technographics"],
-  mimeType: "application/json",
-  inputExample: { domain: "figma.com" },
-  inputSchema: {
-    type: "object",
-    properties: { domain: { type: "string", description: "Company domain, e.g. figma.com" } },
-    required: ["domain"]
-  },
-  outputExample: {
-    domain: "figma.com",
-    ageYears: 27,
-    registrar: "Amazon Registrar, Inc.",
-    mailProvider: "Google Workspace",
-    dnsProvider: "AWS Route 53",
-    dmarc: true,
-    https: true,
-    title: "Figma: The collaborative canvas for design, code, and AI",
-    vendorCount: 17
-  }
-};
-var DOSSIER_ROUTE = {
-  path: "/dossier",
-  method: "POST",
-  serviceName: "Hosaka",
-  description: "Full company dossier from a domain: every third-party vendor we can prove they use, with the DNS record or script that proves it, plus registration, mail, certificate and site facts. Technographics without a subscription.",
-  tags: ["technographics", "company-data", "vendor-stack", "b2b", "enrichment"],
-  mimeType: "application/json",
-  inputExample: { domain: "figma.com" },
-  inputSchema: {
-    type: "object",
-    properties: { domain: { type: "string", description: "Company domain, e.g. figma.com" } },
-    required: ["domain"]
-  },
-  outputExample: {
-    domain: "figma.com",
-    vendors: [
-      { name: "Stripe", category: "payments", evidence: "DNS TXT: stripe-verification=82ce\u2026", confidence: "high" },
-      { name: "Greenhouse", category: "hr", evidence: "SPF: include:greenhouse.io", confidence: "high" }
-    ],
-    registration: { value: { ageYears: 27, registrar: "Amazon Registrar, Inc." }, from: "observed" },
-    gaps: []
-  }
-};
-var BUNDLE_ROUTE = {
-  path: "/people",
-  method: "POST",
-  serviceName: "Hosaka",
-  description: "Company dossier and the people who work there, in one call. Returns every third-party vendor the company can be proven to use with the record proving each, plus contacts sourced from a people-data provider. Cheaper than buying the contacts alone elsewhere.",
-  tags: ["contacts", "people-data", "b2b", "enrichment", "company-data"],
-  mimeType: "application/json",
-  inputExample: { domain: "figma.com" },
-  inputSchema: {
-    type: "object",
-    properties: { domain: { type: "string", description: "Company domain, e.g. figma.com" } },
-    required: ["domain"]
-  },
-  outputExample: {
-    domain: "figma.com",
-    company: { vendors: [{ name: "Greenhouse", category: "hr", evidence: "SPF: include:mg-spf.greenhouse.io" }] },
-    contacts: { data: { results: [] }, source: "FullEnrich People Search", kind: "named-people", costUsd: 0.15 }
-  }
-};
-var CONTACTS_ROUTE = {
-  path: "/contacts",
-  method: "POST",
-  serviceName: "Hosaka",
-  description: "Company dossier plus every contact point the company publishes \u2014 emails, phones and social accounts scraped from its own site. Returns each third-party vendor the company can be proven to use with the record proving it. For reaching a company rather than a named person.",
-  tags: ["contacts", "b2b", "enrichment", "company-data", "email"],
-  mimeType: "application/json",
-  inputExample: { domain: "figma.com" },
-  inputSchema: {
-    type: "object",
-    properties: { domain: { type: "string", description: "Company domain, e.g. figma.com" } },
-    required: ["domain"]
-  },
-  outputExample: {
-    domain: "figma.com",
-    company: { vendors: [{ name: "Greenhouse", category: "hr", evidence: "SPF: include:mg-spf.greenhouse.io" }] },
-    contacts: {
-      data: { emails: ["support@figma.com"], phones: [] },
-      source: "OpenWebNinja website contacts scraper",
-      kind: "published-contact-points",
-      costUsd: 3e-3
-    }
-  }
-};
 
 // src/hosaka/server/app.ts
 var SHELVES = [
@@ -49049,6 +49203,7 @@ async function handle(req, res, cfg, facilitator) {
   if (path === "/health") return send(res, 200, { ok: true, network: cfg.network.label });
   if (path === "/facilitator") return send(res, ...await facilitatorStatus(cfg, facilitator));
   if (path === "/warehouse") return send(res, 200, await warehouseStats());
+  if (path === "/" && prefersHtml(req)) return sendHtml(res, hosakaLanding(cfg));
   if (path === "/" || path === "/index.json") return send(res, 200, card(cfg));
   const shelf = SHELVES.find((s) => s.route.path === path);
   if (!shelf) {
@@ -49160,6 +49315,25 @@ async function main() {
 }
 if (import.meta.filename === process.argv[1]) {
   await main();
+}
+function prefersHtml(req) {
+  const accept = req.headers["accept"] ?? "";
+  const value = Array.isArray(accept) ? accept.join(",") : accept;
+  if (!value.includes("text/html")) return false;
+  const html = value.indexOf("text/html");
+  const json = value.indexOf("application/json");
+  return json === -1 || html < json;
+}
+function sendHtml(res, body) {
+  res.writeHead(200, {
+    "content-type": "text/html; charset=utf-8",
+    "content-length": Buffer.byteLength(body),
+    "cache-control": "public, max-age=300",
+    // Without this a CDN caches the page against the bare URL and later serves
+    // it to an agent that asked for JSON.
+    vary: "accept"
+  });
+  res.end(body);
 }
 
 // src/hosaka/server/vercel-entry.ts

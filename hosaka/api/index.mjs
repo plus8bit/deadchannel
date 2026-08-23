@@ -49159,7 +49159,7 @@ tr:hover td{background:var(--panel)}
   td{display:block;border:0;padding:0;min-width:0}
   /* Placed explicitly. Auto-placement put the price on its own third row,
      because the full-width description forces a new row before it. */
-  td:first-child{grid-area:1/1;padding-right:0;white-space:normal}
+  td:first-child{grid-area:1/1;padding-right:0;white-space:nowrap}
   td.n{grid-area:1/2;text-align:right;align-self:start}
   td:nth-child(2){grid-area:2/1/3/3;color:var(--dim)}
 }

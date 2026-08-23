@@ -305,7 +305,8 @@ curl -X POST <span class="s">${cfg.publicUrl}/dossier</span> \\
 
 <section class="r" style="animation-delay:.34s">
 <h2>Countermeasures</h2>
-<p><a href="https://deadchannel.vercel.app">deadchannel</a> grades any x402 endpoint before an agent spends money on it &mdash; alive, honestly priced, safe to call, or a trap. Built because we needed it ourselves while probing the catalog, and named for the first line of the book this shop is named after.</p>
+<p><a href="https://deadchannel.vercel.app">deadchannel</a> grades any x402 endpoint before an agent spends money on it &mdash; alive, honestly priced, safe to call, or a trap.</p>
+<p>ICE guards a system from the intruder. This is the inverse: it guards the intruder from the system. We built it because we needed it ourselves &mdash; we probed the whole catalog first, and a real share of it is dead, testnet-only, or priced in a token that makes a cent look like a fortune.</p>
 </section>
 
 <footer class="r" style="animation-delay:.40s">

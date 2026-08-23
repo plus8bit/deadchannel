@@ -48625,6 +48625,19 @@ async function runDossier(req) {
   const { profile } = await stocked(req.domain);
   return profile;
 }
+async function runPreview(req) {
+  const { profile } = await stocked(req.domain);
+  const categories = [...new Set(profile.vendors.map((v) => v.category))].sort();
+  return {
+    domain: profile.domain,
+    vendors: profile.vendors.length,
+    categories,
+    sample: profile.vendors.slice(0, 2).map((v) => v.name),
+    ageYears: profile.registration?.value.ageYears ?? null,
+    free: true,
+    full: "POST /dossier returns every vendor with the record that proves it"
+  };
+}
 function warehouseStats() {
   return warehouse.stats();
 }
@@ -49404,8 +49417,7 @@ Machine-readable card at <a href="${cfg.publicUrl}/index.json">/index.json</a> &
     });
   }
   function pause(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
-  function short(a){ return a.length > 20 ? a.slice(0, 10) + "\u2026" + a.slice(-6) : a; }
-
+  
   var LORE = {
     "jack in": ["jacking in\u2026",
       "cyberspace. a consensual hallucination experienced daily",
@@ -49430,37 +49442,36 @@ Machine-readable card at <a href="${cfg.publicUrl}/index.json">/index.json</a> &
 
   /* The real 402, fetched without paying. This is the whole protocol in one
      screen: an agent asks, the server answers with terms, nothing settles. */
+  /* What the visitor actually came to find out: something about their own
+     domain. The payment terms are identical whatever you type, so leading with
+     them taught nobody anything \u2014 figma.com and namecheap.com printed the same
+     six lines. The free preview differs per domain; the proof stays behind the
+     paywall, because the proof is the product. */
   async function quote(domain){
-    await write("probing " + location.host + "/lookup \u2026");
-    var res, req;
+    await write("reading " + domain + " \u2026");
+    var pv;
     try {
-      res = await fetch("/lookup", {
+      var r = await fetch("/preview", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ domain: domain })
       });
-      req = JSON.parse(atob(res.headers.get("payment-required") || ""));
+      pv = await r.json();
+      if (!r.ok) throw new Error(pv.error || "no");
     } catch (e) {
-      await write("no answer. the deck is cold.", "warn");
+      await write("could not read that domain. check the spelling.", "warn");
       return;
     }
-    await write(res.status + " " + (req.error || "payment required"), "k");
-    var list = req.accepts || [];
-    for (var i = 0; i < list.length; i++){
-      var a = list[i];
-      // "eip155" is a namespace, not a chain anyone recognises.
-      var id = String(a.network || "");
-      var net = id.indexOf("algorand:") === 0 ? "algorand"
-              : id.indexOf("solana:") === 0 ? "solana"
-              : id === "eip155:8453" ? "base"
-              : id === "eip155:84532" ? "base-sep"
-              : id.split(":")[0];
-      var usd = (Number(a.amount) / 1e6).toFixed(3);
-      await write("  " + (net + "        ").slice(0, 9) + "$" + usd + "  asset " + short(String(a.asset)));
+    if (!pv.vendors){
+      await write("no third-party vendors visible. either very small, or very careful.");
+    } else {
+      await write(pv.vendors + " vendors, across " + pv.categories.join(", "), "k");
+      if (pv.sample && pv.sample.length) await write("  including " + pv.sample.join(" and "));
     }
-    await write("  payTo    " + short(String((list[0] || {}).payTo || "")));
-    await pause(120);
-    await write("nothing was charged. this is what an agent reads first.");
+    if (pv.ageYears) await write("  domain is " + pv.ageYears + " years old");
+    await pause(140);
+    await write("each vendor comes with the DNS record that proves it.");
+    await write("that list is the paid part: /dossier, $0.07 on base or algorand.");
   }
 
   async function run(raw){
@@ -49577,6 +49588,13 @@ async function handle(req, res, cfg, facilitator) {
   if (path === "/health") return send(res, 200, { ok: true, network: cfg.network.label });
   if (path === "/facilitator") return send(res, ...await facilitatorStatus(cfg, facilitator));
   if (path === "/warehouse") return send(res, 200, await warehouseStats());
+  if (path === "/preview" && req.method === "POST") {
+    try {
+      return send(res, 200, await runPreview(parseDomainRequest(await readJson(req))));
+    } catch (err) {
+      return send(res, 400, { error: err instanceof Error ? err.message : "bad request" });
+    }
+  }
   if (path === "/" && prefersHtml(req)) return sendHtml(res, hosakaLanding(cfg));
   if (path === "/" || path === "/index.json") return send(res, 200, card(cfg));
   const shelf = SHELVES.find((s) => s.route.path === path);

@@ -216,3 +216,21 @@ describe("the root serves each visitor what it asked for", () => {
     }
   });
 });
+
+describe("the free preview", () => {
+  it("gives the shape of the answer and none of the evidence", async () => {
+    const { runPreview } = await import("../src/hosaka/server/routes.ts");
+    const pv = await runPreview({ domain: "figma.com" });
+
+    // Worth having: a visitor learns something about their own domain.
+    assert.ok(pv.vendors > 0, "a real domain should show vendors");
+    assert.ok(pv.categories.length > 0);
+    assert.ok(pv.sample.length <= 2, "a taste, not the list");
+
+    // Not worth stealing: the proof is what is sold, so it must not appear
+    // anywhere in the free response, under any key.
+    const dumped = JSON.stringify(pv);
+    assert.ok(!/evidence/i.test(dumped), "evidence must stay behind the paywall");
+    assert.ok(!/domain-verification|include:/i.test(dumped), "no raw records");
+  });
+});

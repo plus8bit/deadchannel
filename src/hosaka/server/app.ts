@@ -9,7 +9,7 @@ import { hosakaLanding, HOSAKA_FAVICON } from "./landing.ts";
 import { ALGORAND_MAINNET } from "../../server/algorand.ts";
 import type { FacilitatorFor } from "../../server/facilitator-router.ts";
 import { facilitatorAuth } from "../../server/facilitator-auth.ts";
-import { applyOutcome, servePaid } from "../../server/paid.ts";
+import { applyOutcome, readJson, servePaid } from "../../server/paid.ts";
 import type { PaidHandlerDeps } from "../../server/paid.ts";
 import { PRICE_BUNDLE, PRICE_CONTACTS, runBundle } from "./bundle.ts";
 import {
@@ -23,6 +23,7 @@ import {
   runDossier,
   runLookup,
   warehouseStats,
+  runPreview,
 } from "./routes.ts";
 import type { DomainRequest } from "./routes.ts";
 
@@ -82,6 +83,13 @@ async function handle(
   if (path === "/health") return send(res, 200, { ok: true, network: cfg.network.label });
   if (path === "/facilitator") return send(res, ...(await facilitatorStatus(cfg, facilitator)));
   if (path === "/warehouse") return send(res, 200, await warehouseStats());
+  if (path === "/preview" && req.method === "POST") {
+    try {
+      return send(res, 200, await runPreview(parseDomainRequest(await readJson(req))));
+    } catch (err) {
+      return send(res, 400, { error: err instanceof Error ? err.message : "bad request" });
+    }
+  }
   // A person and an agent arrive at the same URL wanting opposite things.
   if (path === "/" && prefersHtml(req)) return sendHtml(res, hosakaLanding(cfg));
   if (path === "/" || path === "/index.json") return send(res, 200, card(cfg));

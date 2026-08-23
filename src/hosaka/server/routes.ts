@@ -110,6 +110,33 @@ export async function runDossier(req: DomainRequest): Promise<DomainProfile> {
   return profile;
 }
 
+/**
+ * A free taste, sized to be worth having and not worth stealing.
+ *
+ * The paid product is the vendor list with the record proving each entry. This
+ * gives the shape of that list — how many, in which categories, and two names —
+ * and no evidence at all, so it answers "is there anything here for me" without
+ * answering "which record proves it". A count nobody can verify is an
+ * advertisement; the proof is the thing being sold.
+ *
+ * Domain-specific on purpose: the deck on the landing page used to print
+ * identical payment terms whatever you typed, which taught a visitor nothing
+ * about their own company.
+ */
+export async function runPreview(req: DomainRequest) {
+  const { profile } = await stocked(req.domain);
+  const categories = [...new Set(profile.vendors.map((v) => v.category))].sort();
+  return {
+    domain: profile.domain,
+    vendors: profile.vendors.length,
+    categories,
+    sample: profile.vendors.slice(0, 2).map((v) => v.name),
+    ageYears: profile.registration?.value.ageYears ?? null,
+    free: true,
+    full: "POST /dossier returns every vendor with the record that proves it",
+  };
+}
+
 export function warehouseStats() {
   return warehouse.stats();
 }

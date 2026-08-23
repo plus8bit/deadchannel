@@ -49439,7 +49439,13 @@ Machine-readable card at <a href="${cfg.publicUrl}/index.json">/index.json</a> &
     var list = req.accepts || [];
     for (var i = 0; i < list.length; i++){
       var a = list[i];
-      var net = String(a.network || "").split(":")[0];
+      // "eip155" is a namespace, not a chain anyone recognises.
+      var id = String(a.network || "");
+      var net = id.indexOf("algorand:") === 0 ? "algorand"
+              : id.indexOf("solana:") === 0 ? "solana"
+              : id === "eip155:8453" ? "base"
+              : id === "eip155:84532" ? "base-sep"
+              : id.split(":")[0];
       var usd = (Number(a.amount) / 1e6).toFixed(3);
       await write("  " + (net + "        ").slice(0, 9) + "$" + usd + "  asset " + short(String(a.asset)));
     }

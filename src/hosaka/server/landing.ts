@@ -97,7 +97,6 @@ body.jacked .kana{color:#132A22}
 h1{position:relative;z-index:1;font-family:var(--disp);font-weight:700;
   font-size:clamp(40px,10vw,80px);line-height:.94;letter-spacing:-.02em}
 h1 em{font-style:normal;color:var(--seal)}
-h1 .cur{color:var(--seal);animation:blink 1.15s steps(1) infinite}
 @keyframes blink{50%{opacity:0}}
 .rule{height:1px;margin:24px 0 22px;
   background:linear-gradient(90deg,var(--seal),var(--line) 40%,transparent)}
@@ -119,6 +118,27 @@ h1 .cur{color:var(--seal);animation:blink 1.15s steps(1) infinite}
   white-space:nowrap}
 .chip i{font-style:normal;color:var(--jade)}
 .chip b{color:var(--bone);font-weight:500}
+
+/* A real, focusable prompt. The decorative caret in the headline read as an
+   input, people clicked it, and nothing happened — an affordance that lies is
+   worse than no affordance. */
+.term{display:flex;align-items:center;gap:10px;margin-top:22px;padding:11px 14px;
+  border:1px solid var(--line);background:var(--panel);max-width:420px;
+  transition:border-color .25s}
+.term:focus-within{border-color:var(--seal)}
+.term span{color:var(--seal);user-select:none}
+.term input{flex:1;min-width:0;background:none;border:0;outline:0;color:var(--bone);
+  font:14px/1 var(--mono);caret-color:var(--seal)}
+.term input::placeholder{color:#3C424C}
+
+.code{position:relative}
+.code button{position:absolute;top:8px;right:8px;z-index:2;
+  border:1px solid var(--line);background:var(--panel2);color:var(--dim);
+  font:10.5px/1 var(--mono);letter-spacing:.1em;padding:6px 9px;cursor:pointer;
+  transition:.2s;text-transform:uppercase}
+.code button:hover{color:var(--bone);border-color:var(--faint)}
+.code button.done{color:var(--jade);border-color:var(--jade)}
+.code pre{padding-right:84px}
 
 h2{font-family:var(--disp);font-weight:600;font-size:12px;letter-spacing:.24em;
   text-transform:uppercase;color:var(--seal);margin:clamp(46px,9vw,68px) 0 20px;
@@ -177,9 +197,10 @@ footer{margin-top:clamp(52px,10vw,76px);padding-top:24px;border-top:1px solid va
 #toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,140%);z-index:80;
   max-width:min(92vw,620px);padding:11px 16px;border:1px solid var(--jade);
   background:rgba(7,8,11,.94);color:var(--jade);font-size:12px;letter-spacing:.05em;
-  text-align:center;line-height:1.5;transition:transform .45s cubic-bezier(.2,.8,.3,1);
+  text-align:center;line-height:1.5;opacity:0;visibility:hidden;
+  transition:transform .45s cubic-bezier(.2,.8,.3,1),opacity .3s,visibility .3s;
   pointer-events:none;box-shadow:0 0 26px rgba(67,217,163,.14)}
-#toast.up{transform:translate(-50%,0)}
+#toast.up{transform:translate(-50%,0);opacity:1;visibility:visible}
 
 @media(prefers-reduced-motion:reduce){
   .r,.grid i,.shuri,h1 .cur{animation:none!important}
@@ -200,7 +221,7 @@ footer{margin-top:clamp(52px,10vw,76px);padding-top:24px;border-top:1px solid va
     <path d="M50 22 L57 43 L78 50 L57 57 L50 78 L43 57 L22 50 L43 43 Z" opacity=".55"/>
     <circle cx="50" cy="50" r="6" opacity=".8"/>
   </svg>
-  <h1>HOSAKA<em>.</em><span class="cur">_</span></h1>
+  <h1>HOSAKA<em>.</em></h1>
   <div class="rule"></div>
   <p class="tag">Company data for AI agents, paid per call in USDC. It reads a company's <b>own DNS</b> to find every third-party vendor it can be proven to use, and hands back the record that proves each one.</p>
   <div class="meta">
@@ -208,6 +229,12 @@ footer{margin-top:clamp(52px,10vw,76px);padding-top:24px;border-top:1px solid va
     <span class="chip">NO SIGNUP &middot; NO API KEY</span>
     <span class="chip">FROM <b>$${PRICE_LOOKUP}</b> A CALL</span>
     <span class="chip">OPEN SOURCE</span>
+  </div>
+  <div class="term">
+    <span>&gt;</span>
+    <input id="cmd" type="text" spellcheck="false" autocomplete="off"
+           autocapitalize="off" autocorrect="off" placeholder="jack in"
+           aria-label="terminal — try: jack in">
   </div>
 </header>
 
@@ -261,7 +288,7 @@ curl -X POST <span class="s">${cfg.publicUrl}/dossier</span> \\
 <footer class="r" style="animation-delay:.40s">
 Source <a href="https://github.com/plus8bit/deadchannel">github.com/plus8bit/deadchannel</a> &middot; zero runtime dependencies &middot; MIT<br>
 Machine-readable card at <a href="${cfg.publicUrl}/index.json">/index.json</a> &middot; descriptors at <a href="${cfg.publicUrl}/llms.txt">/llms.txt</a>
-<div class="hint">ONO-SENDAI CYBERSPACE 7 &middot; TYPE <b style="color:#6B7280">JACK IN</b> ANYWHERE ON THIS PAGE</div>
+<div class="hint">ONO-SENDAI CYBERSPACE 7 &middot; THE PROMPT AT THE TOP TAKES COMMANDS</div>
 </footer>
 
 </div>
@@ -350,13 +377,68 @@ Machine-readable card at <a href="${cfg.publicUrl}/index.json">/index.json</a> &
     clearTimeout(say._t);
     say._t = setTimeout(function(){ el.classList.remove("up"); }, 5200);
   }
+  function match(text){
+    var found = false;
+    Object.keys(eggs).forEach(function(k){
+      if (!found && text.indexOf(k) !== -1){ found = true; eggs[k](); }
+    });
+    return found;
+  }
+
+  /* the prompt, which is where people will actually type */
+  var cmd = document.getElementById("cmd");
+  if (cmd){
+    cmd.addEventListener("input", function(){
+      if (match(cmd.value.toLowerCase().trim())) cmd.value = "";
+    });
+    cmd.addEventListener("keydown", function(e){
+      if (e.key === "Enter"){
+        e.preventDefault();
+        if (!match(cmd.value.toLowerCase().trim())) say("no such construct. try: jack in");
+        cmd.value = "";
+      }
+    });
+  }
+
+  /* and anywhere on the page, for anyone who guesses */
   addEventListener("keydown", function(e){
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     var t = e.target;
     if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+    if (!e.key || e.key.length > 1) return;
     buf = (buf + e.key.toLowerCase()).slice(-14);
-    Object.keys(eggs).forEach(function(k){ if (buf.indexOf(k) !== -1){ buf = ""; eggs[k](); } });
+    if (match(buf)) buf = "";
   });
+
+  /* copy buttons on every code block */
+  [].slice.call(document.querySelectorAll("pre")).forEach(function(pre){
+    var box = document.createElement("div");
+    box.className = "code";
+    pre.parentNode.insertBefore(box, pre);
+    box.appendChild(pre);
+    var b = document.createElement("button");
+    b.type = "button";
+    b.textContent = "copy";
+    b.setAttribute("aria-label", "copy to clipboard");
+    b.addEventListener("click", function(){
+      var text = pre.innerText.replace(/^#.*\n/, "").trim();
+      var done = function(){
+        b.textContent = "copied"; b.classList.add("done");
+        setTimeout(function(){ b.textContent = "copy"; b.classList.remove("done"); }, 1800);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(done, function(){ fallback(text, done); });
+      } else fallback(text, done);
+    });
+    box.appendChild(b);
+  });
+  function fallback(text, done){
+    var ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); done(); } catch (e) {}
+    ta.remove();
+  }
 
   if (window.console && console.log) {
     console.log("%cThe sky above the port was the color of television, tuned to a dead channel.",

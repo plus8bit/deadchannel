@@ -39,7 +39,12 @@ export const HOSAKA_FAVICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="
 </svg>`;
 
 export function hosakaLanding(cfg: Config): string {
-  const chains = cfg.algorandPayTo ? "BASE / ALGORAND" : cfg.network.label.toUpperCase();
+  const chains = [
+    cfg.network.label,
+    ...cfg.rails.map((r) => r.label),
+    ...(cfg.solanaPayTo ? ["Solana"] : []),
+    ...(cfg.algorandPayTo ? ["Algorand"] : []),
+  ];
   return `<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8">
@@ -251,11 +256,12 @@ footer{margin-top:clamp(52px,10vw,76px);padding-top:24px;border-top:1px solid va
   <div class="rule"></div>
   <p class="tag">Company data for AI agents, paid per call in USDC. It reads a company's <b>own DNS</b> to find every third-party vendor it can be proven to use, and hands back the record that proves each one.</p>
   <div class="meta">
-    <span class="chip"><i>&#9679;</i> LIVE &middot; ${chains}</span>
+    <span class="chip"><i>&#9679;</i> LIVE ON ${chains.length} CHAINS</span>
     <span class="chip">NO SIGNUP &middot; NO API KEY</span>
     <span class="chip">FROM <b>$${PRICE_LOOKUP}</b> A CALL</span>
     <span class="chip">OPEN SOURCE</span>
   </div>
+  <p class="tag" style="margin-top:16px;font-size:13.5px">Settles in USDC on ${chains.slice(0, -1).join(", ")} and ${chains[chains.length - 1]}${cfg.rails.some((r) => r.label === "Robinhood Chain") ? ", and in USDG on Robinhood Chain" : ""}. A buyer pays on whichever chain it already holds a dollar.</p>
   <div id="deck">
   <div id="out" aria-live="polite"></div>
   <div class="term">
@@ -424,10 +430,11 @@ Machine-readable card at <a href="${cfg.publicUrl}/index.json">/index.json</a> &
       "jack in \u00b7 wintermute \u00b7 dixie \u00b7 zion \u00b7 case"]
   };
 
-  /* A domain, loosely: has a dot, no spaces, no scheme. Good enough to decide
-     whether to ask the server, and the server decides properly. */
+  /* Anything with a dot and no spaces gets sent. The server already strips a
+     scheme, a path and a query, so rejecting a pasted URL here only meant the
+     most natural thing to paste was the one thing that did not work. */
   function looksLikeDomain(v){
-    return v.indexOf(".") > 0 && v.indexOf(" ") === -1 && v.indexOf("/") === -1 && v.length < 80;
+    return v.indexOf(".") > 0 && v.indexOf(" ") === -1 && v.length < 300;
   }
 
   /* The real 402, fetched without paying. This is the whole protocol in one
@@ -465,7 +472,7 @@ Machine-readable card at <a href="${cfg.publicUrl}/index.json">/index.json</a> &
     if (pv.ageYears) await write("  domain is " + pv.ageYears + " years old");
     await pause(140);
     await write("each vendor comes with the DNS record that proves it.");
-    await write("that list is the paid part: /dossier, $0.07 on base or algorand.");
+    await write("that list is the paid part: /dossier, $0.07 on any of 7 chains.");
   }
 
   async function run(raw){

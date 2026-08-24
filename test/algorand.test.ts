@@ -394,3 +394,16 @@ describe("Solana, the one chain that cannot share the payout address", () => {
     assert.match(facilitatorsFor(cfg, env as NodeJS.ProcessEnv)(sol.network).baseUrl, /solvador/);
   });
 });
+
+describe("what the deck will send to the server", () => {
+  it("accepts a pasted URL, because that is what people paste", async () => {
+    const { parseDomainRequest } = await import("../src/hosaka/server/routes.ts");
+    // The server already strips scheme, path and query. The page used to
+    // refuse anything containing a slash, so the most natural input — a URL
+    // copied from the address bar — was the one thing that did not work.
+    for (const input of ["lighter.xyz", "https://lighter.xyz/", "http://x.com/path?q=1", "WWW.Figma.com"]) {
+      assert.ok(parseDomainRequest({ domain: input }).domain.length > 0, input);
+    }
+    assert.equal(parseDomainRequest({ domain: "https://lighter.xyz/" }).domain, "lighter.xyz");
+  });
+});

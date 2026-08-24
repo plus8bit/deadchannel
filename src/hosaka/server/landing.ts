@@ -45,6 +45,10 @@ export function hosakaLanding(cfg: Config): string {
     ...(cfg.solanaPayTo ? ["Solana"] : []),
     ...(cfg.algorandPayTo ? ["Algorand"] : []),
   ];
+  // Robinhood Chain has no Circle USDC, so it is named separately rather than
+  // listed among the chains that do.
+  const usdcChains = chains.filter((c) => c !== "Robinhood Chain");
+  const usdgChains = chains.filter((c) => c === "Robinhood Chain");
   return `<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8">
@@ -261,7 +265,7 @@ footer{margin-top:clamp(52px,10vw,76px);padding-top:24px;border-top:1px solid va
     <span class="chip">FROM <b>$${PRICE_LOOKUP}</b> A CALL</span>
     <span class="chip">OPEN SOURCE</span>
   </div>
-  <p class="tag" style="margin-top:16px;font-size:13.5px">Settles in USDC on ${chains.slice(0, -1).join(", ")} and ${chains[chains.length - 1]}${cfg.rails.some((r) => r.label === "Robinhood Chain") ? ", and in USDG on Robinhood Chain" : ""}. A buyer pays on whichever chain it already holds a dollar.</p>
+  <p class="tag" style="margin-top:16px;font-size:13.5px">Settles in USDC on ${usdcChains.slice(0, -1).join(", ")} and ${usdcChains[usdcChains.length - 1]}${usdgChains.length ? ", and in USDG on Robinhood Chain" : ""}. A buyer pays on whichever chain it already holds a dollar.</p>
   <div id="deck">
   <div id="out" aria-live="polite"></div>
   <div class="term">

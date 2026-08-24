@@ -407,3 +407,57 @@ describe("what the deck will send to the server", () => {
     assert.equal(parseDomainRequest({ domain: "https://lighter.xyz/" }).domain, "lighter.xyz");
   });
 });
+
+describe("the contract a registry reads before an agent calls", () => {
+  it("states the same price the 402 will charge", async () => {
+    const { createHandler } = await import("../src/hosaka/server/app.ts");
+    const { loadConfig } = await import("../src/server/config.ts");
+    const { createServer } = await import("node:http");
+
+    const cfg = loadConfig(
+      { X402_NETWORK: "base", X402_PAY_TO: "0x712c78928080Adb009E31315c0c3c7473dA9648a", PUBLIC_URL: "https://example.test" },
+      {},
+    );
+    const server = createServer(createHandler(cfg, (() => {
+      throw new Error("no facilitator needed");
+    }) as never));
+    await new Promise<void>((r) => server.listen(0, r));
+    const port = (server.address() as { port: number }).port;
+
+    try {
+      const spec = (await (await fetch(`http://127.0.0.1:${port}/openapi.json`)).json()) as {
+        info: Record<string, unknown>;
+        paths: Record<string, { post: Record<string, unknown> }>;
+      };
+
+      // x402scan requires these by name and resolves discovery by them.
+      assert.ok(spec.info["x-guidance"], "agents read this before anything else");
+      assert.ok(spec.info["contact"], "contact proves origin ownership");
+
+      for (const [path, ops] of Object.entries(spec.paths)) {
+        const info = ops.post["x-payment-info"] as { price: { amount: string }; protocols: unknown[] };
+        assert.ok(info, `${path} must declare what it costs`);
+        assert.deepEqual(info.protocols, [{ x402: {} }]);
+        assert.ok((ops.post["responses"] as Record<string, unknown>)["402"], `${path} must document its 402`);
+      }
+
+      // The spec quotes decimal USD and the 402 quotes atomic units. A registry
+      // that publishes one number while the endpoint charges another sends
+      // agents to fail on their first call.
+      const declared = Number(
+        (spec.paths["/dossier"]!.post["x-payment-info"] as { price: { amount: string } }).price.amount,
+      );
+      const res = await fetch(`http://127.0.0.1:${port}/dossier`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ domain: "figma.com" }),
+      });
+      const required = JSON.parse(
+        Buffer.from(res.headers.get("payment-required")!, "base64").toString("utf8"),
+      ) as { accepts: { amount: string }[] };
+      assert.equal(Number(required.accepts[0]!.amount) / 1e6, declared);
+    } finally {
+      server.close();
+    }
+  });
+});

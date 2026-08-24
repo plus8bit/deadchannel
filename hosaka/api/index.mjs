@@ -48565,7 +48565,6 @@ async function servePaid(req, cfg, facilitator, deps) {
   const signature = decodePaymentSignature(header(req, HEADER_SIGNATURE));
   const terms = selectTerms(required.accepts, signature);
   if (!terms) return { status: 500, body: { error: "no payment terms configured" }, headers: {} };
-  const settler = typeof facilitator === "function" ? facilitator(terms.network) : facilitator;
   if (!signature) {
     return {
       status: 402,
@@ -48596,6 +48595,7 @@ async function servePaid(req, cfg, facilitator, deps) {
       body: { error: "payment terms mismatch", reason: agreed.reason }
     };
   }
+  const settler = typeof facilitator === "function" ? facilitator(terms.network) : facilitator;
   let verification;
   try {
     verification = await settler.verify(signature, terms);
@@ -49799,6 +49799,58 @@ Machine-readable card at <a href="${cfg.publicUrl}/index.json">/index.json</a> &
 </body></html>`;
 }
 
+// src/hosaka/server/openapi.ts
+function hosakaOpenApi(cfg, shelves) {
+  const paths = {};
+  for (const shelf of shelves) {
+    const price = shelf.priceUsd ?? cfg.priceUsd;
+    paths[shelf.route.path] = {
+      post: {
+        operationId: shelf.route.path.replace(/^\//, ""),
+        summary: shelf.route.description,
+        tags: shelf.route.tags.slice(0, 4),
+        // Decimal USD here; the 402 carries the same number in atomic units.
+        "x-payment-info": {
+          price: { mode: "fixed", currency: "USD", amount: price.toFixed(6) },
+          protocols: [{ x402: {} }]
+        },
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: shelf.route.inputSchema } }
+        },
+        responses: {
+          "200": {
+            description: "The answer.",
+            content: {
+              "application/json": {
+                schema: { type: "object" },
+                example: shelf.route.outputExample
+              }
+            }
+          },
+          "402": {
+            description: "Payment required. The PAYMENT-REQUIRED header carries the price and terms on every supported chain."
+          },
+          "400": { description: "The body was not a usable domain." }
+        }
+      }
+    };
+  }
+  return {
+    openapi: "3.1.0",
+    info: {
+      title: "Hosaka",
+      version: "1.0.0",
+      description: "Company data for AI agents, paid per call in USDC. Reads a company's own DNS to find every third-party vendor it can be proven to use, and returns the record proving each one.",
+      "x-guidance": 'Every endpoint takes a JSON body with one field: {"domain": "figma.com"}. A URL works too; the scheme and path are stripped. Start with POST /lookup ($0.01) for a summary, POST /dossier ($0.07) for every vendor with the DNS record or loaded script that proves it, POST /contacts ($0.02) for the addresses a company publishes about itself, POST /people ($0.25) for named employees, and POST /executives ($0.30) for only those who can sign. Payment is x402 v2: call without a payment header, read the terms from the 402, sign, retry. Settles in USDC on Base, Solana, Polygon, Arbitrum, Algorand and Monad, and in USDG on Robinhood Chain \u2014 a buyer pays on whichever chain it already holds a dollar. Nothing settles unless the answer is produced.',
+      contact: { email: "dreamquayco@gmail.com" },
+      license: { name: "MIT", identifier: "MIT" }
+    },
+    servers: [{ url: cfg.publicUrl }],
+    paths
+  };
+}
+
 // src/hosaka/server/app.ts
 var SHELVES = [
   { route: LOOKUP_ROUTE, parse: parseDomainRequest, run: runLookup, priceUsd: PRICE_LOOKUP },
@@ -49837,6 +49889,7 @@ async function handle(req, res, cfg, facilitator) {
   }
   if (path === "/health") return send(res, 200, { ok: true, network: cfg.network.label });
   if (path === "/facilitator") return send(res, ...await facilitatorStatus(cfg, facilitator));
+  if (path === "/openapi.json") return send(res, 200, hosakaOpenApi(cfg, SHELVES));
   if (path === "/warehouse") return send(res, 200, await warehouseStats());
   if (path === "/.well-known/x402") {
     return send(res, 200, {

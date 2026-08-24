@@ -7,6 +7,7 @@ import { FacilitatorClient, FacilitatorError } from "../../server/facilitator.ts
 import { facilitatorsFor } from "../../server/facilitator-router.ts";
 import { SOLANA_RAIL } from "../../server/rails.ts";
 import { hosakaLanding, HOSAKA_FAVICON } from "./landing.ts";
+import { hosakaOpenApi } from "./openapi.ts";
 import { buildPaymentRequired } from "../../server/x402.ts";
 import { ALGORAND_MAINNET } from "../../server/algorand.ts";
 import type { FacilitatorFor } from "../../server/facilitator-router.ts";
@@ -86,6 +87,7 @@ async function handle(
   }
   if (path === "/health") return send(res, 200, { ok: true, network: cfg.network.label });
   if (path === "/facilitator") return send(res, ...(await facilitatorStatus(cfg, facilitator)));
+  if (path === "/openapi.json") return send(res, 200, hosakaOpenApi(cfg, SHELVES));
   if (path === "/warehouse") return send(res, 200, await warehouseStats());
   // The listing mechanism agent indexes crawl: one document naming every paid
   // resource and what it costs, so a marketplace can catalog the shop without

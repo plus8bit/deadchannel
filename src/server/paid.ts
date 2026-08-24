@@ -59,10 +59,6 @@ export async function servePaid<Req, Res>(
   const terms = selectTerms(required.accepts, signature);
   if (!terms) return { status: 500, body: { error: "no payment terms configured" }, headers: {} };
 
-  // Chosen from the terms, not from configuration: the buyer picked the chain,
-  // and only some facilitators can settle on it.
-  const settler = typeof facilitator === "function" ? facilitator(terms.network) : facilitator;
-
   if (!signature) {
     return {
       status: 402,
@@ -95,6 +91,12 @@ export async function servePaid<Req, Res>(
       body: { error: "payment terms mismatch", reason: agreed.reason },
     };
   }
+
+  // Resolved here rather than earlier: an unpaid request answers 402 and never
+  // needs a facilitator, so it must not demand that chain's credentials. Chosen
+  // from the terms, not from configuration — the buyer picked the chain, and
+  // only some facilitators can settle on it.
+  const settler = typeof facilitator === "function" ? facilitator(terms.network) : facilitator;
 
   let verification;
   try {

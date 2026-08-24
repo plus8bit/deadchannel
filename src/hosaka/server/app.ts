@@ -8,7 +8,6 @@ import { facilitatorsFor } from "../../server/facilitator-router.ts";
 import { hosakaLanding, HOSAKA_FAVICON } from "./landing.ts";
 import { buildPaymentRequired } from "../../server/x402.ts";
 import { ALGORAND_MAINNET } from "../../server/algorand.ts";
-import { ROBINHOOD_MAINNET } from "../../server/robinhood.ts";
 import type { FacilitatorFor } from "../../server/facilitator-router.ts";
 import { facilitatorAuth } from "../../server/facilitator-auth.ts";
 import { applyOutcome, readJson, servePaid, withPrice } from "../../server/paid.ts";
@@ -150,7 +149,7 @@ async function facilitatorStatus(
   // Every chain the shop advertises, not just the primary one. A second chain
   // settled by a facilitator that does not support it is an offer no buyer can
   // complete, and without this it looks healthy right up until someone pays.
-  const networks = [cfg.network.caip2, ...(cfg.algorandPayTo ? [ALGORAND_MAINNET] : []), ...(cfg.robinhoodPayTo ? [ROBINHOOD_MAINNET] : [])];
+  const networks = [cfg.network.caip2, ...(cfg.algorandPayTo ? [ALGORAND_MAINNET] : []), ...cfg.rails.map((r) => r.caip2)];
 
   const chains = await Promise.all(
     networks.map(async (network) => {

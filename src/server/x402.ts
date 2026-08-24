@@ -8,7 +8,7 @@
  */
 
 import { algorandOption } from "./algorand.ts";
-import { robinhoodOption } from "./robinhood.ts";
+import { railOption } from "./rails.ts";
 import type { Config } from "./config.ts";
 
 export const HEADER_REQUIRED = "PAYMENT-REQUIRED";
@@ -101,9 +101,8 @@ export function buildPaymentRequired(
       ...(cfg.algorandPayTo
         ? [algorandOption({ payTo: cfg.algorandPayTo, testnet: cfg.network.testnet }, cfg.priceAtomic, cfg.maxTimeoutSeconds)]
         : []),
-      ...(cfg.robinhoodPayTo && !cfg.network.testnet
-        ? [robinhoodOption(cfg.robinhoodPayTo, cfg.priceAtomic, cfg.maxTimeoutSeconds)]
-        : []),
+      // Same payout address on every EVM rail: one key controls it everywhere.
+      ...cfg.rails.map((rail) => railOption(rail, cfg.payTo, cfg.priceAtomic, cfg.maxTimeoutSeconds)),
     ],
     extensions: bazaarExtension(route),
   };

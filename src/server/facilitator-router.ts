@@ -1,6 +1,6 @@
 import { FacilitatorClient } from "./facilitator.ts";
 import type { AuthProvider } from "./facilitator.ts";
-import { ROBINHOOD_MAINNET } from "./robinhood.ts";
+
 import { facilitatorAuth } from "./facilitator-auth.ts";
 import type { Config } from "./config.ts";
 
@@ -20,7 +20,7 @@ export function facilitatorsFor(cfg: Config, env: NodeJS.ProcessEnv = process.en
   // Built lazily: a shop that never advertises a chain never constructs its
   // client, and never demands the credentials that client would need.
   let algorand: FacilitatorClient | null = null;
-  let robinhood: FacilitatorClient | null = null;
+  let solvador: FacilitatorClient | null = null;
 
   return (network: string) => {
     if (network.startsWith("algorand:")) {
@@ -28,10 +28,12 @@ export function facilitatorsFor(cfg: Config, env: NodeJS.ProcessEnv = process.en
       algorand ??= new FacilitatorClient(cfg.algorandFacilitatorUrl, null);
       return algorand;
     }
-    if (network === ROBINHOOD_MAINNET) {
-      if (cfg.robinhoodFacilitatorUrl === cfg.facilitatorUrl) return primary;
-      robinhood ??= new FacilitatorClient(cfg.robinhoodFacilitatorUrl, solvadorAuth(env));
-      return robinhood;
+    // A rail says who settles it. Everything else goes to the primary, which
+    // is also where rails marked "primary" belong.
+    const rail = cfg.rails.find((r) => r.caip2 === network);
+    if (rail?.settledBy === "solvador") {
+      solvador ??= new FacilitatorClient(cfg.solvadorUrl, solvadorAuth(env));
+      return solvador;
     }
     return primary;
   };
@@ -46,8 +48,8 @@ function solvadorAuth(env: NodeJS.ProcessEnv): AuthProvider {
     const key = env["SOLVADOR_API_KEY"];
     if (!key) {
       throw new Error(
-        "Robinhood Chain is advertised but SOLVADOR_API_KEY is unset. " +
-          "Create a key at solvador.com, or unset X402_ROBINHOOD_PAY_TO to stop offering the chain.",
+        "a rail settled by Solvador is advertised but SOLVADOR_API_KEY is unset. " +
+          "Create a key at solvador.com, or drop that rail from X402_RAILS.",
       );
     }
     return { "x-api-key": key };

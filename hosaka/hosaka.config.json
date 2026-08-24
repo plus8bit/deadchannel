@@ -1,5 +1,5 @@
 {
-  "$comment": "Public deployment settings for Hosaka. Same payout address as deadchannel on purpose: the Bazaar rolls volume up per address, so two shops under one wallet accumulate together instead of splitting. Settles through CDP because only that facilitator indexes into the 15,000-entry catalog, and indexing is triggered by the first settled payment. Algorand is settled by GoPlausible rather than CDP, which does not support it; the payout address there is a different wallet because Algorand uses a different key format entirely. Robinhood Chain settles through Solvador, the only facilitator that handles eip155:4663; its stablecoin is Paxos USDG rather than USDC, so the payout address is the same EVM one but the asset is not.",
+  "$comment": "Public deployment settings for Hosaka. Same payout address as deadchannel on purpose: the Bazaar rolls volume up per address, so two shops under one wallet accumulate together instead of splitting. Settles through CDP because only that facilitator indexes into the 15,000-entry catalog, and indexing is triggered by the first settled payment. Algorand is settled by GoPlausible rather than CDP, which does not support it; the payout address there is a different wallet because Algorand uses a different key format entirely. Extra EVM rails share this payout address, because one key controls an EVM address on every EVM chain; each rail's EIP-712 domain was read from its own chain, and scripts/verify-rails.mjs re-checks them.",
   "payTo": "0x712c78928080Adb009E31315c0c3c7473dA9648a",
   "network": "base",
   "priceUsd": 0.001,
@@ -7,6 +7,5 @@
   "facilitatorUrl": "https://api.cdp.coinbase.com/platform/v2/x402",
   "algorandPayTo": "NLT4P2QFI3OO3PTLQHQXCAM2RA2Y7T4RZZKZF43BLMBKDFPFX54ZLDY2JU",
   "algorandFacilitatorUrl": "https://facilitator.goplausible.xyz",
-  "robinhoodPayTo": "0x712c78928080Adb009E31315c0c3c7473dA9648a",
-  "robinhoodFacilitatorUrl": "https://api.solvador.com"
+  "rails": "polygon,arbitrum,monad,robinhood"
 }

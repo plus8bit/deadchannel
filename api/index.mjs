@@ -58,25 +58,69 @@ function algorandOption(offer, priceAtomic, maxTimeoutSeconds) {
   };
 }
 
-// src/server/robinhood.ts
-var ROBINHOOD_MAINNET = "eip155:4663";
-var USDG = "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168";
-var USDG_NAME = "Global Dollar";
-var USDG_VERSION = "1";
-var DEFAULT_ROBINHOOD_FACILITATOR = "https://api.solvador.com";
-function robinhoodOption(payTo, priceAtomic, maxTimeoutSeconds) {
+// src/server/rails.ts
+var EVM_RAILS = {
+  polygon: {
+    caip2: "eip155:137",
+    label: "Polygon",
+    asset: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+    name: "USD Coin",
+    version: "2",
+    settledBy: "primary",
+    versionSource: "chain",
+    rpc: "https://polygon-bor-rpc.publicnode.com"
+  },
+  arbitrum: {
+    caip2: "eip155:42161",
+    label: "Arbitrum",
+    asset: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+    name: "USD Coin",
+    version: "2",
+    settledBy: "primary",
+    versionSource: "chain",
+    rpc: "https://arb1.arbitrum.io/rpc"
+  },
+  monad: {
+    caip2: "eip155:143",
+    label: "Monad",
+    asset: "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+    // Not "USD Coin". This is the whole reason the table exists.
+    name: "USDC",
+    version: "2",
+    settledBy: "solvador",
+    versionSource: "chain",
+    rpc: "https://rpc.monad.xyz"
+  },
+  robinhood: {
+    caip2: "eip155:4663",
+    label: "Robinhood Chain",
+    // Paxos USDG. The chain has no Circle USDC.
+    asset: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+    name: "Global Dollar",
+    version: "1",
+    settledBy: "solvador",
+    versionSource: "observed",
+    rpc: "https://rpc.mainnet.chain.robinhood.com"
+  }
+};
+function railOption(rail, payTo, priceAtomic, maxTimeoutSeconds) {
   return {
     scheme: "exact",
-    network: ROBINHOOD_MAINNET,
+    network: rail.caip2,
     amount: priceAtomic,
-    asset: USDG,
+    asset: rail.asset,
     payTo,
     maxTimeoutSeconds,
-    extra: { name: USDG_NAME, version: USDG_VERSION }
+    extra: { name: rail.name, version: rail.version }
   };
+}
+function parseRails(value) {
+  if (!value) return [];
+  return value.split(",").map((n) => n.trim().toLowerCase()).filter((n) => n.length > 0).map((n) => EVM_RAILS[n]).filter((r) => r !== void 0);
 }
 
 // src/server/config.ts
+var DEFAULT_SOLVADOR = "https://api.solvador.com";
 var NETWORKS = {
   "base-sepolia": {
     caip2: "eip155:84532",
@@ -130,10 +174,7 @@ function loadConfig(env = process.env, defaults = FILE_DEFAULTS) {
   if (problems.length > 0) {
     throw new ConfigError(problems);
   }
-  const robinhoodPayTo = env["X402_ROBINHOOD_PAY_TO"] ?? file.robinhoodPayTo ?? null;
-  if (robinhoodPayTo !== null && !EVM_ADDRESS.test(robinhoodPayTo)) {
-    problems.push(`X402_ROBINHOOD_PAY_TO must be a 0x-prefixed 40-hex-digit address, got "${robinhoodPayTo}"`);
-  }
+  const rails = network && !network.testnet ? parseRails(env["X402_RAILS"] ?? file.rails) : [];
   const net = network;
   const publicUrl = (env["PUBLIC_URL"] ?? file.publicUrl ?? // Vercel injects the deployment host but not the scheme.
   (env["VERCEL_PROJECT_PRODUCTION_URL"] ? `https://${env["VERCEL_PROJECT_PRODUCTION_URL"]}` : null) ?? `http://localhost:${port}`).replace(/\/+$/, "");
@@ -148,8 +189,8 @@ function loadConfig(env = process.env, defaults = FILE_DEFAULTS) {
     facilitatorToken: env["X402_FACILITATOR_TOKEN"] ?? null,
     maxTimeoutSeconds: Number(env["X402_MAX_TIMEOUT_SECONDS"] ?? "120"),
     algorandPayTo,
-    robinhoodPayTo,
-    robinhoodFacilitatorUrl: (env["X402_ROBINHOOD_FACILITATOR_URL"] ?? file.robinhoodFacilitatorUrl ?? DEFAULT_ROBINHOOD_FACILITATOR).replace(/\/+$/, ""),
+    rails,
+    solvadorUrl: (env["X402_SOLVADOR_URL"] ?? file.solvadorUrl ?? DEFAULT_SOLVADOR).replace(/\/+$/, ""),
     algorandFacilitatorUrl: (env["X402_ALGORAND_FACILITATOR_URL"] ?? file.algorandFacilitatorUrl ?? "https://facilitator.goplausible.xyz").replace(/\/+$/, "")
   };
 }
@@ -358,17 +399,17 @@ function isCdp(url) {
 function facilitatorsFor(cfg, env = process.env) {
   const primary = new FacilitatorClient(cfg.facilitatorUrl, facilitatorAuth(cfg, env));
   let algorand = null;
-  let robinhood = null;
+  let solvador = null;
   return (network) => {
     if (network.startsWith("algorand:")) {
       if (cfg.algorandFacilitatorUrl === cfg.facilitatorUrl) return primary;
       algorand ??= new FacilitatorClient(cfg.algorandFacilitatorUrl, null);
       return algorand;
     }
-    if (network === ROBINHOOD_MAINNET) {
-      if (cfg.robinhoodFacilitatorUrl === cfg.facilitatorUrl) return primary;
-      robinhood ??= new FacilitatorClient(cfg.robinhoodFacilitatorUrl, solvadorAuth(env));
-      return robinhood;
+    const rail = cfg.rails.find((r) => r.caip2 === network);
+    if (rail?.settledBy === "solvador") {
+      solvador ??= new FacilitatorClient(cfg.solvadorUrl, solvadorAuth(env));
+      return solvador;
     }
     return primary;
   };
@@ -378,7 +419,7 @@ function solvadorAuth(env) {
     const key = env["SOLVADOR_API_KEY"];
     if (!key) {
       throw new Error(
-        "Robinhood Chain is advertised but SOLVADOR_API_KEY is unset. Create a key at solvador.com, or unset X402_ROBINHOOD_PAY_TO to stop offering the chain."
+        "a rail settled by Solvador is advertised but SOLVADOR_API_KEY is unset. Create a key at solvador.com, or drop that rail from X402_RAILS."
       );
     }
     return { "x-api-key": key };
@@ -1608,7 +1649,8 @@ function buildPaymentRequired(cfg, route, error = "PAYMENT-SIGNATURE header is r
       // only one of them can still pay, and one that holds both picks for
       // itself; the price is identical either way.
       ...cfg.algorandPayTo ? [algorandOption({ payTo: cfg.algorandPayTo, testnet: cfg.network.testnet }, cfg.priceAtomic, cfg.maxTimeoutSeconds)] : [],
-      ...cfg.robinhoodPayTo && !cfg.network.testnet ? [robinhoodOption(cfg.robinhoodPayTo, cfg.priceAtomic, cfg.maxTimeoutSeconds)] : []
+      // Same payout address on every EVM rail: one key controls it everywhere.
+      ...cfg.rails.map((rail) => railOption(rail, cfg.payTo, cfg.priceAtomic, cfg.maxTimeoutSeconds))
     ],
     extensions: bazaarExtension(route)
   };
@@ -1939,7 +1981,7 @@ See .env.example for the required variables.
   }
   const facilitator = facilitatorsFor(cfg);
   try {
-    const networks = [cfg.network.caip2, ...cfg.algorandPayTo ? [ALGORAND_MAINNET] : [], ...cfg.robinhoodPayTo ? [ROBINHOOD_MAINNET] : []];
+    const networks = [cfg.network.caip2, ...cfg.algorandPayTo ? [ALGORAND_MAINNET] : [], ...cfg.rails.map((r) => r.caip2)];
     for (const network of networks) {
       const client = facilitator(network);
       const kinds = await client.supported();

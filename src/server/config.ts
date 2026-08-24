@@ -1,6 +1,10 @@
 import defaults from "../../deadchannel.config.json" with { type: "json" };
 import { isAlgorandAddress } from "./algorand.ts";
-import { DEFAULT_ROBINHOOD_FACILITATOR } from "./robinhood.ts";
+import { parseRails } from "./rails.ts";
+import type { EvmRail } from "./rails.ts";
+
+/** Solvador settles the chains Coinbase does not. */
+const DEFAULT_SOLVADOR = "https://api.solvador.com";
 
 /**
  * Server configuration, resolved and validated once at boot.
@@ -81,8 +85,14 @@ export interface Config {
    * controls one controls the other. Kept separate anyway, so enabling the rail
    * is a deliberate act rather than a side effect of having a Base address.
    */
-  robinhoodPayTo: string | null;
-  robinhoodFacilitatorUrl: string;
+  /**
+   * Extra EVM chains to accept on, beyond the primary one. They share the
+   * primary payout address, because a key that controls an EVM address
+   * controls it on every EVM chain.
+   */
+  rails: EvmRail[];
+  /** Settles the rails the primary facilitator cannot. */
+  solvadorUrl: string;
 }
 
 export const USDC_DECIMALS = 6;
@@ -99,8 +109,8 @@ export interface FileDefaults {
   /** Algorand payout address, when this deployment also sells on Algorand. */
   algorandPayTo?: string;
   algorandFacilitatorUrl?: string;
-  robinhoodPayTo?: string;
-  robinhoodFacilitatorUrl?: string;
+  rails?: string;
+  solvadorUrl?: string;
   payTo?: string;
   network?: string;
   priceUsd?: number;
@@ -161,10 +171,10 @@ export function loadConfig(
     throw new ConfigError(problems);
   }
 
-  const robinhoodPayTo = env["X402_ROBINHOOD_PAY_TO"] ?? file.robinhoodPayTo ?? null;
-  if (robinhoodPayTo !== null && !EVM_ADDRESS.test(robinhoodPayTo)) {
-    problems.push(`X402_ROBINHOOD_PAY_TO must be a 0x-prefixed 40-hex-digit address, got "${robinhoodPayTo}"`);
-  }
+  // Testnet deployments stay on one chain: the rails table is mainnet-only.
+  const rails = network && !(network as NetworkConfig).testnet
+    ? parseRails(env["X402_RAILS"] ?? file.rails)
+    : [];
 
   const net = network as NetworkConfig;
   const publicUrl = (
@@ -186,12 +196,8 @@ export function loadConfig(
     facilitatorToken: env["X402_FACILITATOR_TOKEN"] ?? null,
     maxTimeoutSeconds: Number(env["X402_MAX_TIMEOUT_SECONDS"] ?? "120"),
     algorandPayTo,
-    robinhoodPayTo,
-    robinhoodFacilitatorUrl: (
-      env["X402_ROBINHOOD_FACILITATOR_URL"] ??
-      file.robinhoodFacilitatorUrl ??
-      DEFAULT_ROBINHOOD_FACILITATOR
-    ).replace(/\/+$/, ""),
+    rails,
+    solvadorUrl: (env["X402_SOLVADOR_URL"] ?? file.solvadorUrl ?? DEFAULT_SOLVADOR).replace(/\/+$/, ""),
     algorandFacilitatorUrl: (
       env["X402_ALGORAND_FACILITATOR_URL"] ??
       file.algorandFacilitatorUrl ??

@@ -282,7 +282,7 @@ describe("the well-known manifest a marketplace crawls", () => {
   });
 });
 
-describe("selling on Robinhood Chain, where the dollar is USDG", () => {
+describe("the extra EVM rails", () => {
   const base = {
     X402_NETWORK: "base",
     X402_PAY_TO: "0x712c78928080Adb009E31315c0c3c7473dA9648a",
@@ -300,41 +300,49 @@ describe("selling on Robinhood Chain, where the dollar is USDG", () => {
     outputExample: {},
   };
 
-  it("offers USDG with its own EIP-712 domain, not USDC's", async () => {
+  it("signs each chain against the domain that chain reports", async () => {
     const { loadConfig } = await import("../src/server/config.ts");
     const { buildPaymentRequired } = await import("../src/server/x402.ts");
-    const { USDG } = await import("../src/server/robinhood.ts");
 
-    const cfg = loadConfig({ ...base, X402_ROBINHOOD_PAY_TO: base.X402_PAY_TO }, {});
-    const rh = buildPaymentRequired(cfg, route, "x").accepts.find((a) => a.network === "eip155:4663")!;
+    const cfg = loadConfig({ ...base, X402_RAILS: "polygon,monad,robinhood" }, {});
+    const by = new Map(buildPaymentRequired(cfg, route, "x").accepts.map((a) => [a.network, a]));
 
-    assert.ok(rh, "the chain must be advertised once configured");
-    assert.equal(rh.asset, USDG);
-    // The buyer signs against this domain. "USD Coin" here produces a
-    // signature the facilitator rejects on every single payment.
-    assert.deepEqual(rh.extra, { name: "Global Dollar", version: "1" });
+    // These differ, and a buyer signs against them. "USD Coin" on Monad or
+    // USDC's address on Robinhood produces a signature rejected on every call,
+    // with nothing in the response naming the cause.
+    assert.deepEqual(by.get("eip155:137")!.extra, { name: "USD Coin", version: "2" });
+    assert.deepEqual(by.get("eip155:143")!.extra, { name: "USDC", version: "2" });
+    assert.deepEqual(by.get("eip155:4663")!.extra, { name: "Global Dollar", version: "1" });
+    assert.equal(by.get("eip155:4663")!.asset, "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168");
+
+    // One key controls an EVM address on every EVM chain.
+    for (const a of by.values()) assert.equal(a.payTo, base.X402_PAY_TO);
   });
 
-  it("sends Robinhood to Solvador, with the header Solvador actually reads", async () => {
+  it("sends each rail to the facilitator that settles it", async () => {
     const { facilitatorsFor } = await import("../src/server/facilitator-router.ts");
     const { loadConfig } = await import("../src/server/config.ts");
 
-    const env = { ...base, X402_ROBINHOOD_PAY_TO: base.X402_PAY_TO, SOLVADOR_API_KEY: "k" };
+    const env = { ...base, X402_RAILS: "polygon,monad", SOLVADOR_API_KEY: "k" };
     const route2 = facilitatorsFor(loadConfig(env, {}), env as NodeJS.ProcessEnv);
-    assert.match(route2("eip155:4663").baseUrl, /solvador/);
-    assert.doesNotMatch(route2("eip155:8453").baseUrl, /solvador/);
+    // Coinbase settles Polygon, so it costs no second credential. It does not
+    // settle Monad at all.
+    assert.doesNotMatch(route2("eip155:137").baseUrl, /solvador/);
+    assert.match(route2("eip155:143").baseUrl, /solvador/);
   });
 
-  it("refuses to serve the chain when its key is missing, before a buyer signs", async () => {
+  it("refuses a Solvador rail without its key, before a buyer signs", async () => {
     const { facilitatorsFor } = await import("../src/server/facilitator-router.ts");
     const { loadConfig } = await import("../src/server/config.ts");
-    const { FacilitatorClient } = await import("../src/server/facilitator.ts");
 
-    const env = { ...base, X402_ROBINHOOD_PAY_TO: base.X402_PAY_TO };
-    const client = facilitatorsFor(loadConfig(env, {}), env as NodeJS.ProcessEnv)("eip155:4663");
-    assert.ok(client instanceof FacilitatorClient);
-    // The provider throws when asked for credentials it does not have, rather
-    // than sending an unauthenticated request that fails at settlement.
+    const env = { ...base, X402_RAILS: "monad" };
+    const client = facilitatorsFor(loadConfig(env, {}), env as NodeJS.ProcessEnv)("eip155:143");
     assert.throws(() => client.authFor("POST", "https://api.solvador.com/verify"), /SOLVADOR_API_KEY/);
+  });
+
+  it("ignores unknown rail names instead of inventing chains", async () => {
+    const { parseRails } = await import("../src/server/rails.ts");
+    assert.deepEqual(parseRails("polygon, nonsense ,,MONAD").map((r) => r.caip2), ["eip155:137", "eip155:143"]);
+    assert.deepEqual(parseRails(undefined), []);
   });
 });

@@ -155,8 +155,8 @@ export const LOOKUP_ROUTE: PaidRoute = {
   method: "POST",
   serviceName: "Hosaka",
   description:
-    "Fast company look-up from a domain: age, registrar, mail and DNS provider, DMARC, HTTPS, and how many third-party vendors we can see. One call, no signup, no API key.",
-  tags: ["company-data", "enrichment", "domain", "b2b", "technographics"],
+    "Use when you have a company domain and need to know what the company is before spending more. Returns the company name and site title, domain age, registrar, mail provider, DNS provider, DMARC and HTTPS status, and a count of the third-party vendors detected. One call, no signup, no API key. The cheapest way to qualify a domain before buying a fuller record.",
+  tags: ["company-data", "enrichment", "domain", "b2b", "firmographics"],
   mimeType: "application/json",
   inputExample: { domain: "figma.com" },
   inputSchema: {
@@ -182,8 +182,8 @@ export const DOSSIER_ROUTE: PaidRoute = {
   method: "POST",
   serviceName: "Hosaka",
   description:
-    "Full company dossier from a domain: every third-party vendor we can prove they use, with the DNS record or script that proves it, plus registration, mail, certificate and site facts. Technographics without a subscription.",
-  tags: ["technographics", "company-data", "vendor-stack", "b2b", "enrichment"],
+    "Use when you need a company's technology and vendor stack from its domain alone. Returns every third-party vendor the company can be proven to use — mail, DNS, CDN, analytics, payments, support, hosting — each with the DNS record or loaded script that proves it, plus registration, certificate and site facts. Technographics without a subscription or a sales call.",
+  tags: ["technographics", "vendor-stack", "company-data", "enrichment", "b2b"],
   mimeType: "application/json",
   inputExample: { domain: "figma.com" },
   inputSchema: {
@@ -215,8 +215,8 @@ export const BUNDLE_ROUTE: PaidRoute = {
   method: "POST",
   serviceName: "Hosaka",
   description:
-    "Company dossier and the people who work there, in one call. Returns every third-party vendor the company can be proven to use with the record proving each, plus contacts sourced from a people-data provider. Cheaper than buying the contacts alone elsewhere.",
-  tags: ["contacts", "people-data", "b2b", "enrichment", "company-data"],
+    "Use when you need named employees at a company you only know by domain. Returns people who work there with name, job title, seniority, location and profile link, plus the company's proven third-party vendor stack in the same call. B2B lead enrichment and prospecting from a domain, priced per call instead of per seat.",
+  tags: ["people-data", "lead-enrichment", "prospecting", "contacts", "b2b"],
   mimeType: "application/json",
   inputExample: { domain: "figma.com" },
   inputSchema: {
@@ -256,8 +256,8 @@ export const EXECUTIVES_ROUTE: PaidRoute = {
   method: "POST",
   serviceName: "Hosaka",
   description:
-    "Company dossier plus the decision makers: owners, founders, C-level, partners, VPs, heads and directors, with title, location and profile link. Returns every third-party vendor the company can be proven to use with the record proving it. For finding who signs, not who works there.",
-  tags: ["contacts", "people-data", "b2b", "sales", "decision-makers"],
+    "Use when you need the decision makers rather than the whole staff: owners, founders, C-level, partners, VPs, heads and directors, each with title, location and profile link. Also returns the company's proven third-party vendor stack. For finding who can sign a contract at a company you only know by domain.",
+  tags: ["decision-makers", "people-data", "sales", "prospecting", "b2b"],
   mimeType: "application/json",
   inputExample: { domain: "figma.com" },
   inputSchema: {
@@ -281,8 +281,8 @@ export const CONTACTS_ROUTE: PaidRoute = {
   method: "POST",
   serviceName: "Hosaka",
   description:
-    "Company dossier plus every contact point the company publishes — emails, phones and social accounts scraped from its own site. Returns each third-party vendor the company can be proven to use with the record proving it. For reaching a company rather than a named person.",
-  tags: ["contacts", "b2b", "enrichment", "company-data", "email"],
+    "Use when you need to reach a company rather than a named person: the emails, phone numbers and social accounts it publishes about itself, gathered from its own site. Also returns every third-party vendor the company can be proven to use, with the record proving each. For support, sales and abuse contact discovery from a domain.",
+  tags: ["contacts", "email-lookup", "company-data", "enrichment", "b2b"],
   mimeType: "application/json",
   inputExample: { domain: "figma.com" },
   inputSchema: {

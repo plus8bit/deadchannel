@@ -461,3 +461,21 @@ describe("the contract a registry reads before an agent calls", () => {
     }
   });
 });
+
+describe("what the Bazaar indexes", () => {
+  it("keeps every description inside the facilitator's limit", async () => {
+    const r = await import("../src/hosaka/server/routes.ts");
+    const shelves = [r.LOOKUP_ROUTE, r.DOSSIER_ROUTE, r.BUNDLE_ROUTE, r.EXECUTIVES_ROUTE, r.CONTACTS_ROUTE];
+    for (const shelf of shelves) {
+      // The CDP facilitator rejects verify and settle outright when a
+      // description runs past 500 characters, so an overlong one does not
+      // merely rank badly — it stops the endpoint from being paid at all.
+      assert.ok(
+        shelf.description.length <= 500,
+        `${shelf.path}: ${shelf.description.length} characters`,
+      );
+      // Ranking scores metadata on whether it tells an agent when to call.
+      assert.ok(shelf.tags.length >= 3, `${shelf.path} needs tags to be found`);
+    }
+  });
+});

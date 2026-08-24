@@ -14,14 +14,22 @@ import type { PaidRoute } from "../../server/x402.ts";
  */
 
 /**
- * Priced against the companies actually selling company enrichment, not the
- * pricier people-data tier: the field runs $0.02 to $0.075 with a $0.068
- * median. The dossier sits just under the closest comparable by content, and
- * the look-up stays in the cheapest tier because its job is to collect distinct
- * payers, which is the only thing the catalog ranks on.
+ * Priced against what an agent actually finds when it searches the catalog for
+ * the same thing, measured rather than assumed.
+ *
+ * Searching the Bazaar for technology-stack detection returns fourteen sellers,
+ * and BuiltWith — the twenty-year incumbent whose name a buyer already trusts —
+ * answers the same question at $0.050. Holding $0.070 above them asks an agent
+ * to pay a premium for the brand it has never heard of. The dossier costs us
+ * nothing to produce, because it reads public DNS, so the one advantage we can
+ * hold for as long as we like is being cheaper than sellers who have costs.
+ *
+ * The look-up drops to what the catalog was already advertising for it, which
+ * removes a mismatch and costs almost nothing: its job is to collect distinct
+ * payers, and unique payers are what the ranking counts.
  */
-export const PRICE_LOOKUP = 0.01;
-export const PRICE_DOSSIER = 0.07;
+export const PRICE_LOOKUP = 0.005;
+export const PRICE_DOSSIER = 0.04;
 /** Registration and DNS move slowly; a day-old profile is still a true one. */
 const TTL_MS = 24 * 60 * 60 * 1000;
 

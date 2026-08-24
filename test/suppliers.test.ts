@@ -110,7 +110,18 @@ describe("the resale shelves", () => {
     for (const [name, tier] of Object.entries(TIERS)) {
       const supplier = SUPPLIERS[tier.supplier]!;
       assert.ok(tier.priceUsd > supplier.listPriceUsd, `${name} sells below cost`);
-      assert.ok(tier.priceUsd / supplier.listPriceUsd >= 1.5, `${name} markup is too thin`);
+      // A ratio floor was the wrong shape for a shelf whose supplier sells the
+      // same answer in the same catalog: demanding 1.5x put us above the
+      // original seller, which is exactly why an agent searching for this
+      // never chose us. What has to hold is an absolute margin at the worst
+      // price we would still pay, not a multiple of the best one.
+      // Held as a share of the shelf rather than a flat sum, so it means the
+      // same thing on a two-cent shelf and a twenty-one-cent one.
+      const kept = tier.priceUsd - supplier.maxPriceUsd;
+      assert.ok(
+        kept >= tier.priceUsd * 0.15,
+        `${name} keeps only $${kept.toFixed(3)} of $${tier.priceUsd} in the worst case`,
+      );
       // The ceiling, not the list price, is what we can actually be charged.
       // If a supplier repriced itself all the way up to its ceiling and we
       // still sold at today's price, this is the line that says we survive it.
@@ -121,12 +132,19 @@ describe("the resale shelves", () => {
     }
   });
 
-  it("undercuts the market leader on the tier that competes with it", async () => {
+  it("costs no more than buying the two halves apart", async () => {
     const { TIERS } = await import("../src/hosaka/server/bundle.ts");
-    // PDL Person Enrich, the top earner in this whole market, sells contacts
-    // alone at $0.28. Undercutting it while adding a dossier is the position.
-    assert.ok(TIERS.people.priceUsd < 0.28, "must undercut the leader");
-    assert.ok(TIERS.people.priceUsd - SUPPLIERS["fullenrich-people"]!.listPriceUsd >= 0.08);
+    const { PRICE_DOSSIER } = await import("../src/hosaka/server/routes.ts");
+    // The claim this shelf makes is the pairing, not the contacts: a buyer can
+    // always purchase the stack from us and the people from our own supplier,
+    // who is listed in the same catalog. If the bundle ever costs more than
+    // that sum, the shelf is asking to be skipped, and an agent that compares
+    // prices will skip it.
+    const apart = PRICE_DOSSIER + SUPPLIERS["fullenrich-people"]!.listPriceUsd;
+    assert.ok(
+      TIERS.people.priceUsd <= apart,
+      `bundle $${TIERS.people.priceUsd} vs $${apart.toFixed(3)} bought separately`,
+    );
   });
 
   it("keeps the two tiers distinguishable in the response", async () => {

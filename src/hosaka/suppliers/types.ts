@@ -76,7 +76,9 @@ export const SUPPLIERS: Record<string, Supplier> = {
     url: "https://stableenrich.dev/api/fullenrich/people-search",
     method: "POST",
     listPriceUsd: 0.15,
-    maxPriceUsd: 0.2,
+    // Tightened when the shelves above were repriced: a ceiling that sits over
+    // the shelf price authorises us to buy for more than we sell for.
+    maxPriceUsd: 0.16,
     // Established in two steps, both cheap. A request with the wrong field was
     // rejected with "Provide at least one search filter (e.g.
     // current_company_domains, ...)" — the supplier naming it, in a 400 that

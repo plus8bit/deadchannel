@@ -48693,8 +48693,8 @@ function applyOutcome(res, outcome) {
 }
 
 // src/hosaka/server/routes.ts
-var PRICE_LOOKUP = 0.01;
-var PRICE_DOSSIER = 0.07;
+var PRICE_LOOKUP = 5e-3;
+var PRICE_DOSSIER = 0.04;
 var TTL_MS = 24 * 60 * 60 * 1e3;
 var warehouse = new MemoryStore({ maxItems: 5e3 });
 function parseDomainRequest(body) {
@@ -48917,7 +48917,9 @@ var SUPPLIERS = {
     url: "https://stableenrich.dev/api/fullenrich/people-search",
     method: "POST",
     listPriceUsd: 0.15,
-    maxPriceUsd: 0.2,
+    // Tightened when the shelves above were repriced: a ceiling that sits over
+    // the shelf price authorises us to buy for more than we sell for.
+    maxPriceUsd: 0.16,
     // Established in two steps, both cheap. A request with the wrong field was
     // rejected with "Provide at least one search filter (e.g.
     // current_company_domains, ...)" — the supplier naming it, in a 400 that
@@ -49205,20 +49207,26 @@ var TIERS = {
      * of the seven people who can sign are not the same product, and the second
      * is the one anyone selling B2B came for.
      */
-    priceUsd: 0.3
+    priceUsd: 0.21
   },
   people: {
     supplier: "fullenrich-people",
     kind: "named-people",
     /**
-     * $0.25 against a $0.15 supplier cost.
+     * $0.19 against a $0.16 ceiling on the supplier.
      *
-     * The number is set by what it has to beat: the market's top earner sells
-     * contacts alone at $0.28, so anything at or above that loses the only
-     * advantage worth having from behind. This undercuts it by a ninth and
-     * still carries the dossier they do not sell, on a 67% markup over cost.
+     * The old price was set against a $0.28 competitor that no longer sets it.
+     * Our own supplier is listed in the same catalog at $0.15 and ranks first
+     * for the query this shelf answers, while we did not appear at all: selling
+     * a marked-up copy above the original, on the shelf where the original
+     * sits, is not a position an agent will ever choose.
+     *
+     * What survives that comparison is the pairing rather than the contacts —
+     * the proven vendor stack and the people in a single call — so it is priced
+     * to cost no more than buying the two halves apart, and wins on being one
+     * call whose answer is already sorted.
      */
-    priceUsd: 0.25
+    priceUsd: 0.19
   },
   contacts: {
     supplier: "openwebninja-contacts",

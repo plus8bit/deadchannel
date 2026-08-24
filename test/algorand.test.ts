@@ -265,11 +265,22 @@ describe("the well-known manifest a marketplace crawls", () => {
 
       const byPath = new Map(body.resources.map((r) => [new URL(r.resource.url).pathname, r]));
       // The prices differ per shelf. A manifest built by overriding priceUsd
-      // without priceAtomic would advertise all four at the base price, and a
-      // crawler would publish those numbers as ours.
-      assert.equal(byPath.get("/lookup")!.accepts[0]!.amount, "10000");
-      assert.equal(byPath.get("/dossier")!.accepts[0]!.amount, "70000");
-      assert.equal(byPath.get("/people")!.accepts[0]!.amount, "250000");
+      // without priceAtomic would advertise all five at the base price, and a
+      // crawler would publish those numbers as ours. Read from the constants
+      // rather than written out, so a reprice cannot leave a stale number here
+      // while still failing the moment the shelves collapse onto one price.
+      const { PRICE_LOOKUP, PRICE_DOSSIER } = await import("../src/hosaka/server/routes.ts");
+      const { TIERS } = await import("../src/hosaka/server/bundle.ts");
+      const atomic = (usd: number) => String(Math.round(usd * 1e6));
+      assert.equal(byPath.get("/lookup")!.accepts[0]!.amount, atomic(PRICE_LOOKUP));
+      assert.equal(byPath.get("/dossier")!.accepts[0]!.amount, atomic(PRICE_DOSSIER));
+      assert.equal(byPath.get("/people")!.accepts[0]!.amount, atomic(TIERS.people.priceUsd));
+      assert.equal(byPath.get("/executives")!.accepts[0]!.amount, atomic(TIERS.executives.priceUsd));
+      assert.equal(
+        new Set([...byPath.values()].map((e) => e.accepts[0]!.amount)).size,
+        byPath.size,
+        "every shelf must carry its own price",
+      );
 
       for (const [path, entry] of byPath) {
         const nets = entry.accepts.map((a) => a.network);

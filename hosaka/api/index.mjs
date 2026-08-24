@@ -49600,6 +49600,16 @@ async function handle(req, res, cfg, facilitator) {
   if (path === "/health") return send(res, 200, { ok: true, network: cfg.network.label });
   if (path === "/facilitator") return send(res, ...await facilitatorStatus(cfg, facilitator));
   if (path === "/warehouse") return send(res, 200, await warehouseStats());
+  if (path === "/.well-known/x402") {
+    return send(res, 200, {
+      x402Version: 2,
+      resources: SHELVES.map((shelf2) => {
+        const priced = shelf2.priceUsd === void 0 ? cfg : withPrice(cfg, shelf2.priceUsd);
+        const required = buildPaymentRequired(priced, shelf2.route);
+        return { resource: required.resource, accepts: required.accepts, extensions: required.extensions };
+      })
+    });
+  }
   if (path === "/preview" && req.method === "POST") {
     try {
       return send(res, 200, await runPreview(parseDomainRequest(await readJson(req))));

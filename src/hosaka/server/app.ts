@@ -6,10 +6,11 @@ import type { Config } from "../../server/config.ts";
 import { FacilitatorClient, FacilitatorError } from "../../server/facilitator.ts";
 import { facilitatorsFor } from "../../server/facilitator-router.ts";
 import { hosakaLanding, HOSAKA_FAVICON } from "./landing.ts";
+import { buildPaymentRequired } from "../../server/x402.ts";
 import { ALGORAND_MAINNET } from "../../server/algorand.ts";
 import type { FacilitatorFor } from "../../server/facilitator-router.ts";
 import { facilitatorAuth } from "../../server/facilitator-auth.ts";
-import { applyOutcome, readJson, servePaid } from "../../server/paid.ts";
+import { applyOutcome, readJson, servePaid, withPrice } from "../../server/paid.ts";
 import type { PaidHandlerDeps } from "../../server/paid.ts";
 import { PRICE_BUNDLE, PRICE_CONTACTS, runBundle } from "./bundle.ts";
 import {
@@ -83,6 +84,21 @@ async function handle(
   if (path === "/health") return send(res, 200, { ok: true, network: cfg.network.label });
   if (path === "/facilitator") return send(res, ...(await facilitatorStatus(cfg, facilitator)));
   if (path === "/warehouse") return send(res, 200, await warehouseStats());
+  // The listing mechanism agent indexes crawl: one document naming every paid
+  // resource and what it costs, so a marketplace can catalog the shop without
+  // being told about it.
+  if (path === "/.well-known/x402") {
+    return send(res, 200, {
+      x402Version: 2,
+      resources: SHELVES.map((shelf) => {
+        // withPrice, not a spread: the 402 reads priceAtomic, so overriding
+        // priceUsd alone would advertise every shelf at the base price.
+        const priced = shelf.priceUsd === undefined ? cfg : withPrice(cfg, shelf.priceUsd);
+        const required = buildPaymentRequired(priced, shelf.route);
+        return { resource: required.resource, accepts: required.accepts, extensions: required.extensions };
+      }),
+    });
+  }
   if (path === "/preview" && req.method === "POST") {
     try {
       return send(res, 200, await runPreview(parseDomainRequest(await readJson(req))));

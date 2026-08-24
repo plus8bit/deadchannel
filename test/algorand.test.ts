@@ -234,3 +234,50 @@ describe("the free preview", () => {
     assert.ok(!/domain-verification|include:/i.test(dumped), "no raw records");
   });
 });
+
+describe("the well-known manifest a marketplace crawls", () => {
+  it("lists every shelf at its own price, on every chain", async () => {
+    const { createHandler } = await import("../src/hosaka/server/app.ts");
+    const { loadConfig } = await import("../src/server/config.ts");
+    const { createServer } = await import("node:http");
+
+    const cfg = loadConfig(
+      {
+        X402_NETWORK: "base",
+        X402_PAY_TO: "0x712c78928080Adb009E31315c0c3c7473dA9648a",
+        X402_ALGORAND_PAY_TO: REAL,
+        PUBLIC_URL: "https://example.test",
+      },
+      {},
+    );
+    const server = createServer(createHandler(cfg, (() => {
+      throw new Error("no facilitator needed");
+    }) as never));
+    await new Promise<void>((r) => server.listen(0, r));
+    const port = (server.address() as { port: number }).port;
+
+    try {
+      const res = await fetch(`http://127.0.0.1:${port}/.well-known/x402`);
+      assert.equal(res.status, 200);
+      const body = (await res.json()) as {
+        resources: { resource: { url: string }; accepts: { amount: string; network: string }[] }[];
+      };
+
+      const byPath = new Map(body.resources.map((r) => [new URL(r.resource.url).pathname, r]));
+      // The prices differ per shelf. A manifest built by overriding priceUsd
+      // without priceAtomic would advertise all four at the base price, and a
+      // crawler would publish those numbers as ours.
+      assert.equal(byPath.get("/lookup")!.accepts[0]!.amount, "10000");
+      assert.equal(byPath.get("/dossier")!.accepts[0]!.amount, "70000");
+      assert.equal(byPath.get("/people")!.accepts[0]!.amount, "250000");
+
+      for (const [path, entry] of byPath) {
+        const nets = entry.accepts.map((a) => a.network);
+        assert.ok(nets.some((n) => n.startsWith("algorand:")), `${path} must offer Algorand`);
+        assert.ok(nets.includes("eip155:8453"), `${path} must offer Base`);
+      }
+    } finally {
+      server.close();
+    }
+  });
+});

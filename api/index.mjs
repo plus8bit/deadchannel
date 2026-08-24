@@ -353,6 +353,8 @@ var REGISTRY = /* @__PURE__ */ new Map([
   // Solana devnet
   // Algorand names an asset by its integer ASA id, not an address. 31566704 is
   // USDC on MainNet; 10458941 is USDC on TestNet.
+  // Robinhood Chain has no Circle USDC; its canonical stablecoin is Paxos USDG.
+  ["0x5fc5360d0400a0fd4f2af552add042d716f1d168", { symbol: "USDG", decimals: 6, usd: 1 }],
   ["31566704", { symbol: "USDC", decimals: 6, usd: 1 }],
   ["10458941", { symbol: "USDC", decimals: 6, usd: 1 }]
 ]);
@@ -412,6 +414,7 @@ var CAIP2 = {
   "eip155:4689": { name: "iotex", testnet: false },
   "eip155:196": { name: "x-layer", testnet: false },
   "eip155:143": { name: "monad", testnet: false },
+  "eip155:4663": { name: "robinhood", testnet: false },
   "eip155:5000": { name: "mantle", testnet: false },
   "eip155:59144": { name: "linea", testnet: false },
   "eip155:100": { name: "gnosis", testnet: false },
@@ -448,6 +451,7 @@ var FRIENDLY = /* @__PURE__ */ new Set([
   "sei",
   "sei-testnet",
   "iotex",
+  "robinhood",
   "solana",
   "solana-devnet",
   "solana-testnet",

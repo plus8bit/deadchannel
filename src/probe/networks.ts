@@ -30,6 +30,7 @@ const CAIP2: Record<string, { name: string; testnet: boolean }> = {
   "eip155:4689": { name: "iotex", testnet: false },
   "eip155:196": { name: "x-layer", testnet: false },
   "eip155:143": { name: "monad", testnet: false },
+  "eip155:4663": { name: "robinhood", testnet: false },
   "eip155:5000": { name: "mantle", testnet: false },
   "eip155:59144": { name: "linea", testnet: false },
   "eip155:100": { name: "gnosis", testnet: false },
@@ -59,7 +60,7 @@ const CAIP2_LOWER: Record<string, { name: string; testnet: boolean }> = Object.f
 const FRIENDLY = new Set([
   "ethereum", "optimism", "bsc", "polygon", "base", "base-sepolia",
   "arbitrum", "arbitrum-sepolia", "avalanche", "avalanche-fuji",
-  "sei", "sei-testnet", "iotex", "solana", "solana-devnet", "solana-testnet",
+  "sei", "sei-testnet", "iotex", "robinhood", "solana", "solana-devnet", "solana-testnet",
   "algorand", "algorand-testnet",
 ]);
 

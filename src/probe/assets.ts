@@ -25,6 +25,8 @@ const REGISTRY = new Map<string, AssetInfo>([
   ["4zmmc9srt5ri5x14gagxhahii3gnpaeerypjgzjdncdu", { symbol: "USDC", decimals: 6, usd: 1 }], // Solana devnet
   // Algorand names an asset by its integer ASA id, not an address. 31566704 is
   // USDC on MainNet; 10458941 is USDC on TestNet.
+  // Robinhood Chain has no Circle USDC; its canonical stablecoin is Paxos USDG.
+  ["0x5fc5360d0400a0fd4f2af552add042d716f1d168", { symbol: "USDG", decimals: 6, usd: 1 }],
   ["31566704", { symbol: "USDC", decimals: 6, usd: 1 }],
   ["10458941", { symbol: "USDC", decimals: 6, usd: 1 }],
 ]);

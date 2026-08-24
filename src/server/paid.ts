@@ -183,7 +183,7 @@ function refusalFrom(err: unknown): string | null {
  * The conversion goes through the same `toAtomic` the boot config uses —
  * money arithmetic written twice is money arithmetic that will disagree.
  */
-function withPrice(cfg: Config, priceUsd: number): Config {
+export function withPrice(cfg: Config, priceUsd: number): Config {
   return { ...cfg, priceUsd, priceAtomic: toAtomic(priceUsd, USDC_DECIMALS) };
 }
 

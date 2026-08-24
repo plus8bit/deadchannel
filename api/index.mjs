@@ -1386,8 +1386,9 @@ You are charged only when the call produces a result; a failure settles nothing.
 - POST /contacts \u2014 $0.02 \u2014 the dossier, plus the emails and phones the company publishes
 - POST /dossier \u2014 $0.07 \u2014 every provable vendor, each with its evidence
 - POST /people \u2014 $0.25 \u2014 the dossier, plus named people who work there
+- POST /executives \u2014 $0.30 \u2014 the dossier, plus the people who can sign: owners, founders, C-level, partners, VPs, heads, directors
 
-Body for all four: \`{"domain": "figma.com"}\`. Asking for figma.com returns
+Body for all five: \`{"domain": "figma.com"}\`. Asking for figma.com returns
 Anthropic, OpenAI, Adobe, Atlassian, MongoDB Atlas, Greenhouse, Docusign,
 Stripe, Notion, Dropbox and Zendesk, each with the record that proves it.
 

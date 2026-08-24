@@ -74,7 +74,7 @@ if (!key) {
 const privateKey = key.trim().startsWith("0x") ? key.trim() : `0x${key.trim()}`;
 
 try {
-  const purchase = await buy(supplier, body, { privateKey });
+  const purchase = await buy(supplier, body, { privateKey, probe: true });
   process.stdout.write(`\nACCEPTED and paid $${purchase.paidUsd}\n`);
   process.stdout.write(`${JSON.stringify(purchase.data, null, 2).slice(0, 4000)}\n`);
 } catch (err) {

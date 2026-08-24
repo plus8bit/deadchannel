@@ -186,3 +186,27 @@ describe("the resale shelves", () => {
     );
   });
 });
+
+describe("asking a supplier what it wants", () => {
+  it("still refuses a real order the wallet cannot cover", async () => {
+    const { buy } = await import("../src/hosaka/suppliers/buy.ts");
+    const { SUPPLIERS } = await import("../src/hosaka/suppliers/types.ts");
+    // An empty wallet must not take an order. The probe path is the exception,
+    // and it exists because a refused request costs nothing and is the only
+    // free description these endpoints publish.
+    await assert.rejects(
+      () => buy(SUPPLIERS["fullenrich-people"]!, {}, { privateKey: undefined as never }),
+      /HOSAKA_OPERATING_KEY/,
+    );
+  });
+
+  it("keeps enough of a rejection to read what it asked for", async () => {
+    const { SupplierError } = await import("../src/hosaka/suppliers/types.ts");
+    // The 200-character cut landed mid-sentence in the one message that named
+    // the supplier's own filters, and we paid $0.15 to learn what it had
+    // already begun to say.
+    const long = "Provide at least one search filter (e.g. " + "field_name, ".repeat(60);
+    const err = new SupplierError("x", `returned 400. ${long.slice(0, 2000)}`);
+    assert.ok(err.message.length > 400, "a rejection must survive long enough to be read");
+  });
+});

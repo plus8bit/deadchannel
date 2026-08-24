@@ -48976,7 +48976,7 @@ async function buy(which, body, options = {}) {
   const { ExactEvmScheme: ExactEvmScheme2 } = await Promise.resolve().then(() => (init_client(), client_exports));
   const { wrapFetchWithPayment: wrapFetchWithPayment2, x402Client: x402Client2, decodePaymentResponseHeader: decodePaymentResponseHeader2 } = await Promise.resolve().then(() => (init_esm5(), esm_exports));
   const account = privateKeyToAccount2(key);
-  const float = await floatUsd(account.address, options.timeoutMs);
+  const float = options.probe ? null : await floatUsd(account.address, options.timeoutMs);
   if (float !== null && float < asking) {
     throw new SupplierError(
       supplier.id,

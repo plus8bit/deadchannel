@@ -27,6 +27,8 @@ export interface BuyOptions {
   /** Overrides the operating key, for tests. */
   privateKey?: string;
   timeoutMs?: number;
+  /** Send it even if the wallet is empty: we expect a refusal, not a purchase. */
+  probe?: boolean;
 }
 
 export function operatingKey(env: NodeJS.ProcessEnv = process.env): string | null {
@@ -94,7 +96,11 @@ export async function buy<T>(
 
   const account = privateKeyToAccount(key as `0x${string}`);
 
-  const float = await floatUsd(account.address, options.timeoutMs);
+  // Skipped for a deliberate probe. The float check exists so a shelf never
+  // takes an order it cannot fill; a request sent to be refused is not an
+  // order, and refusing to send it means never learning what the supplier
+  // wanted — which is the one thing available for free.
+  const float = options.probe ? null : await floatUsd(account.address, options.timeoutMs);
   if (float !== null && float < asking) {
     throw new SupplierError(
       supplier.id,

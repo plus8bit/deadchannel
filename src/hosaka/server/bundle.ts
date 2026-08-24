@@ -2,7 +2,9 @@ import { buy } from "../suppliers/buy.ts";
 import { SUPPLIERS, SupplierError } from "../suppliers/types.ts";
 import { buildProfile } from "../profile.ts";
 import { summarise } from "../contacts.ts";
+import { summarisePeople } from "../people.ts";
 import type { ContactSummary } from "../contacts.ts";
+import type { PeopleSummary } from "../people.ts";
 import type { DomainProfile } from "../types.ts";
 
 /**
@@ -70,7 +72,7 @@ export interface BundleResponse {
      * scraper reached. Null when the supplier returned a shape we do not
      * recognise, in which case `data` is still there to read.
      */
-    summary: ContactSummary | null;
+    summary: ContactSummary | PeopleSummary | null;
     /** Exactly what the supplier returned, unedited, so nothing is taken on trust. */
     data: unknown;
     source: string;
@@ -107,7 +109,10 @@ export async function runBundle(req: { domain: string }, tier: TierName): Promis
     domain: req.domain,
     company,
     contacts: {
-      summary: summarise(req.domain, purchase.data),
+      // Each tier gets the reading of its own shape. A contact scrape and a
+      // people-data response have nothing structurally in common.
+      summary:
+        tier === "people" ? summarisePeople(purchase.data) : summarise(req.domain, purchase.data),
       data: purchase.data,
       source: supplier.name,
       kind,

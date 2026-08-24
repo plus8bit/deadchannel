@@ -47845,18 +47845,18 @@ var FacilitatorClient = class {
         },
         ...init.body ? { body: init.body } : {}
       });
-      const text = await res.text();
+      const text2 = await res.text();
       if (!res.ok) {
         throw new FacilitatorError(
           `facilitator ${init.method} ${path} returned ${res.status}`,
           res.status,
-          text.slice(0, 500)
+          text2.slice(0, 500)
         );
       }
       try {
-        return JSON.parse(text);
+        return JSON.parse(text2);
       } catch {
-        throw new FacilitatorError(`facilitator ${path} returned non-JSON`, res.status, text.slice(0, 200));
+        throw new FacilitatorError(`facilitator ${path} returned non-JSON`, res.status, text2.slice(0, 200));
       }
     } catch (err) {
       if (err instanceof FacilitatorError) throw err;
@@ -48895,13 +48895,13 @@ var SUPPLIERS = {
     method: "POST",
     listPriceUsd: 0.15,
     maxPriceUsd: 0.2,
-    // The name came from the supplier itself. A request with the wrong field
-    // was rejected with "Provide at least one search filter (e.g.
-    // current_company_domains, ...)" — a 400 before settlement, so the answer
-    // cost nothing. Plural because it filters a set; still flagged unverified
-    // until a call actually returns people, since the shape is inferred from
-    // the name rather than a schema.
-    byDomain: { build: (domain) => ({ current_company_domains: [domain] }), unverified: true }
+    // Established in two steps, both cheap. A request with the wrong field was
+    // rejected with "Provide at least one search filter (e.g.
+    // current_company_domains, ...)" — the supplier naming it, in a 400 that
+    // landed before settlement. A second call with that field returned named
+    // people from the company, which is what proves the shape rather than
+    // just the name.
+    byDomain: { build: (domain) => ({ current_company_domains: [domain] }) }
   },
   "openwebninja-contacts": {
     id: "openwebninja-contacts",
@@ -49115,6 +49115,51 @@ function summarise(domain, raw) {
   };
 }
 
+// src/hosaka/people.ts
+function text(v) {
+  return typeof v === "string" && v.trim().length > 0 ? v.trim() : null;
+}
+function place(v) {
+  if (!v || typeof v !== "object") return null;
+  const l = v;
+  const parts = [text(l["city"]), text(l["region"]), text(l["country"])].filter(
+    (p) => p !== null
+  );
+  const seen = [...new Set(parts)];
+  return seen.length > 0 ? seen.join(", ") : null;
+}
+function profileUrl(v) {
+  if (!v || typeof v !== "object") return null;
+  const social = v;
+  for (const entry of Object.values(social)) {
+    if (entry && typeof entry === "object") {
+      const url = text(entry["url"]);
+      if (url) return url;
+    }
+  }
+  return null;
+}
+function summarisePeople(raw) {
+  const outer = raw ?? {};
+  const list = outer["people"] ?? outer["results"] ?? outer["data"];
+  if (!Array.isArray(list)) return null;
+  const people = list.flatMap((row) => {
+    if (!row || typeof row !== "object") return [];
+    const r = row;
+    const name = text(r["full_name"]) ?? [text(r["first_name"]), text(r["last_name"])].filter(Boolean).join(" ").trim();
+    if (!name) return [];
+    return [
+      {
+        name,
+        headline: text(r["headline"]),
+        location: place(r["location"]),
+        profile: profileUrl(r["social_profiles"])
+      }
+    ];
+  });
+  return { count: people.length, people };
+}
+
 // src/hosaka/server/bundle.ts
 var TIERS = {
   people: {
@@ -49156,7 +49201,9 @@ async function runBundle(req, tier) {
     domain: req.domain,
     company,
     contacts: {
-      summary: summarise(req.domain, purchase.data),
+      // Each tier gets the reading of its own shape. A contact scrape and a
+      // people-data response have nothing structurally in common.
+      summary: tier === "people" ? summarisePeople(purchase.data) : summarise(req.domain, purchase.data),
       data: purchase.data,
       source: supplier.name,
       kind,

@@ -138,23 +138,25 @@ describe("the resale shelves", () => {
     assert.equal(new Set(kinds).size, kinds.length, "tiers must not share a kind");
   });
 
-  it("marks a request shape as inferred until a purchase proves it", () => {
-    // No supplier in this category publishes an input schema, so every mapping
-    // starts as a guess. The flag is what tells a buyer that an empty result
-    // may be our fault rather than an absence of data — and dropping it is
-    // only allowed once a real call has established the field.
-    assert.equal(SUPPLIERS["fullenrich-people"]!.byDomain?.unverified, true, "still unproven");
-    // Established the cheap way: a request with the wrong field was rejected
-    // with a 400 naming the right one, before any payment settled.
+  it("carries no unproven mapping into a shelf that is being sold", () => {
+    // Both were established by paying, and cheaply. OpenWebNinja named its
+    // field when one request carried a different value in each candidate
+    // parameter; FullEnrich named its own in a 400 that landed before
+    // settlement, and a second call returned people, which is what proves the
+    // shape rather than just the name.
+    //
+    // The flag stays in the type on purpose: the next supplier starts as a
+    // guess, and the response says so until it is not.
+    for (const s of Object.values(SUPPLIERS)) {
+      if (!s.byDomain) continue;
+      assert.equal(s.byDomain.unverified, undefined, `${s.id} is still selling on a guess`);
+    }
     assert.deepEqual(SUPPLIERS["fullenrich-people"]!.byDomain?.build("figma.com"), {
       current_company_domains: ["figma.com"],
     });
-
-    // Established by paying once with a different value in each candidate
-    // parameter and reading which came back. See scripts/learn-parameter.mjs.
-    const proven = SUPPLIERS["openwebninja-contacts"]!;
-    assert.equal(proven.byDomain?.unverified, undefined, "proven mappings must not claim to be guesses");
-    assert.deepEqual(proven.byDomain?.build("figma.com"), { query: "figma.com" });
+    assert.deepEqual(SUPPLIERS["openwebninja-contacts"]!.byDomain?.build("figma.com"), {
+      query: "figma.com",
+    });
   });
 
   it("puts parameters where a GET supplier can actually read them", async () => {

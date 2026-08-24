@@ -48993,7 +48993,7 @@ async function buy(which, body, options = {}) {
   });
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
-    throw new SupplierError(supplier.id, `returned ${res.status}. ${detail.slice(0, 200)}`);
+    throw new SupplierError(supplier.id, `returned ${res.status}. ${detail.slice(0, 2e3)}`);
   }
   const receipt = res.headers.get("payment-response");
   const settlement = receipt ? decodePaymentResponseHeader2(receipt) : null;

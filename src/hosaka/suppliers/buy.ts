@@ -114,7 +114,11 @@ export async function buy<T>(
 
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
-    throw new SupplierError(supplier.id, `returned ${res.status}. ${detail.slice(0, 200)}`);
+    // Kept long on purpose. A supplier that rejects a request usually explains
+    // what it wanted, and that explanation is the cheapest schema we will ever
+    // get — one of them listed its own filter names in a rejection that cost
+    // nothing. Truncating it at 200 characters threw away the answer.
+    throw new SupplierError(supplier.id, `returned ${res.status}. ${detail.slice(0, 2000)}`);
   }
 
   const receipt = res.headers.get("payment-response");

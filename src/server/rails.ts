@@ -105,3 +105,41 @@ export function parseRails(value: string | undefined): EvmRail[] {
     .map((n) => EVM_RAILS[n])
     .filter((r): r is EvmRail => r !== undefined);
 }
+
+/**
+ * Solana, which is not EVM and so cannot share the payout address.
+ *
+ * Its fee payer is not a shared constant the way Algorand's is: sellers on
+ * Solana advertise different ones, because the address belongs to whichever
+ * facilitator settles for them. This one is published by Solvador in its own
+ * /supported, so it is copied rather than guessed, and verify-rails.mjs checks
+ * it still matches.
+ */
+export const SOLANA_RAIL = {
+  caip2: "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+  label: "Solana",
+  /** Circle USDC, the SPL mint. */
+  asset: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  feePayer: "3uCK3sWUFZPPBdLBYskYvUnAgJV9HYXvptgHcdti69qo",
+} as const;
+
+/** Base58, 32 bytes. Enough to catch a truncated or mistyped address. */
+export function isSolanaAddress(value: string): boolean {
+  if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value)) return false;
+  let n = 0n;
+  const A = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  for (const c of value) n = n * 58n + BigInt(A.indexOf(c));
+  return n < 2n ** 256n;
+}
+
+export function solanaOption(payTo: string, priceAtomic: string, maxTimeoutSeconds: number) {
+  return {
+    scheme: "exact",
+    network: SOLANA_RAIL.caip2,
+    amount: priceAtomic,
+    asset: SOLANA_RAIL.asset,
+    payTo,
+    maxTimeoutSeconds,
+    extra: { feePayer: SOLANA_RAIL.feePayer },
+  };
+}

@@ -1,6 +1,6 @@
 import defaults from "../../deadchannel.config.json" with { type: "json" };
 import { isAlgorandAddress } from "./algorand.ts";
-import { parseRails } from "./rails.ts";
+import { parseRails, isSolanaAddress } from "./rails.ts";
 import type { EvmRail } from "./rails.ts";
 
 /** Solvador settles the chains Coinbase does not. */
@@ -91,6 +91,12 @@ export interface Config {
    * controls it on every EVM chain.
    */
   rails: EvmRail[];
+  /**
+   * Solana payout address. A separate wallet by necessity: an EVM key does not
+   * control a Solana account, so this is the one chain whose takings land
+   * somewhere else.
+   */
+  solanaPayTo: string | null;
   /** Settles the rails the primary facilitator cannot. */
   solvadorUrl: string;
 }
@@ -110,6 +116,7 @@ export interface FileDefaults {
   algorandPayTo?: string;
   algorandFacilitatorUrl?: string;
   rails?: string;
+  solanaPayTo?: string;
   solvadorUrl?: string;
   payTo?: string;
   network?: string;
@@ -171,6 +178,11 @@ export function loadConfig(
     throw new ConfigError(problems);
   }
 
+  const solanaPayTo = env["X402_SOLANA_PAY_TO"] ?? file.solanaPayTo ?? null;
+  if (solanaPayTo !== null && !isSolanaAddress(solanaPayTo)) {
+    problems.push(`X402_SOLANA_PAY_TO must be a base58 Solana address, got "${solanaPayTo}"`);
+  }
+
   // Testnet deployments stay on one chain: the rails table is mainnet-only.
   const rails = network && !(network as NetworkConfig).testnet
     ? parseRails(env["X402_RAILS"] ?? file.rails)
@@ -197,6 +209,7 @@ export function loadConfig(
     maxTimeoutSeconds: Number(env["X402_MAX_TIMEOUT_SECONDS"] ?? "120"),
     algorandPayTo,
     rails,
+    solanaPayTo,
     solvadorUrl: (env["X402_SOLVADOR_URL"] ?? file.solvadorUrl ?? DEFAULT_SOLVADOR).replace(/\/+$/, ""),
     algorandFacilitatorUrl: (
       env["X402_ALGORAND_FACILITATOR_URL"] ??

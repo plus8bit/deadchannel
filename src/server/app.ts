@@ -6,6 +6,7 @@ import type { Config } from "./config.ts";
 import { FacilitatorClient, FacilitatorError } from "./facilitator.ts";
 import { ALGORAND_MAINNET } from "./algorand.ts";
 import { facilitatorsFor } from "./facilitator-router.ts";
+import { SOLANA_RAIL } from "./rails.ts";
 import type { FacilitatorFor } from "./facilitator-router.ts";
 import { llmsTxt, openApiSpec } from "./descriptors.ts";
 import { FAVICON_SVG, landingPage } from "./landing.ts";
@@ -361,7 +362,7 @@ async function main(): Promise<void> {
   try {
     // Every chain the service advertises, since each may have its own settler
     // and a chain nobody can settle is an offer nobody can accept.
-    const networks = [cfg.network.caip2, ...(cfg.algorandPayTo ? [ALGORAND_MAINNET] : []), ...cfg.rails.map((r) => r.caip2)];
+    const networks = [cfg.network.caip2, ...(cfg.algorandPayTo ? [ALGORAND_MAINNET] : []), ...cfg.rails.map((r) => r.caip2), ...(cfg.solanaPayTo ? [SOLANA_RAIL.caip2] : [])];
     for (const network of networks) {
       const client = facilitator(network);
       const kinds = await client.supported();

@@ -13,7 +13,7 @@
  *   node --experimental-strip-types scripts/verify-rails.mjs
  */
 
-import { EVM_RAILS } from "../src/server/rails.ts";
+import { EVM_RAILS, SOLANA_RAIL } from "../src/server/rails.ts";
 
 const NAME = "0x06fdde03";
 const VERSION = "0x54fd4d50";
@@ -75,6 +75,21 @@ for (const [key, rail] of Object.entries(EVM_RAILS)) {
     );
   }
   if (!okDecimals) process.stdout.write(`      ${decimals} decimals breaks USD pricing\n`);
+}
+
+// Solana's fee payer belongs to whoever settles for us, and Solvador publishes
+// theirs. A silent change there would break every Solana payment.
+try {
+  const res = await fetch("https://api.solvador.com/supported", { signal: AbortSignal.timeout(20_000) });
+  const kinds = (await res.json()).kinds ?? [];
+  const sol = kinds.find((k) => k.network === SOLANA_RAIL.caip2);
+  const live = sol?.extra?.feePayer ?? null;
+  const ok = live === SOLANA_RAIL.feePayer;
+  if (!ok) bad += 1;
+  process.stdout.write(`  ${ok ? "ok " : "BAD"} solana     feePayer ${live ?? "(not published)"}\n`);
+  if (!ok) process.stdout.write(`      table says ${SOLANA_RAIL.feePayer}\n`);
+} catch {
+  process.stdout.write("  ??  solana     solvador unreachable\n");
 }
 
 process.stdout.write(bad === 0 ? "\nevery rail matches its chain\n" : `\n${bad} rail(s) drifted\n`);

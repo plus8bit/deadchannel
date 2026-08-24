@@ -7,5 +7,6 @@
   "facilitatorUrl": "https://api.cdp.coinbase.com/platform/v2/x402",
   "algorandPayTo": "NLT4P2QFI3OO3PTLQHQXCAM2RA2Y7T4RZZKZF43BLMBKDFPFX54ZLDY2JU",
   "algorandFacilitatorUrl": "https://facilitator.goplausible.xyz",
-  "rails": "polygon,arbitrum,monad,robinhood"
+  "rails": "polygon,arbitrum,monad,robinhood",
+  "solanaPayTo": "9FDr6dYrxCRZYeaiXB86MqA9fuC3j5nH5u5fSQvD6QWd"
 }

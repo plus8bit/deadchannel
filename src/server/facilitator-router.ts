@@ -30,8 +30,10 @@ export function facilitatorsFor(cfg: Config, env: NodeJS.ProcessEnv = process.en
     }
     // A rail says who settles it. Everything else goes to the primary, which
     // is also where rails marked "primary" belong.
+    // Solana too: Solvador publishes the fee payer we advertise, so it has to
+    // be the one that settles it.
     const rail = cfg.rails.find((r) => r.caip2 === network);
-    if (rail?.settledBy === "solvador") {
+    if (rail?.settledBy === "solvador" || network.startsWith("solana:")) {
       solvador ??= new FacilitatorClient(cfg.solvadorUrl, solvadorAuth(env));
       return solvador;
     }

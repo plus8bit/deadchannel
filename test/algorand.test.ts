@@ -346,3 +346,51 @@ describe("the extra EVM rails", () => {
     assert.deepEqual(parseRails(undefined), []);
   });
 });
+
+describe("Solana, the one chain that cannot share the payout address", () => {
+  const PAYOUT = "9FDr6dYrxCRZYeaiXB86MqA9fuC3j5nH5u5fSQvD6QWd";
+
+  it("accepts a real Solana address and rejects an EVM one", async () => {
+    const { isSolanaAddress } = await import("../src/server/rails.ts");
+    assert.ok(isSolanaAddress(PAYOUT));
+    assert.equal(isSolanaAddress("0x712c78928080Adb009E31315c0c3c7473dA9648a"), false);
+    assert.equal(isSolanaAddress(PAYOUT.slice(0, 20)), false, "a truncated address must not pass");
+    assert.equal(isSolanaAddress("0OIl" + PAYOUT.slice(4)), false, "0, O, I and l are not base58");
+  });
+
+  it("advertises the fee payer of the facilitator that settles it", async () => {
+    const { loadConfig } = await import("../src/server/config.ts");
+    const { buildPaymentRequired } = await import("../src/server/x402.ts");
+    const { SOLANA_RAIL } = await import("../src/server/rails.ts");
+    const { facilitatorsFor } = await import("../src/server/facilitator-router.ts");
+
+    const env = {
+      X402_NETWORK: "base",
+      X402_PAY_TO: "0x712c78928080Adb009E31315c0c3c7473dA9648a",
+      X402_SOLANA_PAY_TO: PAYOUT,
+      SOLVADOR_API_KEY: "k",
+      PUBLIC_URL: "https://example.test",
+    };
+    const cfg = loadConfig(env, {});
+    const route = {
+      path: "/lookup",
+      method: "POST" as const,
+      serviceName: "T",
+      description: "d",
+      tags: ["t"],
+      mimeType: "application/json",
+      inputExample: {},
+      inputSchema: { type: "object" as const, properties: {}, required: [] as string[] },
+      outputExample: {},
+    };
+    const sol = buildPaymentRequired(cfg, route, "x").accepts.find((a) => a.network.startsWith("solana:"))!;
+
+    assert.equal(sol.payTo, PAYOUT, "an EVM key does not control a Solana account");
+    assert.equal(sol.asset, SOLANA_RAIL.asset);
+    // Sellers on Solana advertise different fee payers, because the address
+    // belongs to whoever settles for them. Advertising one facilitator's
+    // sponsor while routing to another is a payment that cannot complete.
+    assert.deepEqual(sol.extra, { feePayer: SOLANA_RAIL.feePayer });
+    assert.match(facilitatorsFor(cfg, env as NodeJS.ProcessEnv)(sol.network).baseUrl, /solvador/);
+  });
+});

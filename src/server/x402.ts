@@ -8,7 +8,7 @@
  */
 
 import { algorandOption } from "./algorand.ts";
-import { railOption } from "./rails.ts";
+import { railOption, solanaOption } from "./rails.ts";
 import type { Config } from "./config.ts";
 
 export const HEADER_REQUIRED = "PAYMENT-REQUIRED";
@@ -103,6 +103,9 @@ export function buildPaymentRequired(
         : []),
       // Same payout address on every EVM rail: one key controls it everywhere.
       ...cfg.rails.map((rail) => railOption(rail, cfg.payTo, cfg.priceAtomic, cfg.maxTimeoutSeconds)),
+      ...(cfg.solanaPayTo && !cfg.network.testnet
+        ? [solanaOption(cfg.solanaPayTo, cfg.priceAtomic, cfg.maxTimeoutSeconds)]
+        : []),
     ],
     extensions: bazaarExtension(route),
   };

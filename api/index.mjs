@@ -118,6 +118,31 @@ function parseRails(value) {
   if (!value) return [];
   return value.split(",").map((n) => n.trim().toLowerCase()).filter((n) => n.length > 0).map((n) => EVM_RAILS[n]).filter((r) => r !== void 0);
 }
+var SOLANA_RAIL = {
+  caip2: "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+  label: "Solana",
+  /** Circle USDC, the SPL mint. */
+  asset: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  feePayer: "3uCK3sWUFZPPBdLBYskYvUnAgJV9HYXvptgHcdti69qo"
+};
+function isSolanaAddress(value) {
+  if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value)) return false;
+  let n = 0n;
+  const A = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  for (const c of value) n = n * 58n + BigInt(A.indexOf(c));
+  return n < 2n ** 256n;
+}
+function solanaOption(payTo, priceAtomic, maxTimeoutSeconds) {
+  return {
+    scheme: "exact",
+    network: SOLANA_RAIL.caip2,
+    amount: priceAtomic,
+    asset: SOLANA_RAIL.asset,
+    payTo,
+    maxTimeoutSeconds,
+    extra: { feePayer: SOLANA_RAIL.feePayer }
+  };
+}
 
 // src/server/config.ts
 var DEFAULT_SOLVADOR = "https://api.solvador.com";
@@ -174,6 +199,10 @@ function loadConfig(env = process.env, defaults = FILE_DEFAULTS) {
   if (problems.length > 0) {
     throw new ConfigError(problems);
   }
+  const solanaPayTo = env["X402_SOLANA_PAY_TO"] ?? file.solanaPayTo ?? null;
+  if (solanaPayTo !== null && !isSolanaAddress(solanaPayTo)) {
+    problems.push(`X402_SOLANA_PAY_TO must be a base58 Solana address, got "${solanaPayTo}"`);
+  }
   const rails = network && !network.testnet ? parseRails(env["X402_RAILS"] ?? file.rails) : [];
   const net = network;
   const publicUrl = (env["PUBLIC_URL"] ?? file.publicUrl ?? // Vercel injects the deployment host but not the scheme.
@@ -190,6 +219,7 @@ function loadConfig(env = process.env, defaults = FILE_DEFAULTS) {
     maxTimeoutSeconds: Number(env["X402_MAX_TIMEOUT_SECONDS"] ?? "120"),
     algorandPayTo,
     rails,
+    solanaPayTo,
     solvadorUrl: (env["X402_SOLVADOR_URL"] ?? file.solvadorUrl ?? DEFAULT_SOLVADOR).replace(/\/+$/, ""),
     algorandFacilitatorUrl: (env["X402_ALGORAND_FACILITATOR_URL"] ?? file.algorandFacilitatorUrl ?? "https://facilitator.goplausible.xyz").replace(/\/+$/, "")
   };
@@ -407,7 +437,7 @@ function facilitatorsFor(cfg, env = process.env) {
       return algorand;
     }
     const rail = cfg.rails.find((r) => r.caip2 === network);
-    if (rail?.settledBy === "solvador") {
+    if (rail?.settledBy === "solvador" || network.startsWith("solana:")) {
       solvador ??= new FacilitatorClient(cfg.solvadorUrl, solvadorAuth(env));
       return solvador;
     }
@@ -1650,7 +1680,8 @@ function buildPaymentRequired(cfg, route, error = "PAYMENT-SIGNATURE header is r
       // itself; the price is identical either way.
       ...cfg.algorandPayTo ? [algorandOption({ payTo: cfg.algorandPayTo, testnet: cfg.network.testnet }, cfg.priceAtomic, cfg.maxTimeoutSeconds)] : [],
       // Same payout address on every EVM rail: one key controls it everywhere.
-      ...cfg.rails.map((rail) => railOption(rail, cfg.payTo, cfg.priceAtomic, cfg.maxTimeoutSeconds))
+      ...cfg.rails.map((rail) => railOption(rail, cfg.payTo, cfg.priceAtomic, cfg.maxTimeoutSeconds)),
+      ...cfg.solanaPayTo && !cfg.network.testnet ? [solanaOption(cfg.solanaPayTo, cfg.priceAtomic, cfg.maxTimeoutSeconds)] : []
     ],
     extensions: bazaarExtension(route)
   };
@@ -1981,7 +2012,7 @@ See .env.example for the required variables.
   }
   const facilitator = facilitatorsFor(cfg);
   try {
-    const networks = [cfg.network.caip2, ...cfg.algorandPayTo ? [ALGORAND_MAINNET] : [], ...cfg.rails.map((r) => r.caip2)];
+    const networks = [cfg.network.caip2, ...cfg.algorandPayTo ? [ALGORAND_MAINNET] : [], ...cfg.rails.map((r) => r.caip2), ...cfg.solanaPayTo ? [SOLANA_RAIL.caip2] : []];
     for (const network of networks) {
       const client = facilitator(network);
       const kinds = await client.supported();

@@ -192,6 +192,21 @@ server.tool(
 );
 server.tool(
   {
+    name: "hosaka_executives",
+    title: "Who can sign at a company",
+    description: "Everything hosaka_dossier returns, plus the people who decide: owners, founders, C-level, partners, VPs, heads and directors, each with title, location and profile link. Use this when the question is who to approach about buying something. Use hosaka_people instead to see anyone who works there regardless of level. Costs $0.30 in USDC.",
+    inputSchema: DOMAIN_SCHEMA
+  },
+  async (args) => {
+    try {
+      return text(await payFor(`${BASE}/executives`, { domain: domainOf(args) }));
+    } catch (err) {
+      return failure(err instanceof Error ? err.message : String(err));
+    }
+  }
+);
+server.tool(
+  {
     name: "hosaka_people",
     title: "People who work at a company",
     description: "Everything hosaka_dossier returns, plus named people who work at the company, sourced from a people-data provider. Cheaper than buying the contacts alone elsewhere. Use hosaka_contacts instead when a published support or sales address would answer the question. Costs $0.25 in USDC.",

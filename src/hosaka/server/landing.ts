@@ -299,8 +299,9 @@ footer{margin-top:clamp(52px,10vw,76px);padding-top:24px;border-top:1px solid va
 <tr><td>POST /contacts</td><td>the dossier, plus the emails and phones the company publishes about itself</td><td class="n">$${TIERS.contacts.priceUsd}</td></tr>
 <tr><td>POST /dossier</td><td>every vendor the company can be proven to use, each with its evidence</td><td class="n">$${PRICE_DOSSIER}</td></tr>
 <tr><td>POST /people</td><td>the dossier, plus named people who work there</td><td class="n">$${TIERS.people.priceUsd}</td></tr>
+<tr><td>POST /executives</td><td>the dossier, plus the people who can sign: owners, founders, C-level, VPs, directors</td><td class="n">$${TIERS.executives.priceUsd}</td></tr>
 </tbody></table>
-<p style="margin-top:18px">Four prices, so a cheap question never pays for an expensive answer.</p>
+<p style="margin-top:18px">Five prices, so a cheap question never pays for an expensive answer.</p>
 </section>
 
 <section class="r" style="animation-delay:.22s">

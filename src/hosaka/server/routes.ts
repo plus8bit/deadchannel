@@ -243,6 +243,39 @@ export const BUNDLE_ROUTE: PaidRoute = {
  * At $0.02 it is also the shelf that works on a small float: thirty of these
  * fit in the wallet space of one call to /people.
  */
+/**
+ * The shelf a B2B seller actually wants.
+ *
+ * Same dossier, same supplier and same purchase price as /people, but the
+ * people are filtered to the seven seniority levels that can sign something.
+ * A list of everyone at a company and a list of the people who decide are not
+ * the same product, and the premium is for the second being shorter.
+ */
+export const EXECUTIVES_ROUTE: PaidRoute = {
+  path: "/executives",
+  method: "POST",
+  serviceName: "Hosaka",
+  description:
+    "Company dossier plus the decision makers: owners, founders, C-level, partners, VPs, heads and directors, with title, location and profile link. Returns every third-party vendor the company can be proven to use with the record proving it. For finding who signs, not who works there.",
+  tags: ["contacts", "people-data", "b2b", "sales", "decision-makers"],
+  mimeType: "application/json",
+  inputExample: { domain: "figma.com" },
+  inputSchema: {
+    type: "object",
+    properties: { domain: { type: "string", description: "Company domain, e.g. figma.com" } },
+    required: ["domain"],
+  },
+  outputExample: {
+    domain: "figma.com",
+    company: { vendors: [{ name: "Greenhouse", category: "hr", evidence: "SPF: include:mg-spf.greenhouse.io" }] },
+    contacts: {
+      summary: { count: 1, people: [{ name: "Jane Doe", headline: "VP Engineering", location: "London, United Kingdom", profile: "https://www.linkedin.com/in/…" }] },
+      kind: "decision-makers",
+      costUsd: 0.15,
+    },
+  },
+};
+
 export const CONTACTS_ROUTE: PaidRoute = {
   path: "/contacts",
   method: "POST",

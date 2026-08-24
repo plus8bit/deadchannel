@@ -58,3 +58,30 @@ describe("reading a people-data response", () => {
     assert.equal(summarisePeople({ people: "not a list" }), null);
   });
 });
+
+describe("the decision-makers shelf", () => {
+  it("asks the supplier only for people who can sign", async () => {
+    const { TIERS } = await import("../src/hosaka/server/bundle.ts");
+    const levels = TIERS.executives.seniority;
+    // The list came from the supplier's own validator, which enumerated every
+    // option it accepts when sent an invalid one — for nothing.
+    assert.deepEqual([...levels], ["Owner", "Founder", "C-level", "Partner", "VP", "Head", "Director"]);
+    // Manager and Senior describe people who carry out a decision, not make it.
+    assert.ok(!levels.includes("Manager" as never));
+    assert.ok(!levels.includes("Senior" as never));
+  });
+
+  it("costs the same to buy as the unfiltered shelf, and sells for more", async () => {
+    const { TIERS } = await import("../src/hosaka/server/bundle.ts");
+    const { SUPPLIERS } = await import("../src/hosaka/suppliers/types.ts");
+    assert.equal(TIERS.executives.supplier, TIERS.people.supplier, "same purchase, filtered");
+    // The premium is not for more data. It is for less of it, chosen.
+    assert.ok(TIERS.executives.priceUsd > TIERS.people.priceUsd);
+    assert.ok(TIERS.executives.priceUsd > SUPPLIERS[TIERS.executives.supplier]!.maxPriceUsd);
+  });
+
+  it("keeps the two people shelves distinguishable in the response", async () => {
+    const { TIERS } = await import("../src/hosaka/server/bundle.ts");
+    assert.notEqual(TIERS.executives.kind, TIERS.people.kind);
+  });
+});

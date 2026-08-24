@@ -48840,6 +48840,29 @@ var BUNDLE_ROUTE = {
     contacts: { data: { results: [] }, source: "FullEnrich People Search", kind: "named-people", costUsd: 0.15 }
   }
 };
+var EXECUTIVES_ROUTE = {
+  path: "/executives",
+  method: "POST",
+  serviceName: "Hosaka",
+  description: "Company dossier plus the decision makers: owners, founders, C-level, partners, VPs, heads and directors, with title, location and profile link. Returns every third-party vendor the company can be proven to use with the record proving it. For finding who signs, not who works there.",
+  tags: ["contacts", "people-data", "b2b", "sales", "decision-makers"],
+  mimeType: "application/json",
+  inputExample: { domain: "figma.com" },
+  inputSchema: {
+    type: "object",
+    properties: { domain: { type: "string", description: "Company domain, e.g. figma.com" } },
+    required: ["domain"]
+  },
+  outputExample: {
+    domain: "figma.com",
+    company: { vendors: [{ name: "Greenhouse", category: "hr", evidence: "SPF: include:mg-spf.greenhouse.io" }] },
+    contacts: {
+      summary: { count: 1, people: [{ name: "Jane Doe", headline: "VP Engineering", location: "London, United Kingdom", profile: "https://www.linkedin.com/in/\u2026" }] },
+      kind: "decision-makers",
+      costUsd: 0.15
+    }
+  }
+};
 var CONTACTS_ROUTE = {
   path: "/contacts",
   method: "POST",
@@ -49162,6 +49185,28 @@ function summarisePeople(raw) {
 
 // src/hosaka/server/bundle.ts
 var TIERS = {
+  executives: {
+    supplier: "fullenrich-people",
+    kind: "decision-makers",
+    /**
+     * The seniority levels a B2B buyer is actually looking for.
+     *
+     * The supplier accepts nine, and the two omitted — Manager and Senior —
+     * describe people who carry out a decision rather than make one. The list
+     * came from the supplier's own validator: sending an invalid value made it
+     * enumerate every option it accepts, for nothing.
+     */
+    seniority: ["Owner", "Founder", "C-level", "Partner", "VP", "Head", "Director"],
+    /**
+     * $0.30 against the same $0.15 cost as the unfiltered shelf.
+     *
+     * The purchase price does not change, so the premium is not for more data —
+     * it is for less of it, chosen. A list of everyone at a company and a list
+     * of the seven people who can sign are not the same product, and the second
+     * is the one anyone selling B2B came for.
+     */
+    priceUsd: 0.3
+  },
   people: {
     supplier: "fullenrich-people",
     kind: "named-people",
@@ -49190,20 +49235,23 @@ var TIERS = {
   }
 };
 async function runBundle(req, tier) {
-  const { supplier: id, kind } = TIERS[tier];
+  const spec = TIERS[tier];
+  const { supplier: id, kind } = spec;
   const supplier = SUPPLIERS[id];
   if (!supplier?.byDomain) throw new SupplierError(id, "no domain lookup configured", false);
-  const [company, purchase] = await Promise.all([
-    buildProfile(req.domain),
-    buy(supplier, supplier.byDomain.build(req.domain))
-  ]);
+  const seniority = "seniority" in spec ? spec.seniority : void 0;
+  const body = {
+    ...supplier.byDomain.build(req.domain),
+    ...seniority ? { current_position_seniority_level: [...seniority] } : {}
+  };
+  const [company, purchase] = await Promise.all([buildProfile(req.domain), buy(supplier, body)]);
   return {
     domain: req.domain,
     company,
     contacts: {
       // Each tier gets the reading of its own shape. A contact scrape and a
       // people-data response have nothing structurally in common.
-      summary: tier === "people" ? summarisePeople(purchase.data) : summarise(req.domain, purchase.data),
+      summary: tier === "people" || tier === "executives" ? summarisePeople(purchase.data) : summarise(req.domain, purchase.data),
       data: purchase.data,
       source: supplier.name,
       kind,
@@ -49215,6 +49263,7 @@ async function runBundle(req, tier) {
 }
 var PRICE_BUNDLE = TIERS.people.priceUsd;
 var PRICE_CONTACTS = TIERS.contacts.priceUsd;
+var PRICE_EXECUTIVES = TIERS.executives.priceUsd;
 
 // src/hosaka/server/landing.ts
 var HOSAKA_FAVICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
@@ -49485,8 +49534,9 @@ footer{margin-top:clamp(52px,10vw,76px);padding-top:24px;border-top:1px solid va
 <tr><td>POST /contacts</td><td>the dossier, plus the emails and phones the company publishes about itself</td><td class="n">$${TIERS.contacts.priceUsd}</td></tr>
 <tr><td>POST /dossier</td><td>every vendor the company can be proven to use, each with its evidence</td><td class="n">$${PRICE_DOSSIER}</td></tr>
 <tr><td>POST /people</td><td>the dossier, plus named people who work there</td><td class="n">$${TIERS.people.priceUsd}</td></tr>
+<tr><td>POST /executives</td><td>the dossier, plus the people who can sign: owners, founders, C-level, VPs, directors</td><td class="n">$${TIERS.executives.priceUsd}</td></tr>
 </tbody></table>
-<p style="margin-top:18px">Four prices, so a cheap question never pays for an expensive answer.</p>
+<p style="margin-top:18px">Five prices, so a cheap question never pays for an expensive answer.</p>
 </section>
 
 <section class="r" style="animation-delay:.22s">
@@ -49754,6 +49804,7 @@ var SHELVES = [
   { route: LOOKUP_ROUTE, parse: parseDomainRequest, run: runLookup, priceUsd: PRICE_LOOKUP },
   { route: DOSSIER_ROUTE, parse: parseDomainRequest, run: runDossier, priceUsd: PRICE_DOSSIER },
   { route: BUNDLE_ROUTE, parse: parseDomainRequest, run: (r) => runBundle(r, "people"), priceUsd: PRICE_BUNDLE },
+  { route: EXECUTIVES_ROUTE, parse: parseDomainRequest, run: (r) => runBundle(r, "executives"), priceUsd: PRICE_EXECUTIVES },
   { route: CONTACTS_ROUTE, parse: parseDomainRequest, run: (r) => runBundle(r, "contacts"), priceUsd: PRICE_CONTACTS }
 ];
 function createHandler(cfg, facilitator) {

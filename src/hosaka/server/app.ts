@@ -13,10 +13,11 @@ import type { FacilitatorFor } from "../../server/facilitator-router.ts";
 import { facilitatorAuth } from "../../server/facilitator-auth.ts";
 import { applyOutcome, readJson, servePaid, withPrice } from "../../server/paid.ts";
 import type { PaidHandlerDeps } from "../../server/paid.ts";
-import { PRICE_BUNDLE, PRICE_CONTACTS, runBundle } from "./bundle.ts";
+import { PRICE_BUNDLE, PRICE_CONTACTS, PRICE_EXECUTIVES, runBundle } from "./bundle.ts";
 import {
   BUNDLE_ROUTE,
   CONTACTS_ROUTE,
+  EXECUTIVES_ROUTE,
   DOSSIER_ROUTE,
   LOOKUP_ROUTE,
   PRICE_DOSSIER,
@@ -42,6 +43,7 @@ const SHELVES: Shelf[] = [
   { route: LOOKUP_ROUTE, parse: parseDomainRequest, run: runLookup, priceUsd: PRICE_LOOKUP },
   { route: DOSSIER_ROUTE, parse: parseDomainRequest, run: runDossier, priceUsd: PRICE_DOSSIER },
   { route: BUNDLE_ROUTE, parse: parseDomainRequest, run: (r) => runBundle(r, "people"), priceUsd: PRICE_BUNDLE },
+  { route: EXECUTIVES_ROUTE, parse: parseDomainRequest, run: (r) => runBundle(r, "executives"), priceUsd: PRICE_EXECUTIVES },
   { route: CONTACTS_ROUTE, parse: parseDomainRequest, run: (r) => runBundle(r, "contacts"), priceUsd: PRICE_CONTACTS },
 ];
 

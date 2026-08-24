@@ -33,6 +33,28 @@ import type { DomainProfile } from "../types.ts";
  * response says which one arrived.
  */
 export const TIERS = {
+  executives: {
+    supplier: "fullenrich-people",
+    kind: "decision-makers",
+    /**
+     * The seniority levels a B2B buyer is actually looking for.
+     *
+     * The supplier accepts nine, and the two omitted — Manager and Senior —
+     * describe people who carry out a decision rather than make one. The list
+     * came from the supplier's own validator: sending an invalid value made it
+     * enumerate every option it accepts, for nothing.
+     */
+    seniority: ["Owner", "Founder", "C-level", "Partner", "VP", "Head", "Director"],
+    /**
+     * $0.30 against the same $0.15 cost as the unfiltered shelf.
+     *
+     * The purchase price does not change, so the premium is not for more data —
+     * it is for less of it, chosen. A list of everyone at a company and a list
+     * of the seven people who can sign are not the same product, and the second
+     * is the one anyone selling B2B came for.
+     */
+    priceUsd: 0.3,
+  },
   people: {
     supplier: "fullenrich-people",
     kind: "named-people",
@@ -59,7 +81,10 @@ export const TIERS = {
      */
     priceUsd: 0.02,
   },
-} as const satisfies Record<string, { supplier: string; kind: string; priceUsd: number }>;
+} as const satisfies Record<
+  string,
+  { supplier: string; kind: string; priceUsd: number; seniority?: readonly string[] }
+>;
 
 export type TierName = keyof typeof TIERS;
 
@@ -95,15 +120,19 @@ export interface BundleResponse {
 }
 
 export async function runBundle(req: { domain: string }, tier: TierName): Promise<BundleResponse> {
-  const { supplier: id, kind } = TIERS[tier];
+  const spec = TIERS[tier];
+  const { supplier: id, kind } = spec;
   const supplier = SUPPLIERS[id];
   if (!supplier?.byDomain) throw new SupplierError(id, "no domain lookup configured", false);
 
+  const seniority = "seniority" in spec ? spec.seniority : undefined;
+  const body = {
+    ...supplier.byDomain.build(req.domain),
+    ...(seniority ? { current_position_seniority_level: [...seniority] } : {}),
+  };
+
   // Our half costs nothing and never fails wholesale, so it runs alongside.
-  const [company, purchase] = await Promise.all([
-    buildProfile(req.domain),
-    buy<unknown>(supplier, supplier.byDomain.build(req.domain)),
-  ]);
+  const [company, purchase] = await Promise.all([buildProfile(req.domain), buy<unknown>(supplier, body)]);
 
   return {
     domain: req.domain,
@@ -112,7 +141,9 @@ export async function runBundle(req: { domain: string }, tier: TierName): Promis
       // Each tier gets the reading of its own shape. A contact scrape and a
       // people-data response have nothing structurally in common.
       summary:
-        tier === "people" ? summarisePeople(purchase.data) : summarise(req.domain, purchase.data),
+        tier === "people" || tier === "executives"
+          ? summarisePeople(purchase.data)
+          : summarise(req.domain, purchase.data),
       data: purchase.data,
       source: supplier.name,
       kind,
@@ -126,3 +157,4 @@ export async function runBundle(req: { domain: string }, tier: TierName): Promis
 /** Kept as a named export because the route table and the tests both read it. */
 export const PRICE_BUNDLE = TIERS.people.priceUsd;
 export const PRICE_CONTACTS = TIERS.contacts.priceUsd;
+export const PRICE_EXECUTIVES = TIERS.executives.priceUsd;

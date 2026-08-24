@@ -144,8 +144,10 @@ describe("the resale shelves", () => {
     // may be our fault rather than an absence of data — and dropping it is
     // only allowed once a real call has established the field.
     assert.equal(SUPPLIERS["fullenrich-people"]!.byDomain?.unverified, true, "still unproven");
+    // Established the cheap way: a request with the wrong field was rejected
+    // with a 400 naming the right one, before any payment settled.
     assert.deepEqual(SUPPLIERS["fullenrich-people"]!.byDomain?.build("figma.com"), {
-      company_domain: "figma.com",
+      current_company_domains: ["figma.com"],
     });
 
     // Established by paying once with a different value in each candidate

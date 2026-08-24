@@ -77,9 +77,13 @@ export const SUPPLIERS: Record<string, Supplier> = {
     method: "POST",
     listPriceUsd: 0.15,
     maxPriceUsd: 0.2,
-    // "filter by company domain/name/LinkedIn URL" — the field name is not
-    // published, so this is read off the description until a purchase proves it.
-    byDomain: { build: (domain) => ({ company_domain: domain }), unverified: true },
+    // The name came from the supplier itself. A request with the wrong field
+    // was rejected with "Provide at least one search filter (e.g.
+    // current_company_domains, ...)" — a 400 before settlement, so the answer
+    // cost nothing. Plural because it filters a set; still flagged unverified
+    // until a call actually returns people, since the shape is inferred from
+    // the name rather than a schema.
+    byDomain: { build: (domain) => ({ current_company_domains: [domain] }), unverified: true },
   },
   "openwebninja-contacts": {
     id: "openwebninja-contacts",

@@ -102,7 +102,10 @@ describe("facilitator auth selection", () => {
     const cfg = loadConfig({ ...base, X402_FACILITATOR_URL: "https://api.cdp.coinbase.com/platform/v2/x402" });
     const auth = facilitatorAuth(cfg, { CDP_API_KEY_ID: keyId, CDP_API_KEY_SECRET: keySecret });
     const header = auth("POST", "https://api.cdp.coinbase.com/platform/v2/x402/verify");
-    assert.match(header ?? "", /^Bearer [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
+    // CDP authenticates with a bearer token, so this provider returns a string
+    // rather than a header record.
+    assert.equal(typeof header, "string");
+    assert.match(String(header), /^Bearer [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
   });
 
   it("reads credentials from the environment only when both halves are present", () => {

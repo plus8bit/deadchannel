@@ -5,6 +5,7 @@ import { ConfigError, loadConfig } from "./config.ts";
 import type { Config } from "./config.ts";
 import { FacilitatorClient, FacilitatorError } from "./facilitator.ts";
 import { ALGORAND_MAINNET } from "./algorand.ts";
+import { ROBINHOOD_MAINNET } from "./robinhood.ts";
 import { facilitatorsFor } from "./facilitator-router.ts";
 import type { FacilitatorFor } from "./facilitator-router.ts";
 import { llmsTxt, openApiSpec } from "./descriptors.ts";
@@ -361,7 +362,7 @@ async function main(): Promise<void> {
   try {
     // Every chain the service advertises, since each may have its own settler
     // and a chain nobody can settle is an offer nobody can accept.
-    const networks = [cfg.network.caip2, ...(cfg.algorandPayTo ? [ALGORAND_MAINNET] : [])];
+    const networks = [cfg.network.caip2, ...(cfg.algorandPayTo ? [ALGORAND_MAINNET] : []), ...(cfg.robinhoodPayTo ? [ROBINHOOD_MAINNET] : [])];
     for (const network of networks) {
       const client = facilitator(network);
       const kinds = await client.supported();

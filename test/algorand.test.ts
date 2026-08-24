@@ -281,3 +281,60 @@ describe("the well-known manifest a marketplace crawls", () => {
     }
   });
 });
+
+describe("selling on Robinhood Chain, where the dollar is USDG", () => {
+  const base = {
+    X402_NETWORK: "base",
+    X402_PAY_TO: "0x712c78928080Adb009E31315c0c3c7473dA9648a",
+    PUBLIC_URL: "https://example.test",
+  };
+  const route = {
+    path: "/lookup",
+    method: "POST" as const,
+    serviceName: "Test",
+    description: "d",
+    tags: ["t"],
+    mimeType: "application/json",
+    inputExample: {},
+    inputSchema: { type: "object" as const, properties: {}, required: [] as string[] },
+    outputExample: {},
+  };
+
+  it("offers USDG with its own EIP-712 domain, not USDC's", async () => {
+    const { loadConfig } = await import("../src/server/config.ts");
+    const { buildPaymentRequired } = await import("../src/server/x402.ts");
+    const { USDG } = await import("../src/server/robinhood.ts");
+
+    const cfg = loadConfig({ ...base, X402_ROBINHOOD_PAY_TO: base.X402_PAY_TO }, {});
+    const rh = buildPaymentRequired(cfg, route, "x").accepts.find((a) => a.network === "eip155:4663")!;
+
+    assert.ok(rh, "the chain must be advertised once configured");
+    assert.equal(rh.asset, USDG);
+    // The buyer signs against this domain. "USD Coin" here produces a
+    // signature the facilitator rejects on every single payment.
+    assert.deepEqual(rh.extra, { name: "Global Dollar", version: "1" });
+  });
+
+  it("sends Robinhood to Solvador, with the header Solvador actually reads", async () => {
+    const { facilitatorsFor } = await import("../src/server/facilitator-router.ts");
+    const { loadConfig } = await import("../src/server/config.ts");
+
+    const env = { ...base, X402_ROBINHOOD_PAY_TO: base.X402_PAY_TO, SOLVADOR_API_KEY: "k" };
+    const route2 = facilitatorsFor(loadConfig(env, {}), env as NodeJS.ProcessEnv);
+    assert.match(route2("eip155:4663").baseUrl, /solvador/);
+    assert.doesNotMatch(route2("eip155:8453").baseUrl, /solvador/);
+  });
+
+  it("refuses to serve the chain when its key is missing, before a buyer signs", async () => {
+    const { facilitatorsFor } = await import("../src/server/facilitator-router.ts");
+    const { loadConfig } = await import("../src/server/config.ts");
+    const { FacilitatorClient } = await import("../src/server/facilitator.ts");
+
+    const env = { ...base, X402_ROBINHOOD_PAY_TO: base.X402_PAY_TO };
+    const client = facilitatorsFor(loadConfig(env, {}), env as NodeJS.ProcessEnv)("eip155:4663");
+    assert.ok(client instanceof FacilitatorClient);
+    // The provider throws when asked for credentials it does not have, rather
+    // than sending an unauthenticated request that fails at settlement.
+    assert.throws(() => client.authFor("POST", "https://api.solvador.com/verify"), /SOLVADOR_API_KEY/);
+  });
+});

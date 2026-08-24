@@ -1,4 +1,6 @@
 import { FacilitatorClient } from "./facilitator.ts";
+import type { AuthProvider } from "./facilitator.ts";
+import { ROBINHOOD_MAINNET } from "./robinhood.ts";
 import { facilitatorAuth } from "./facilitator-auth.ts";
 import type { Config } from "./config.ts";
 
@@ -15,14 +17,40 @@ export type FacilitatorFor = (network: string) => FacilitatorClient;
 
 export function facilitatorsFor(cfg: Config, env: NodeJS.ProcessEnv = process.env): FacilitatorFor {
   const primary = new FacilitatorClient(cfg.facilitatorUrl, facilitatorAuth(cfg, env));
-  // Built lazily: a shop that never advertises Algorand never constructs it.
+  // Built lazily: a shop that never advertises a chain never constructs its
+  // client, and never demands the credentials that client would need.
   let algorand: FacilitatorClient | null = null;
+  let robinhood: FacilitatorClient | null = null;
 
   return (network: string) => {
-    if (!network.startsWith("algorand:")) return primary;
-    if (cfg.algorandFacilitatorUrl === cfg.facilitatorUrl) return primary;
-    algorand ??= new FacilitatorClient(cfg.algorandFacilitatorUrl, null);
-    return algorand;
+    if (network.startsWith("algorand:")) {
+      if (cfg.algorandFacilitatorUrl === cfg.facilitatorUrl) return primary;
+      algorand ??= new FacilitatorClient(cfg.algorandFacilitatorUrl, null);
+      return algorand;
+    }
+    if (network === ROBINHOOD_MAINNET) {
+      if (cfg.robinhoodFacilitatorUrl === cfg.facilitatorUrl) return primary;
+      robinhood ??= new FacilitatorClient(cfg.robinhoodFacilitatorUrl, solvadorAuth(env));
+      return robinhood;
+    }
+    return primary;
+  };
+}
+
+/**
+ * Solvador reads X-API-Key. Sending its key as a bearer token authenticates
+ * nothing and fails at settlement, after the buyer has signed.
+ */
+function solvadorAuth(env: NodeJS.ProcessEnv): AuthProvider {
+  return () => {
+    const key = env["SOLVADOR_API_KEY"];
+    if (!key) {
+      throw new Error(
+        "Robinhood Chain is advertised but SOLVADOR_API_KEY is unset. " +
+          "Create a key at solvador.com, or unset X402_ROBINHOOD_PAY_TO to stop offering the chain.",
+      );
+    }
+    return { "x-api-key": key };
   };
 }
 

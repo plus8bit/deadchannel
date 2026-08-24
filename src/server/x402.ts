@@ -8,6 +8,7 @@
  */
 
 import { algorandOption } from "./algorand.ts";
+import { robinhoodOption } from "./robinhood.ts";
 import type { Config } from "./config.ts";
 
 export const HEADER_REQUIRED = "PAYMENT-REQUIRED";
@@ -99,6 +100,9 @@ export function buildPaymentRequired(
       // itself; the price is identical either way.
       ...(cfg.algorandPayTo
         ? [algorandOption({ payTo: cfg.algorandPayTo, testnet: cfg.network.testnet }, cfg.priceAtomic, cfg.maxTimeoutSeconds)]
+        : []),
+      ...(cfg.robinhoodPayTo && !cfg.network.testnet
+        ? [robinhoodOption(cfg.robinhoodPayTo, cfg.priceAtomic, cfg.maxTimeoutSeconds)]
         : []),
     ],
     extensions: bazaarExtension(route),

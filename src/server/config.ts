@@ -1,5 +1,6 @@
 import defaults from "../../deadchannel.config.json" with { type: "json" };
 import { isAlgorandAddress } from "./algorand.ts";
+import { DEFAULT_ROBINHOOD_FACILITATOR } from "./robinhood.ts";
 
 /**
  * Server configuration, resolved and validated once at boot.
@@ -73,6 +74,15 @@ export interface Config {
    * facilitator is advertising an offer half its buyers cannot pay.
    */
   algorandFacilitatorUrl: string;
+  /**
+   * Optional third payout address, on Robinhood Chain.
+   *
+   * The same EVM address as Base works: it is an EVM chain, so a key that
+   * controls one controls the other. Kept separate anyway, so enabling the rail
+   * is a deliberate act rather than a side effect of having a Base address.
+   */
+  robinhoodPayTo: string | null;
+  robinhoodFacilitatorUrl: string;
 }
 
 export const USDC_DECIMALS = 6;
@@ -89,6 +99,8 @@ export interface FileDefaults {
   /** Algorand payout address, when this deployment also sells on Algorand. */
   algorandPayTo?: string;
   algorandFacilitatorUrl?: string;
+  robinhoodPayTo?: string;
+  robinhoodFacilitatorUrl?: string;
   payTo?: string;
   network?: string;
   priceUsd?: number;
@@ -149,6 +161,11 @@ export function loadConfig(
     throw new ConfigError(problems);
   }
 
+  const robinhoodPayTo = env["X402_ROBINHOOD_PAY_TO"] ?? file.robinhoodPayTo ?? null;
+  if (robinhoodPayTo !== null && !EVM_ADDRESS.test(robinhoodPayTo)) {
+    problems.push(`X402_ROBINHOOD_PAY_TO must be a 0x-prefixed 40-hex-digit address, got "${robinhoodPayTo}"`);
+  }
+
   const net = network as NetworkConfig;
   const publicUrl = (
     env["PUBLIC_URL"] ??
@@ -169,6 +186,12 @@ export function loadConfig(
     facilitatorToken: env["X402_FACILITATOR_TOKEN"] ?? null,
     maxTimeoutSeconds: Number(env["X402_MAX_TIMEOUT_SECONDS"] ?? "120"),
     algorandPayTo,
+    robinhoodPayTo,
+    robinhoodFacilitatorUrl: (
+      env["X402_ROBINHOOD_FACILITATOR_URL"] ??
+      file.robinhoodFacilitatorUrl ??
+      DEFAULT_ROBINHOOD_FACILITATOR
+    ).replace(/\/+$/, ""),
     algorandFacilitatorUrl: (
       env["X402_ALGORAND_FACILITATOR_URL"] ??
       file.algorandFacilitatorUrl ??

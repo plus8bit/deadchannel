@@ -58,6 +58,24 @@ function algorandOption(offer, priceAtomic, maxTimeoutSeconds) {
   };
 }
 
+// src/server/robinhood.ts
+var ROBINHOOD_MAINNET = "eip155:4663";
+var USDG = "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168";
+var USDG_NAME = "Global Dollar";
+var USDG_VERSION = "1";
+var DEFAULT_ROBINHOOD_FACILITATOR = "https://api.solvador.com";
+function robinhoodOption(payTo, priceAtomic, maxTimeoutSeconds) {
+  return {
+    scheme: "exact",
+    network: ROBINHOOD_MAINNET,
+    amount: priceAtomic,
+    asset: USDG,
+    payTo,
+    maxTimeoutSeconds,
+    extra: { name: USDG_NAME, version: USDG_VERSION }
+  };
+}
+
 // src/server/config.ts
 var NETWORKS = {
   "base-sepolia": {
@@ -112,6 +130,10 @@ function loadConfig(env = process.env, defaults = FILE_DEFAULTS) {
   if (problems.length > 0) {
     throw new ConfigError(problems);
   }
+  const robinhoodPayTo = env["X402_ROBINHOOD_PAY_TO"] ?? file.robinhoodPayTo ?? null;
+  if (robinhoodPayTo !== null && !EVM_ADDRESS.test(robinhoodPayTo)) {
+    problems.push(`X402_ROBINHOOD_PAY_TO must be a 0x-prefixed 40-hex-digit address, got "${robinhoodPayTo}"`);
+  }
   const net = network;
   const publicUrl = (env["PUBLIC_URL"] ?? file.publicUrl ?? // Vercel injects the deployment host but not the scheme.
   (env["VERCEL_PROJECT_PRODUCTION_URL"] ? `https://${env["VERCEL_PROJECT_PRODUCTION_URL"]}` : null) ?? `http://localhost:${port}`).replace(/\/+$/, "");
@@ -126,6 +148,8 @@ function loadConfig(env = process.env, defaults = FILE_DEFAULTS) {
     facilitatorToken: env["X402_FACILITATOR_TOKEN"] ?? null,
     maxTimeoutSeconds: Number(env["X402_MAX_TIMEOUT_SECONDS"] ?? "120"),
     algorandPayTo,
+    robinhoodPayTo,
+    robinhoodFacilitatorUrl: (env["X402_ROBINHOOD_FACILITATOR_URL"] ?? file.robinhoodFacilitatorUrl ?? DEFAULT_ROBINHOOD_FACILITATOR).replace(/\/+$/, ""),
     algorandFacilitatorUrl: (env["X402_ALGORAND_FACILITATOR_URL"] ?? file.algorandFacilitatorUrl ?? "https://facilitator.goplausible.xyz").replace(/\/+$/, "")
   };
 }
@@ -198,6 +222,14 @@ var FacilitatorClient = class {
   async get(path) {
     return this.request(path, { method: "GET" });
   }
+  /**
+   * The headers this client would send. Exposed so a deployment can prove its
+   * credentials resolve before it starts taking payments, rather than finding
+   * out at settlement with a signed authorization already in hand.
+   */
+  authFor(method, url) {
+    return this.#auth(method, url);
+  }
   async request(path, init) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.#timeoutMs);
@@ -210,7 +242,7 @@ var FacilitatorClient = class {
         headers: {
           accept: "application/json",
           ...init.body ? { "content-type": "application/json" } : {},
-          ...authorization ? { authorization } : {}
+          ...typeof authorization === "string" ? { authorization } : authorization ?? {}
         },
         ...init.body ? { body: init.body } : {}
       });
@@ -326,11 +358,30 @@ function isCdp(url) {
 function facilitatorsFor(cfg, env = process.env) {
   const primary = new FacilitatorClient(cfg.facilitatorUrl, facilitatorAuth(cfg, env));
   let algorand = null;
+  let robinhood = null;
   return (network) => {
-    if (!network.startsWith("algorand:")) return primary;
-    if (cfg.algorandFacilitatorUrl === cfg.facilitatorUrl) return primary;
-    algorand ??= new FacilitatorClient(cfg.algorandFacilitatorUrl, null);
-    return algorand;
+    if (network.startsWith("algorand:")) {
+      if (cfg.algorandFacilitatorUrl === cfg.facilitatorUrl) return primary;
+      algorand ??= new FacilitatorClient(cfg.algorandFacilitatorUrl, null);
+      return algorand;
+    }
+    if (network === ROBINHOOD_MAINNET) {
+      if (cfg.robinhoodFacilitatorUrl === cfg.facilitatorUrl) return primary;
+      robinhood ??= new FacilitatorClient(cfg.robinhoodFacilitatorUrl, solvadorAuth(env));
+      return robinhood;
+    }
+    return primary;
+  };
+}
+function solvadorAuth(env) {
+  return () => {
+    const key = env["SOLVADOR_API_KEY"];
+    if (!key) {
+      throw new Error(
+        "Robinhood Chain is advertised but SOLVADOR_API_KEY is unset. Create a key at solvador.com, or unset X402_ROBINHOOD_PAY_TO to stop offering the chain."
+      );
+    }
+    return { "x-api-key": key };
   };
 }
 
@@ -1556,7 +1607,8 @@ function buildPaymentRequired(cfg, route, error = "PAYMENT-SIGNATURE header is r
       // A second chain is offered, not substituted. A buyer holding USDC on
       // only one of them can still pay, and one that holds both picks for
       // itself; the price is identical either way.
-      ...cfg.algorandPayTo ? [algorandOption({ payTo: cfg.algorandPayTo, testnet: cfg.network.testnet }, cfg.priceAtomic, cfg.maxTimeoutSeconds)] : []
+      ...cfg.algorandPayTo ? [algorandOption({ payTo: cfg.algorandPayTo, testnet: cfg.network.testnet }, cfg.priceAtomic, cfg.maxTimeoutSeconds)] : [],
+      ...cfg.robinhoodPayTo && !cfg.network.testnet ? [robinhoodOption(cfg.robinhoodPayTo, cfg.priceAtomic, cfg.maxTimeoutSeconds)] : []
     ],
     extensions: bazaarExtension(route)
   };
@@ -1887,7 +1939,7 @@ See .env.example for the required variables.
   }
   const facilitator = facilitatorsFor(cfg);
   try {
-    const networks = [cfg.network.caip2, ...cfg.algorandPayTo ? [ALGORAND_MAINNET] : []];
+    const networks = [cfg.network.caip2, ...cfg.algorandPayTo ? [ALGORAND_MAINNET] : [], ...cfg.robinhoodPayTo ? [ROBINHOOD_MAINNET] : []];
     for (const network of networks) {
       const client = facilitator(network);
       const kinds = await client.supported();

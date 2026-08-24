@@ -45,7 +45,15 @@ export class FacilitatorError extends Error {
  * facilitator needs no auth. Per-request because CDP binds its token to the
  * method and path being called.
  */
-export type AuthProvider = (method: string, url: string) => string | null;
+/**
+ * How to authenticate one request.
+ *
+ * A string becomes an Authorization header, which is what Coinbase and the
+ * keyless facilitators want. A record is sent as-is, because not every
+ * facilitator uses that header: Solvador reads X-API-Key, and sending its key
+ * as a bearer token authenticates nothing.
+ */
+export type AuthProvider = (method: string, url: string) => string | Record<string, string> | null;
 
 export function staticToken(token: string | null): AuthProvider {
   return () => (token ? `Bearer ${token}` : null);
@@ -94,6 +102,15 @@ export class FacilitatorClient {
     return this.request<T>(path, { method: "GET" });
   }
 
+  /**
+   * The headers this client would send. Exposed so a deployment can prove its
+   * credentials resolve before it starts taking payments, rather than finding
+   * out at settlement with a signed authorization already in hand.
+   */
+  authFor(method: string, url: string) {
+    return this.#auth(method, url);
+  }
+
   private async request<T>(path: string, init: { method: string; body?: string }): Promise<T> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.#timeoutMs);
@@ -107,7 +124,9 @@ export class FacilitatorClient {
         headers: {
           accept: "application/json",
           ...(init.body ? { "content-type": "application/json" } : {}),
-          ...(authorization ? { authorization } : {}),
+          ...(typeof authorization === "string"
+            ? { authorization }
+            : (authorization ?? {})),
         },
         ...(init.body ? { body: init.body } : {}),
       });

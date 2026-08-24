@@ -76,7 +76,16 @@ its output is any good.
 `;
 }
 
-/** OpenAPI 3.1, including the 402 that carries the price. */
+/**
+ * OpenAPI 3.1, including the 402 that carries the price.
+ *
+ * Registries treat this document as the canonical description of the service
+ * and the runtime 402 as the final authority. The extra keys below are the ones
+ * they resolve discovery by: x-guidance tells an agent when to reach for this
+ * before it has spent anything, contact proves who owns the origin, and
+ * x-payment-info states the price in decimal USD beside the atomic amount the
+ * challenge quotes.
+ */
 export function openApiSpec(cfg: Config): Record<string, unknown> {
   return {
     openapi: "3.1.0",
@@ -84,6 +93,15 @@ export function openApiSpec(cfg: Config): Record<string, unknown> {
       title: "deadchannel",
       version: "1.0.0",
       description: PROBE_ROUTE.description,
+      "x-guidance":
+        "Call POST /probe with {\"url\": \"https://some-endpoint.example/paid\"} before paying an " +
+        "x402 endpoint you have not used. It returns a verdict — live, degraded, trap, testnet or " +
+        "dead — a 0-100 risk score, and the specific findings behind both, so an agent can decline " +
+        "a bad endpoint rather than discover it by losing money. Priced at $" +
+        cfg.priceUsd +
+        " in USDC, which is less than the smallest payment it protects. GET /health and GET " +
+        "/facilitator are free and need no payment.",
+      contact: { email: "dreamquayco@gmail.com" },
       license: { name: "MIT", identifier: "MIT" },
     },
     servers: [{ url: cfg.publicUrl }],
@@ -92,6 +110,11 @@ export function openApiSpec(cfg: Config): Record<string, unknown> {
         post: {
           operationId: "probeEndpoint",
           summary: "Check whether an x402 endpoint is safe to call",
+          tags: ["x402", "risk", "security", "agent-safety"],
+          "x-payment-info": {
+            price: { mode: "fixed", currency: "USD", amount: cfg.priceUsd.toFixed(6) },
+            protocols: [{ x402: {} }],
+          },
           description: `Paid via x402 v2. An unpaid request returns 402 with a PAYMENT-REQUIRED header carrying the terms: ${cfg.priceUsd} USD in USDC on ${cfg.network.label}. Settlement runs only after the check produces a result.`,
           requestBody: {
             required: true,

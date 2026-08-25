@@ -1252,8 +1252,8 @@ var PROBE_ROUTE = {
   path: "/probe",
   method: "POST",
   serviceName: "deadchannel",
-  description: "Risk check for any x402 endpoint. Returns a verdict (live, degraded, trap, testnet, dead), a 0-100 risk score and the specific problems found \u2014 before you spend money on it.",
-  tags: ["x402", "risk", "security", "discovery", "agent-safety"],
+  description: "Use before paying an x402 endpoint you have not used before, when you cannot tell a working seller from a trap, a testnet address dressed as mainnet, or a listing whose price no longer matches its challenge. Returns a verdict \u2014 live, degraded, trap, testnet or dead \u2014 a 0-100 risk score, and the specific findings behind both, so an agent can decline a bad endpoint instead of learning about it by losing the money. Costs less than the smallest payment it protects.",
+  tags: ["preflight", "payment-guard", "x402", "risk", "agent-safety"],
   mimeType: "application/json",
   inputExample: { url: "https://api.example.com/paid-endpoint" },
   inputSchema: {

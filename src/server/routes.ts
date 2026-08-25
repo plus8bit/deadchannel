@@ -8,8 +8,12 @@ export const PROBE_ROUTE: PaidRoute = {
   method: "POST",
   serviceName: "deadchannel",
   description:
-    "Risk check for any x402 endpoint. Returns a verdict (live, degraded, trap, testnet, dead), a 0-100 risk score and the specific problems found — before you spend money on it.",
-  tags: ["x402", "risk", "security", "discovery", "agent-safety"],
+    "Use before paying an x402 endpoint you have not used before, when you cannot tell a working " +
+    "seller from a trap, a testnet address dressed as mainnet, or a listing whose price no longer " +
+    "matches its challenge. Returns a verdict — live, degraded, trap, testnet or dead — a 0-100 risk " +
+    "score, and the specific findings behind both, so an agent can decline a bad endpoint instead of " +
+    "learning about it by losing the money. Costs less than the smallest payment it protects.",
+  tags: ["preflight", "payment-guard", "x402", "risk", "agent-safety"],
   mimeType: "application/json",
   inputExample: { url: "https://api.example.com/paid-endpoint" },
   inputSchema: {

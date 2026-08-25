@@ -98,14 +98,24 @@ async function quote(target) {
   return { target, priceUsd: Number(option.amount) / 1e6, payTo: option.payTo };
 }
 
+/**
+ * Prints a price without rounding it away.
+ *
+ * Two decimals is the habit, and it showed a real $0.001 charge as "$0.00" on
+ * the one line whose entire job is to let someone see the bill before agreeing
+ * to it. Six decimals is the resolution USDC actually settles at; the trailing
+ * zeros are trimmed so the common prices still read as cents.
+ */
+const usd = (n) => `$${n.toFixed(6).replace(/0+$/, "").replace(/\.$/, "")}`;
+
 const quotes = [];
 for (const target of TARGETS) quotes.push(await quote(target));
 
 for (const q of quotes) {
-  process.stdout.write(`${q.target}\n  $${q.priceUsd.toFixed(2)} on ${NETWORK} to ${q.payTo}\n`);
+  process.stdout.write(`${q.target}\n  ${usd(q.priceUsd)} on ${NETWORK} to ${q.payTo}\n`);
 }
 const total = quotes.reduce((sum, q) => sum + q.priceUsd, 0);
-if (quotes.length > 1) process.stdout.write(`\ntotal: $${total.toFixed(2)} across ${quotes.length} calls\n`);
+if (quotes.length > 1) process.stdout.write(`\ntotal: ${usd(total)} across ${quotes.length} calls\n`);
 
 if (dryRun) {
   process.stdout.write("\ndry run, nothing paid\n");
@@ -125,7 +135,7 @@ const client = new x402Client().register(NETWORK, new ExactEvmScheme(account));
 const paidFetch = wrapFetchWithPayment(fetch, client);
 
 for (const q of quotes) {
-  process.stdout.write(`\n--- ${q.target}  $${q.priceUsd.toFixed(2)}\n`);
+  process.stdout.write(`\n--- ${q.target}  ${usd(q.priceUsd)}\n`);
   const res = await paidFetch(q.target, {
     method: "POST",
     headers: { "content-type": "application/json" },

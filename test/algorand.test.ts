@@ -490,3 +490,28 @@ describe("what the Bazaar indexes", () => {
     }
   });
 });
+
+describe("how the spec declares what is free", () => {
+  it("marks every unpaid route so a registry does not reject it", async () => {
+    const { openApiSpec } = await import("../src/server/descriptors.ts");
+    const { loadConfig } = await import("../src/server/config.ts");
+    const cfg = loadConfig(
+      { X402_NETWORK: "base", X402_PAY_TO: "0x712c78928080Adb009E31315c0c3c7473dA9648a", PUBLIC_URL: "https://example.test" },
+      {},
+    );
+    const spec = openApiSpec(cfg) as { paths: Record<string, Record<string, Record<string, unknown>>> };
+
+    for (const [path, ops] of Object.entries(spec.paths)) {
+      for (const op of Object.values(ops)) {
+        const paid = "x-payment-info" in op;
+        // A registry probes each path expecting a challenge and reads a plain
+        // 200 as a paywall that failed to run, so a free route has to say so.
+        // Every route is therefore one or the other, never neither.
+        assert.ok(
+          paid || Array.isArray(op["security"]),
+          `${path} neither charges nor declares itself free`,
+        );
+      }
+    }
+  });
+});

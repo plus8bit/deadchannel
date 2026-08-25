@@ -1487,11 +1487,23 @@ function openApiSpec(cfg) {
           }
         }
       },
-      "/health": { get: { operationId: "health", summary: "Liveness", responses: { "200": { description: "Alive." } } } },
+      // A registry probes every listed path expecting a payment challenge, and
+      // reads a plain 200 as a paywall that failed to run. An empty security
+      // array is how a document says this route is free on purpose, which keeps
+      // both of these listed as free rather than rejected as broken.
+      "/health": {
+        get: {
+          operationId: "health",
+          summary: "Liveness",
+          security: [],
+          responses: { "200": { description: "Alive." } }
+        }
+      },
       "/facilitator": {
         get: {
           operationId: "facilitatorStatus",
           summary: "Whether our facilitator credentials are accepted. Moves no money.",
+          security: [],
           responses: { "200": { description: "Ready to settle." }, "503": { description: "Cannot settle." } }
         }
       }

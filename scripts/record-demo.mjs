@@ -147,6 +147,20 @@ const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
  * ones the claim rests on, and the count of what was dropped stays visible so
  * the trim never reads as a smaller answer than was really bought.
  */
+/**
+ * Colours a value by what it says, never by what the scene wanted it to say.
+ *
+ * The first cut of this film painted a verdict red because the scene was
+ * captioned as a warning — and the endpoint came back clean, so the frame
+ * showed "live · risk 0" in the colour of danger. A tool that reports on
+ * strangers cannot afford a demo that misreports one.
+ */
+function toneOf(k, v) {
+  if (k === "verdict") return { live: "good", degraded: "warn" }[String(v)] ?? "bad";
+  if (k === "risk") { const n = Number(v); return n <= 20 ? "good" : n <= 50 ? "warn" : "bad"; }
+  return "";
+}
+
 function digest(text, keys) {
   let obj;
   try { obj = JSON.parse(text); } catch { return [{ t: text.slice(0, 400) }]; }
@@ -164,7 +178,8 @@ function digest(text, keys) {
       if (v.length > 4) lines.push({ dim: `+ ${v.length - 4} more findings` });
       continue;
     }
-    lines.push({ k, v: typeof v === "object" ? JSON.stringify(v) : String(v) });
+    const val = typeof v === "object" ? JSON.stringify(v) : String(v);
+    lines.push({ k, v: val, tone: toneOf(k, val) });
   }
   const rest = Object.keys(obj).filter((k) => !keys.includes(k)).length;
   if (rest > 0) lines.push({ dim: `+ ${rest} more fields` });
@@ -226,7 +241,7 @@ function render() {
   const scene = (title, spend, caption, rows, hold) => scenes.push({ title, spend, caption, rows, hold });
 
   scene("deadchannel", money(0),
-    "An agent with a wallet can pay anyone. Nothing checks who it is paying.",
+    "An agent with a wallet can pay anyone. Nothing tells it who it is paying.",
     [{ head: "Check an x402 endpoint before you pay it." },
      { t: "verdict · risk score · the specific problems found" }, { gap: 1 },
      { dim: "$0.001 in USDC on Base. Less than the smallest payment it protects." }], 3.4);
@@ -242,17 +257,15 @@ function render() {
     [{ cmd: "deadchannel_health" }, { gap: 1 },
      ...digest(health?.text ?? "{}", ["ok", "status", "network"])], 3.6);
 
-  scene("probe · a listing from the catalog", money(PROBE),
-    "Taken from the public x402 catalog, where it is still listed for sale.",
+  scene("probe · a stranger from the catalog", money(PROBE),
+    "Clean. Every check passed, the price is real, and it pays straight to an address on Base.",
     [{ cmd: `deadchannel_probe  ${DEAD.replace("https://", "")}` }, { gap: 1 },
-     ...digest(dead?.text ?? "{}", ["verdict", "risk", "priceUsd", "problems"]).map((r) =>
-       r.k === "verdict" || r.k === "risk" ? { ...r, tone: "bad" } : r)], 7.0);
+     ...digest(dead?.text ?? "{}", ["verdict", "risk", "priceUsd", "networks", "checksPassed", "checksRun", "problems"])], 7.0);
 
   scene("probe · a busy seller", money(PROBE * 2),
-    "The same check against an endpoint that really is working. Same tool, different answer.",
+    "Also live. The check reports how you would be paying — through a broker that holds the funds.",
     [{ cmd: `deadchannel_probe  ${LIVE.replace("https://", "")}` }, { gap: 1 },
-     ...digest(live?.text ?? "{}", ["verdict", "risk", "priceUsd", "latencyMs", "problems"]).map((r) =>
-       r.k === "verdict" ? { ...r, tone: "good" } : r)], 7.0);
+     ...digest(live?.text ?? "{}", ["verdict", "risk", "priceUsd", "networks", "problems"])], 8.2);
 
   scene("buy", money(PROBE * 2 + LOOKUP),
     "Checked first, then paid. Company data from a domain, settled in USDC on Base.",

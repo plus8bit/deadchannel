@@ -515,3 +515,42 @@ describe("how the spec declares what is free", () => {
     }
   });
 });
+
+describe("the record a sale leaves behind", () => {
+  it("gives every shelf a way to say what was bought", async () => {
+    const { createHandler } = await import("../src/hosaka/server/app.ts");
+    // Read the shelf table the handler is built from, by the only route the
+    // module exposes: the manifest lists one entry per shelf.
+    const { loadConfig } = await import("../src/server/config.ts");
+    const { createServer } = await import("node:http");
+    const cfg = loadConfig(
+      { X402_NETWORK: "base", X402_PAY_TO: "0x712c78928080Adb009E31315c0c3c7473dA9648a", PUBLIC_URL: "https://example.test" },
+      {},
+    );
+    const server = createServer(createHandler(cfg, (() => {
+      throw new Error("no facilitator needed");
+    }) as never));
+    await new Promise<void>((r) => server.listen(0, r));
+    const port = (server.address() as { port: number }).port;
+
+    try {
+      const spec = (await (await fetch(`http://127.0.0.1:${port}/openapi.json`)).json()) as {
+        paths: Record<string, unknown>;
+      };
+      const source = await import("node:fs").then((fs) =>
+        fs.readFileSync(new URL("../src/hosaka/server/app.ts", import.meta.url), "utf8"),
+      );
+      // We made a real sale and could not say what it was for. Which questions
+      // get paid for is the only demand signal a shop this small has, so a new
+      // shelf that forgets to pass `subject` should fail here rather than throw
+      // that signal away quietly for weeks.
+      const declared = source.match(/subject\b/g)?.length ?? 0;
+      assert.ok(
+        declared >= Object.keys(spec.paths).length,
+        `${Object.keys(spec.paths).length} shelves but only ${declared} mentions of subject`,
+      );
+    } finally {
+      server.close();
+    }
+  });
+});

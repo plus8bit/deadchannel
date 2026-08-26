@@ -33,6 +33,14 @@ export interface PaidHandlerDeps<Req, Res> {
   run: (req: Req) => Promise<Res>;
   /** Per-route price override, when a shop sells several things. */
   priceUsd?: number;
+  /**
+   * What the buyer asked about, for the sale record — a domain, a URL.
+   *
+   * We had a real sale and could not say what was bought, only that something
+   * was. Which questions get paid for is the one demand signal a shop this
+   * small has, and it was going straight into the bin.
+   */
+  subject?: (req: Req) => string;
 }
 
 export class BadInput extends Error {}
@@ -44,7 +52,7 @@ export interface PaidOutcome {
   body: unknown;
   headers: Record<string, string>;
   /** Present only when a payment actually settled. */
-  settled?: { transaction: string; payer?: string | undefined; priceUsd: number };
+  settled?: { transaction: string; payer?: string | undefined; priceUsd: number; subject?: string | undefined };
 }
 
 export async function servePaid<Req, Res>(
@@ -157,6 +165,7 @@ export async function servePaid<Req, Res>(
       transaction: settlement.transaction,
       payer: settlement.payer ?? verification.payer,
       priceUsd: priced.priceUsd,
+      subject: deps.subject?.(request),
     },
   };
 }

@@ -40,12 +40,15 @@ import type { DomainRequest } from "./routes.ts";
 
 type Shelf = PaidHandlerDeps<DomainRequest, unknown>;
 
+/** Every shelf here is asked about one company, so the domain is the record. */
+const subject = (req: DomainRequest) => req.domain;
+
 const SHELVES: Shelf[] = [
-  { route: LOOKUP_ROUTE, parse: parseDomainRequest, run: runLookup, priceUsd: PRICE_LOOKUP },
-  { route: DOSSIER_ROUTE, parse: parseDomainRequest, run: runDossier, priceUsd: PRICE_DOSSIER },
-  { route: BUNDLE_ROUTE, parse: parseDomainRequest, run: (r) => runBundle(r, "people"), priceUsd: PRICE_BUNDLE },
-  { route: EXECUTIVES_ROUTE, parse: parseDomainRequest, run: (r) => runBundle(r, "executives"), priceUsd: PRICE_EXECUTIVES },
-  { route: CONTACTS_ROUTE, parse: parseDomainRequest, run: (r) => runBundle(r, "contacts"), priceUsd: PRICE_CONTACTS },
+  { route: LOOKUP_ROUTE, parse: parseDomainRequest, run: runLookup, priceUsd: PRICE_LOOKUP, subject },
+  { route: DOSSIER_ROUTE, parse: parseDomainRequest, run: runDossier, priceUsd: PRICE_DOSSIER, subject },
+  { route: BUNDLE_ROUTE, parse: parseDomainRequest, run: (r) => runBundle(r, "people"), priceUsd: PRICE_BUNDLE, subject },
+  { route: EXECUTIVES_ROUTE, parse: parseDomainRequest, run: (r) => runBundle(r, "executives"), priceUsd: PRICE_EXECUTIVES, subject },
+  { route: CONTACTS_ROUTE, parse: parseDomainRequest, run: (r) => runBundle(r, "contacts"), priceUsd: PRICE_CONTACTS, subject },
 ];
 
 export function createHandler(cfg: Config, facilitator: FacilitatorClient | FacilitatorFor) {
@@ -134,7 +137,14 @@ async function handle(
 
   const outcome = await servePaid(req, cfg, facilitator, shelf);
   if (outcome.settled) {
-    log("info", { msg: "sold", shelf: shelf.route.path, usd: outcome.settled.priceUsd, tx: outcome.settled.transaction, payer: outcome.settled.payer });
+    log("info", {
+      msg: "sold",
+      shelf: shelf.route.path,
+      subject: outcome.settled.subject,
+      usd: outcome.settled.priceUsd,
+      tx: outcome.settled.transaction,
+      payer: outcome.settled.payer,
+    });
   }
   applyOutcome(res, outcome);
 }

@@ -144,7 +144,12 @@ describe("what the two registries have to agree on", () => {
       const read = (f: string) =>
         JSON.parse(readFileSync(new URL(`../${dir}/${f}`, import.meta.url), "utf8")) as Record<string, unknown>;
       const pkg = read("package.json");
-      const srv = read("server.json") as { version: string; packages: { version: string; identifier: string }[] };
+      const srv = read("server.json") as {
+        name: string;
+        description: string;
+        version: string;
+        packages: { version: string; identifier: string }[];
+      };
 
       // The MCP registry rejects a publish outright when these disagree, and it
       // does so after npm has already accepted the version — leaving a released
@@ -154,13 +159,13 @@ describe("what the two registries have to agree on", () => {
       assert.equal(srv.packages[0]!.identifier, pkg["name"], `${dir}: packages[0].identifier`);
       // The npm side of the same proof: the registry reads mcpName back off the
       // published tarball to confirm one person controls both names.
-      assert.equal(pkg["mcpName"], srv["name"], `${dir}: mcpName must match the registry namespace`);
+      assert.equal(pkg["mcpName"], srv.name, `${dir}: mcpName must match the registry namespace`);
       // The registry caps this at 100 and rejects the publish with a 422 —
       // after npm has already taken the version, so an overlong sentence costs
       // a release number rather than a retry.
       assert.ok(
-        (srv["description"] as string).length <= 100,
-        `${dir}: description is ${(srv["description"] as string).length} characters, limit is 100`,
+        srv.description.length <= 100,
+        `${dir}: description is ${srv.description.length} characters, limit is 100`,
       );
     }
   });

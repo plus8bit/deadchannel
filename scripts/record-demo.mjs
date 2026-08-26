@@ -33,10 +33,24 @@ const W = 1600;
 const H = 900;
 const FPS = 30;
 
-/** A dead listing and a busy one, both taken from the public catalog. */
-const DEAD = "https://alpha402x.com/wacc-build/AAPL/fye-2025-09-27";
-const LIVE = "https://x402.tavily.com/search";
-const DOMAIN = process.env.DEMO_DOMAIN ?? "stripe.com";
+/** Two strangers from the public catalog. What they are is for the probe to say. */
+const FIRST = process.env.DEMO_FIRST ?? "https://spawnxchange-api-485602182462.europe-west4.run.app";
+const SECOND = process.env.DEMO_SECOND ?? "https://stableenrich.dev/api/exa/search";
+const DOMAIN = process.env.DEMO_DOMAIN ?? "x.com";
+const WALLET_OF = "0x70a08231000000000000000000000000";
+const USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+
+/** The paying wallet's USDC balance, read from the chain rather than counted. */
+async function balanceOf(address) {
+  const res = await fetch("https://base-rpc.publicnode.com", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_call", params: [
+      { to: USDC, data: WALLET_OF + address.slice(2).toLowerCase() }, "latest"] }),
+  });
+  const { result } = await res.json();
+  return Number(BigInt(result ?? "0x0")) / 1e6;
+}
 
 function promptHidden(question) {
   if (!process.stdin.isTTY) return Promise.resolve(null);
@@ -108,19 +122,26 @@ async function capture() {
   mkdirSync(OUT, { recursive: true });
 
   process.stdout.write("running deadchannel…\n");
+  const { privateKeyToAccount } = await import("viem/accounts");
+  const address = privateKeyToAccount(k).address;
+  const before = await balanceOf(address);
+
   const dc = await talk("packages/deadchannel-mcp/src/server.mjs", { DEADCHANNEL_PRIVATE_KEY: k }, [
     { name: "deadchannel_health", arguments: {} },
-    { name: "deadchannel_probe", arguments: { url: DEAD } },
-    { name: "deadchannel_probe", arguments: { url: LIVE } },
+    { name: "deadchannel_probe", arguments: { url: FIRST } },
+    { name: "deadchannel_probe", arguments: { url: SECOND } },
   ]);
 
   process.stdout.write("running hosaka…\n");
   const hs = await talk("packages/hosaka-mcp/src/server.mjs", { HOSAKA_PRIVATE_KEY: k }, [
-    { name: "hosaka_lookup", arguments: { domain: DOMAIN } },
+    { name: "hosaka_dossier", arguments: { domain: DOMAIN } },
   ]);
+  const after = await balanceOf(address);
 
   const steps = [...dc, ...hs];
-  writeFileSync(`${OUT}/session.json`, JSON.stringify({ recordedAt: new Date().toISOString(), steps }, null, 2));
+  writeFileSync(`${OUT}/session.json`, JSON.stringify(
+    { recordedAt: new Date().toISOString(), address, before, after, steps }, null, 2));
+  process.stdout.write(`\nwallet ${before.toFixed(6)} → ${after.toFixed(6)} (${(before - after).toFixed(6)} spent)\n`);
 
   // Printed rather than assumed: a step that failed still renders, and a film
   // of error messages is worse than no film.
@@ -155,6 +176,48 @@ const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
  * showed "live · risk 0" in the colour of danger. A tool that reports on
  * strangers cannot afford a demo that misreports one.
  */
+/**
+ * Says what the probe found, in the probe's own terms.
+ *
+ * The first film had captions written before the endpoints were checked, and
+ * one of them called a clean result a bad listing. A caption chosen from the
+ * verdict cannot disagree with the frame it sits under, whatever comes back.
+ */
+/** CAIP-2 identifiers are for machines; a caption is read by people. */
+const NET_NAMES = {
+  "base": "Base", "eip155:8453": "Base",
+  "eip155:84532": "Base Sepolia", "base-sepolia": "Base Sepolia",
+  "eip155:80002": "Polygon Amoy, a testnet", "eip155:11155111": "Sepolia, a testnet",
+  "eip155:421614": "Arbitrum Sepolia, a testnet",
+  "eip155:137": "Polygon", "eip155:42161": "Arbitrum",
+  "aws:base": "a brokered rail",
+};
+const netName = (n) => NET_NAMES[n] ?? (String(n).startsWith("solana:") ? "Solana" : String(n));
+
+function verdictCaption(text) {
+  let o;
+  try { o = JSON.parse(text); } catch { return "The check could not read this endpoint."; }
+  const risk = Number(o.risk ?? 0);
+  const problems = (o.problems ?? []).length;
+  const nets = (o.networks ?? []).map(netName).join(", ");
+  switch (o.verdict) {
+    case "live":
+      return risk === 0
+        ? `Clean. Every check passed, and it settles on ${nets || "a public chain"}.`
+        : `Live, with ${problems} finding${problems === 1 ? "" : "s"} the listing does not mention.`;
+    case "testnet":
+      return `Listed in the mainnet catalog. It settles on ${nets || "a testnet"}, where the money is not real.`;
+    case "degraded":
+      return `It answers, but ${problems} check${problems === 1 ? "" : "s"} did not pass.`;
+    case "trap":
+      return "It takes the payment and returns nothing worth having.";
+    case "dead":
+      return "Still listed for sale. It does not answer at all.";
+    default:
+      return `Verdict: ${String(o.verdict)}.`;
+  }
+}
+
 function toneOf(k, v) {
   if (k === "verdict") return { live: "good", degraded: "warn" }[String(v)] ?? "bad";
   if (k === "risk") { const n = Number(v); return n <= 20 ? "good" : n <= 50 ? "warn" : "bad"; }
@@ -165,24 +228,40 @@ function digest(text, keys) {
   let obj;
   try { obj = JSON.parse(text); } catch { return [{ t: text.slice(0, 400) }]; }
   const lines = [];
-  for (const k of keys) {
+  // Omitting the list means every field, in the order the answer gave them.
+  const wanted = keys ?? Object.keys(obj);
+  for (const k of wanted) {
     if (obj[k] === undefined) continue;
     const v = obj[k];
     // The findings are the part a viewer actually reads, so they get a line
     // each rather than being flattened into one unreadable JSON string.
+    if (k === "vendors" && Array.isArray(v)) {
+      // The evidence column is the whole product, so it gets its own row and
+      // is never shortened: a vendor list without proof is a guess.
+      for (const ven of v) {
+        lines.push({ vendor: ven.name ?? "?", cat: ven.category ?? "", proof: ven.evidence ?? "" });
+      }
+      continue;
+    }
+    if (k === "registration" && v && typeof v === "object") {
+      const reg = v.value ?? v;
+      lines.push({ k: "registered", v: `${reg.ageYears ?? "?"} years ago · ${reg.registrar ?? "unknown registrar"}` });
+      continue;
+    }
+    if (k === "gaps" && Array.isArray(v)) {
+      lines.push({ k: "gaps", v: v.length === 0 ? "none" : v.join(", "), tone: v.length === 0 ? "good" : "warn" });
+      continue;
+    }
     if (k === "problems" && Array.isArray(v)) {
-      for (const p of v.slice(0, 4)) {
+      for (const p of v) {
         const mark = p.status === "fail" ? "✗" : p.status === "warn" ? "!" : "·";
         lines.push({ k: mark, v: p.detail ?? p.id ?? "", tone: p.status === "fail" ? "bad" : p.status === "warn" ? "warn" : "" });
       }
-      if (v.length > 4) lines.push({ dim: `+ ${v.length - 4} more findings` });
       continue;
     }
     const val = typeof v === "object" ? JSON.stringify(v) : String(v);
     lines.push({ k, v: val, tone: toneOf(k, val) });
   }
-  const rest = Object.keys(obj).filter((k) => !keys.includes(k)).length;
-  if (rest > 0) lines.push({ dim: `+ ${rest} more fields` });
   return lines;
 }
 
@@ -192,6 +271,10 @@ function page(scene) {
     if (r.head) return `<div class="head">${esc(r.head)}</div>`;
     if (r.cmd) return `<div class="cmd"><span class="pr">›</span> ${esc(r.cmd)}</div>`;
     if (r.dim) return `<div class="dim">${esc(r.dim)}</div>`;
+    if (r.vendor) {
+      return `<div class="ven"><span class="vn">${esc(r.vendor)}</span>` +
+        `<span class="vc">${esc(r.cat)}</span><span class="vp">${esc(r.proof)}</span></div>`;
+    }
     if (r.k) {
       const mark = r.k === "✗" || r.k === "!" || r.k === "·" ? " mark" : "";
       return `<div class="kv${mark}"><span class="k">${esc(r.k)}</span><span class="v ${r.tone ?? ""}">${esc(r.v)}</span></div>`;
@@ -199,7 +282,7 @@ function page(scene) {
     return `<div class="t">${esc(r.t ?? "")}</div>`;
   }).join("");
 
-  return `<!doctype html><meta charset="utf-8"><style>
+  return `<!doctype html><meta charset="utf-8"><body class="${scene.dense ? "dense" : ""}"><style>
   *{margin:0;padding:0;box-sizing:border-box}
   body{width:${W}px;height:${H}px;background:#07090D;color:#C9D3DD;
        font:400 27px/1.5 "SF Mono",Menlo,monospace;overflow:hidden}
@@ -219,6 +302,12 @@ function page(scene) {
   .v{color:#E6ECF2}
   .v.bad{color:#FF6B57}.v.good{color:#7BE39B}.v.warn{color:#FFC46B}
   .gap{height:22px}
+  .ven{display:flex;margin:3px 0;align-items:baseline}
+  .vn{color:#F2F6FA;width:230px;flex:none;white-space:nowrap}
+  .vc{color:#6E7A88;width:230px;flex:none;font-size:23px}
+  .vp{color:#8FE3B0;font-size:23px}
+  body.dense{font-size:24px;line-height:1.42}
+  body.dense .vn{width:280px}body.dense .vc{width:190px;font-size:21px;white-space:nowrap}body.dense .vp{font-size:21px}
   .cap{position:absolute;left:0;right:0;bottom:0;padding:30px 64px;
        background:#0B0F15;border-top:1px solid #1B222C;color:#9FB0C0;font-size:28px}
   </style><div class="wrap"><div class="bar">
@@ -232,54 +321,52 @@ function render() {
   const health = step("deadchannel_health");
   const dead = step("deadchannel_probe", 0);
   const live = step("deadchannel_probe", 1);
-  const bought = step("hosaka_lookup");
+  const bought = step("hosaka_dossier");
 
   const PROBE = 0.001;
-  const LOOKUP = 0.005;
+  const DOSSIER = 0.04;
   const money = (n) => `spent: $${n.toFixed(3)}`;
   const scenes = [];
-  const scene = (title, spend, caption, rows, hold) => scenes.push({ title, spend, caption, rows, hold });
+  const scene = (title, spend, caption, rows, hold, dense = false) =>
+    scenes.push({ title, spend, caption, rows, hold, dense });
 
   scene("deadchannel", money(0),
-    "An agent with a wallet can pay anyone. Nothing tells it who it is paying.",
+    "An agent with a wallet can pay anyone. Nothing tells it who.",
     [{ head: "Check an x402 endpoint before you pay it." },
      { t: "verdict · risk score · the specific problems found" }, { gap: 1 },
-     { dim: "$0.001 in USDC on Base. Less than the smallest payment it protects." }], 3.4);
+     { dim: "$0.001 in USDC on Base. Less than the smallest payment it protects." }], 3.6);
 
-  scene("install", money(0), "One line in the MCP config. No signup, no API key.",
+  scene("install", money(0), "One line in the MCP config. No signup, no API key, no account.",
     [{ head: "claude_desktop_config.json" }, { gap: 1 },
      { t: '"deadchannel": {' }, { t: '  "command": "npx",' },
      { t: '  "args": ["-y", "deadchannel-mcp"],' },
      { t: '  "env": { "DEADCHANNEL_PRIVATE_KEY": "0x…" }' }, { t: "}" }, { gap: 1 },
-     { dim: "The key signs locally and never leaves the machine." }], 5.2);
+     { dim: "The key signs locally and never leaves the machine." }], 5.4);
 
   scene("health", money(0), "Free, and needs no wallet: is the service up, or is my key wrong?",
-    [{ cmd: "deadchannel_health" }, { gap: 1 },
-     ...digest(health?.text ?? "{}", ["ok", "status", "network"])], 3.6);
+    [{ cmd: "deadchannel_health" }, { gap: 1 }, ...digest(health?.text ?? "{}")], 3.6);
 
-  scene("probe · a stranger from the catalog", money(PROBE),
-    "Clean. Every check passed, the price is real, and it pays straight to an address on Base.",
-    [{ cmd: `deadchannel_probe  ${DEAD.replace("https://", "")}` }, { gap: 1 },
-     ...digest(dead?.text ?? "{}", ["verdict", "risk", "priceUsd", "networks", "checksPassed", "checksRun", "problems"])], 7.0);
+  scene("probe · a stranger from the catalog", money(PROBE), verdictCaption(dead?.text ?? "{}"),
+    [{ cmd: `deadchannel_probe  ${FIRST.replace("https://", "").slice(0, 58)}` }, { gap: 1 },
+     ...digest(dead?.text ?? "{}", ["verdict", "risk", "priceUsd", "networks", "checksPassed", "checksRun", "problems"])], 8.0);
 
-  scene("probe · a busy seller", money(PROBE * 2),
-    "Also live. The check reports how you would be paying — through a broker that holds the funds.",
-    [{ cmd: `deadchannel_probe  ${LIVE.replace("https://", "")}` }, { gap: 1 },
-     ...digest(live?.text ?? "{}", ["verdict", "risk", "priceUsd", "networks", "problems"])], 8.2);
+  scene("probe · the busiest data seller in the catalog", money(PROBE * 2), verdictCaption(live?.text ?? "{}"),
+    [{ cmd: `deadchannel_probe  ${SECOND.replace("https://", "")}` }, { gap: 1 },
+     ...digest(live?.text ?? "{}", ["verdict", "risk", "priceUsd", "networks", "checksPassed", "checksRun", "problems"])], 8.0);
 
-  scene("buy", money(PROBE * 2 + LOOKUP),
-    "Checked first, then paid. Every field of the cheapest shelf, for half a cent.",
-    [{ cmd: `hosaka_lookup  ${DOMAIN}` }, { gap: 1 },
-     // Every field, not a selection: a trimmed answer on the cheapest shelf
-     // reads as a thin product rather than a cheap one.
-     ...digest(bought?.text ?? "{}", ["domain", "title", "ageYears", "registrar", "mailProvider", "dnsProvider", "dmarc", "https", "vendorCount"])], 8.0);
+  scene(`buy · every vendor ${DOMAIN} can be proven to use`, money(PROBE * 2 + DOSSIER),
+    "Not a guess. Each line carries the DNS record or loaded script that proves it.",
+    [{ cmd: `hosaka_dossier  ${DOMAIN}` }, { gap: 1 },
+     ...digest(bought?.text ?? "{}", ["vendors", "registration", "gaps"])], 12.0, true);
 
-  scene("the whole session", money(PROBE * 2 + LOOKUP),
-    "Three payments, no invoice, no account, no subscription. Every one settled on Base.",
-    [{ head: "$0.007 total" }, { gap: 1 },
-     { k: "2 × probe", v: "$0.002" }, { k: "1 × company lookup", v: "$0.005" }, { gap: 1 },
+  scene("the whole session", money(PROBE * 2 + DOSSIER),
+    "Three payments, no invoice, no account, no subscription. Settled on Base.",
+    [{ head: `$${(PROBE * 2 + DOSSIER).toFixed(3)} total` }, { gap: 1 },
+     { k: "2 × probe", v: `$${(PROBE * 2).toFixed(3)}` },
+     { k: "1 × dossier", v: `$${DOSSIER.toFixed(2)}` },
+     { k: "wallet", v: `$${(session.before ?? 0).toFixed(6)}  →  $${(session.after ?? 0).toFixed(6)}` }, { gap: 1 },
      { dim: "npm i -g deadchannel-mcp   ·   npm i -g hosaka-mcp" },
-     { dim: "deadchannel.vercel.app   ·   hosaka-agents.vercel.app" }], 6.0);
+     { dim: "deadchannel.vercel.app   ·   hosaka-agents.vercel.app" }], 7.0);
 
   mkdirSync(`${OUT}/frames`, { recursive: true });
   const timeline = [];
@@ -315,6 +402,13 @@ function render() {
     "-vf", `scale=${W}:${H}`, `${OUT}/demo.mp4`], { stdio: "pipe" });
   const secs = timeline.reduce((a, t) => a + t.dur, 0);
   process.stdout.write(`${OUT}/demo.mp4 — ${secs.toFixed(1)}s\n`);
+
+  // Onto the desktop, because a file in /tmp is a file nobody drags into a post.
+  const desktop = `${process.env.HOME}/Desktop/deadchannel-demo.mp4`;
+  try {
+    execFileSync("cp", [`${OUT}/demo.mp4`, desktop]);
+    process.stdout.write(`copied to ${desktop}\n`);
+  } catch { /* a missing Desktop is not a reason to lose the render */ }
 }
 
 const mode = process.argv[2];

@@ -268,9 +268,11 @@ function render() {
      ...digest(live?.text ?? "{}", ["verdict", "risk", "priceUsd", "networks", "problems"])], 8.2);
 
   scene("buy", money(PROBE * 2 + LOOKUP),
-    "Checked first, then paid. Company data from a domain, settled in USDC on Base.",
+    "Checked first, then paid. Every field of the cheapest shelf, for half a cent.",
     [{ cmd: `hosaka_lookup  ${DOMAIN}` }, { gap: 1 },
-     ...digest(bought?.text ?? "{}", ["domain", "title", "ageYears", "registrar", "mailProvider", "dnsProvider", "vendorCount"])], 7.5);
+     // Every field, not a selection: a trimmed answer on the cheapest shelf
+     // reads as a thin product rather than a cheap one.
+     ...digest(bought?.text ?? "{}", ["domain", "title", "ageYears", "registrar", "mailProvider", "dnsProvider", "dmarc", "https", "vendorCount"])], 8.0);
 
   scene("the whole session", money(PROBE * 2 + LOOKUP),
     "Three payments, no invoice, no account, no subscription. Every one settled on Base.",

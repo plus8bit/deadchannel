@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.plus8bit/deadchannel",
-  "description": "Check an x402 endpoint before you pay it: verdict, risk score and the specific problems found, for $0.001 in USDC.",
+  "description": "Check an x402 endpoint before you pay it: verdict, risk score and what is wrong. $0.001 in USDC.",
   "repository": {
     "url": "https://github.com/plus8bit/deadchannel",
     "source": "github"

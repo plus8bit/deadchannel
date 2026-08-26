@@ -155,6 +155,13 @@ describe("what the two registries have to agree on", () => {
       // The npm side of the same proof: the registry reads mcpName back off the
       // published tarball to confirm one person controls both names.
       assert.equal(pkg["mcpName"], srv["name"], `${dir}: mcpName must match the registry namespace`);
+      // The registry caps this at 100 and rejects the publish with a 422 —
+      // after npm has already taken the version, so an overlong sentence costs
+      // a release number rather than a retry.
+      assert.ok(
+        (srv["description"] as string).length <= 100,
+        `${dir}: description is ${(srv["description"] as string).length} characters, limit is 100`,
+      );
     }
   });
 });

@@ -40,7 +40,14 @@ const DOMAIN = process.env.DEMO_DOMAIN ?? "x.com";
 const WALLET_OF = "0x70a08231000000000000000000000000";
 const USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 
-/** The paying wallet's USDC balance, read from the chain rather than counted. */
+/**
+ * The paying wallet's USDC balance, read from the chain rather than counted.
+ *
+ * Settlement lands in a block a moment after the answer arrives, so the first
+ * read after a purchase is usually the balance from before it. The film showed
+ * a wallet down two tenths of a cent under a header saying four cents were
+ * spent, which is the sort of contradiction a viewer notices before we do.
+ */
 async function balanceOf(address) {
   const res = await fetch("https://base-rpc.publicnode.com", {
     method: "POST",
@@ -112,6 +119,20 @@ function talk(bundle, env, calls) {
   });
 }
 
+/** Waits for the chain to catch up, rather than reporting the balance before it. */
+async function settledBalance(address, before, tries = 12) {
+  let last = await balanceOf(address);
+  for (let i = 0; i < tries; i++) {
+    await new Promise((r) => setTimeout(r, 5000));
+    const now = await balanceOf(address);
+    // Changed from the starting figure and steady for one interval: the last
+    // settlement is in a block, not merely accepted.
+    if (now < before && now === last) return now;
+    last = now;
+  }
+  return last;
+}
+
 async function capture() {
   const key = process.env.DEMO_KEY ?? (await promptHidden("private key of the paying wallet (hidden): "));
   if (!key || !/^0x[0-9a-fA-F]{64}$/.test(key.trim())) {
@@ -136,7 +157,7 @@ async function capture() {
   const hs = await talk("packages/hosaka-mcp/src/server.mjs", { HOSAKA_PRIVATE_KEY: k }, [
     { name: "hosaka_dossier", arguments: { domain: DOMAIN } },
   ]);
-  const after = await balanceOf(address);
+  const after = await settledBalance(address, before);
 
   const steps = [...dc, ...hs];
   writeFileSync(`${OUT}/session.json`, JSON.stringify(
@@ -213,6 +234,9 @@ function verdictCaption(text) {
       return "It takes the payment and returns nothing worth having.";
     case "dead":
       return "Still listed for sale. It does not answer at all.";
+    case "unknown":
+      return `${o.checksPassed ?? 0} of ${o.checksRun ?? 0} checks passed. It never asks for payment, ` +
+        "so there is nothing here an agent can buy.";
     default:
       return `Verdict: ${String(o.verdict)}.`;
   }

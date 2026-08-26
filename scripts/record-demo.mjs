@@ -19,7 +19,7 @@
  */
 
 import { execFileSync, spawn } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createInterface } from "node:readline";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -368,6 +368,11 @@ function render() {
      { dim: "npm i -g deadchannel-mcp   ·   npm i -g hosaka-mcp" },
      { dim: "deadchannel.vercel.app   ·   hosaka-agents.vercel.app" }], 7.0);
 
+  // Cleared rather than reused: frames were cached to make an interrupted
+  // render resumable, but a second capture into the same directory would then
+  // stitch new data onto old pictures, which is a worse failure than a slow
+  // rebuild — and an invisible one.
+  rmSync(`${OUT}/frames`, { recursive: true, force: true });
   mkdirSync(`${OUT}/frames`, { recursive: true });
   const timeline = [];
   let n = 0;

@@ -19,6 +19,7 @@ const BUNDLES: { name: string; entry: string; committed: string; script: string;
   { name: "hosaka", entry: "src/hosaka/server/vercel-entry.ts", committed: "../hosaka/api/index.mjs", script: "build:hosaka" },
   // Published to npm, where a stale build is downloaded by strangers.
   { name: "hosaka-mcp", entry: "src/hosaka/mcp/server.ts", committed: "../packages/hosaka-mcp/src/server.mjs", script: "build:mcp", external: true },
+  { name: "deadchannel-mcp", entry: "src/server/mcp-server.ts", committed: "../packages/deadchannel-mcp/src/server.mjs", script: "build:mcp-deadchannel", external: true },
 ];
 
 describe("committed serverless bundles", () => {

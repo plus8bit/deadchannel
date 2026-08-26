@@ -164,6 +164,7 @@ var NETWORKS = {
     usdcVersion: "2"
   }
 };
+var DEFAULT_PRICE_USD = 1e-3;
 var USDC_DECIMALS = 6;
 var EVM_ADDRESS = /^0x[a-fA-F0-9]{40}$/;
 var FILE_DEFAULTS = deadchannel_config_default;
@@ -182,7 +183,7 @@ function loadConfig(env = process.env, defaults = FILE_DEFAULTS) {
   if (/^0x0{40}$/i.test(payTo)) {
     problems.push("X402_PAY_TO is the zero address \u2014 payments would be destroyed");
   }
-  const priceUsd = Number(env["X402_PRICE_USD"] ?? file.priceUsd ?? 1e-3);
+  const priceUsd = Number(env["X402_PRICE_USD"] ?? file.priceUsd ?? DEFAULT_PRICE_USD);
   if (!Number.isFinite(priceUsd) || priceUsd <= 0) {
     problems.push(`X402_PRICE_USD must be a positive number, got "${env["X402_PRICE_USD"]}"`);
   }

@@ -1,22 +1,27 @@
 /**
  * Pays an x402 endpoint on the caller's behalf.
  *
+ * Shared by both shops. The key's environment variable is passed in rather than
+ * fixed, because an operator who runs both should be able to fund them from
+ * different wallets — and because a message naming the wrong variable is worse
+ * than no message at all.
+ *
  * Deliberately explicit about failure: an agent that cannot pay should be told
  * why in words its operator can act on, not handed a stack trace mid-answer.
  */
 
 const KEY_PATTERN = /^0x[0-9a-fA-F]{64}$/;
 
-export async function payFor(url: string, body: unknown): Promise<unknown> {
-  const key = process.env["HOSAKA_PRIVATE_KEY"];
+export async function payFor(url: string, body: unknown, keyEnv: string): Promise<unknown> {
+  const key = process.env[keyEnv];
   if (!key) {
     throw new Error(
-      "HOSAKA_PRIVATE_KEY is not set. Point it at a wallet holding a little USDC on Base — " +
+      `${keyEnv} is not set. Point it at a wallet holding a little USDC on Base — ` +
         "the key never leaves this machine; only a signature is sent.",
     );
   }
   if (!KEY_PATTERN.test(key.trim())) {
-    throw new Error("HOSAKA_PRIVATE_KEY must be a 0x-prefixed 32-byte hex key.");
+    throw new Error(`${keyEnv} must be a 0x-prefixed 32-byte hex key.`);
   }
 
   // Imported lazily so the server starts, and can explain itself, even when the
@@ -27,7 +32,7 @@ export async function payFor(url: string, body: unknown): Promise<unknown> {
       import("@x402/evm/exact/client"),
       import("@x402/fetch"),
     ]).catch(() => {
-      throw new Error("payment libraries are not installed: run `npm install` in the hosaka MCP directory.");
+      throw new Error("payment libraries are not installed: run `npm install` in this MCP's directory.");
     });
 
   const account = privateKeyToAccount(key.trim() as `0x${string}`);

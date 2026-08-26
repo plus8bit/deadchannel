@@ -46,7 +46,7 @@ export const TIERS = {
      */
     seniority: ["Owner", "Founder", "C-level", "Partner", "VP", "Head", "Director"],
     /**
-     * $0.30 against the same $0.15 cost as the unfiltered shelf.
+     * $0.21 against the same $0.15 cost as the unfiltered shelf.
      *
      * The purchase price does not change, so the premium is not for more data —
      * it is for less of it, chosen. A list of everyone at a company and a list
@@ -83,7 +83,7 @@ export const TIERS = {
      * Cheap because the underlying answer is cheap: it is what the company
      * publishes about itself, not who works there. Priced as the shelf a buyer
      * reaches for when the question is "how do I reach this company" and the
-     * $0.25 answer would be waste.
+     * people shelf would be waste.
      */
     priceUsd: 0.02,
   },

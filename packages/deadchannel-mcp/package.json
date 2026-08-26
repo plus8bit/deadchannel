@@ -1,0 +1,40 @@
+{
+  "name": "deadchannel-mcp",
+  "version": "0.1.0",
+  "description": "Check an x402 endpoint before you pay it. Returns a verdict (live, degraded, trap, testnet, dead), a 0-100 risk score and the specific problems found, for $0.001 in USDC on Base. No signup, no API key.",
+  "keywords": [
+    "mcp",
+    "modelcontextprotocol",
+    "x402",
+    "preflight",
+    "payment-guard",
+    "agent-safety",
+    "risk",
+    "agents"
+  ],
+  "license": "MIT",
+  "author": "plus8bit",
+  "homepage": "https://deadchannel.vercel.app",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/plus8bit/deadchannel.git",
+    "directory": "packages/deadchannel-mcp"
+  },
+  "type": "module",
+  "bin": {
+    "deadchannel-mcp": "src/server.mjs"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@x402/evm": "^2.23.0",
+    "@x402/fetch": "^2.23.0",
+    "viem": "^2.21.0"
+  },
+  "mcpName": "io.github.plus8bit/deadchannel"
+}

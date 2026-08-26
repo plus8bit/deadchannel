@@ -49,6 +49,16 @@ export const NETWORKS: Record<string, NetworkConfig> = {
   },
 };
 
+/**
+ * What the probe costs when nothing overrides it.
+ *
+ * Exported so the MCP package and anything else that quotes the price in prose
+ * can read it instead of retyping it, because a tool description advertising a
+ * price we no longer charge sends an agent to budget for one number and be
+ * challenged for another.
+ */
+export const DEFAULT_PRICE_USD = 0.001;
+
 export interface Config {
   port: number;
   /** Public origin this service is reachable at; used to build resource URLs. */
@@ -155,7 +165,7 @@ export function loadConfig(
     problems.push("X402_PAY_TO is the zero address — payments would be destroyed");
   }
 
-  const priceUsd = Number(env["X402_PRICE_USD"] ?? file.priceUsd ?? 0.001);
+  const priceUsd = Number(env["X402_PRICE_USD"] ?? file.priceUsd ?? DEFAULT_PRICE_USD);
   if (!Number.isFinite(priceUsd) || priceUsd <= 0) {
     problems.push(`X402_PRICE_USD must be a positive number, got "${env["X402_PRICE_USD"]}"`);
   }

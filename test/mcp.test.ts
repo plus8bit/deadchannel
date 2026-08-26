@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { Readable } from "node:stream";
 import { describe, it } from "node:test";
-import { McpServer, failure, text } from "../src/hosaka/mcp/protocol.ts";
+import { McpServer, failure, text } from "../src/mcp/protocol.ts";
 
 function build() {
   return new McpServer({ name: "test", version: "1.0.0", instructions: "hi" }).tool(
@@ -103,5 +103,36 @@ describe("MCP stdio framing", () => {
       { write: (chunk: string) => out.push(chunk) } as never,
     );
     assert.equal(JSON.parse(out.join("")).error.code, -32700);
+  });
+});
+
+describe("what the MCP tools tell an agent a call costs", () => {
+  it("carries no price a reader could act on that we did not generate", async () => {
+    const { DEFAULT_PRICE_USD } = await import("../src/server/config.ts");
+    const { PRICE_LOOKUP, PRICE_DOSSIER } = await import("../src/hosaka/server/routes.ts");
+    const { TIERS } = await import("../src/hosaka/server/bundle.ts");
+    const { SUPPLIERS } = await import("../src/hosaka/suppliers/types.ts");
+    const { readFileSync } = await import("node:fs");
+
+    // A price written into prose goes stale in silence: the tool keeps working,
+    // the agent budgets for the old number, and the challenge asks for another.
+    // The bundles are what a stranger installs from npm and reads, comments
+    // included, so every dollar figure in them — quoted to an agent or
+    // explained to a human — has to be one we actually charge or pay.
+    const ours = new Set(
+      [
+        DEFAULT_PRICE_USD,
+        PRICE_LOOKUP,
+        PRICE_DOSSIER,
+        ...Object.values(TIERS).map((t) => t.priceUsd),
+        ...Object.values(SUPPLIERS).flatMap((s) => [s.listPriceUsd, s.maxPriceUsd]),
+      ].map((n) => `$${n}`),
+    );
+
+    for (const bundle of ["packages/deadchannel-mcp/src/server.mjs", "packages/hosaka-mcp/src/server.mjs"]) {
+      const source = readFileSync(new URL(`../${bundle}`, import.meta.url), "utf8");
+      const stale = [...new Set(source.match(/\$\d+\.\d+/g) ?? [])].filter((p) => !ours.has(p));
+      assert.deepEqual(stale, [], `${bundle} names prices we do not charge: ${stale.join(", ")}`);
+    }
   });
 });

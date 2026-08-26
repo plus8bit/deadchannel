@@ -136,3 +136,25 @@ describe("what the MCP tools tell an agent a call costs", () => {
     }
   });
 });
+
+describe("what the two registries have to agree on", () => {
+  it("keeps every published package's three version numbers identical", async () => {
+    const { readFileSync } = await import("node:fs");
+    for (const dir of ["packages/hosaka-mcp", "packages/deadchannel-mcp"]) {
+      const read = (f: string) =>
+        JSON.parse(readFileSync(new URL(`../${dir}/${f}`, import.meta.url), "utf8")) as Record<string, unknown>;
+      const pkg = read("package.json");
+      const srv = read("server.json") as { version: string; packages: { version: string; identifier: string }[] };
+
+      // The MCP registry rejects a publish outright when these disagree, and it
+      // does so after npm has already accepted the version — leaving a released
+      // package that no client can discover.
+      assert.equal(srv.version, pkg["version"], `${dir}: server.json version`);
+      assert.equal(srv.packages[0]!.version, pkg["version"], `${dir}: packages[0].version`);
+      assert.equal(srv.packages[0]!.identifier, pkg["name"], `${dir}: packages[0].identifier`);
+      // The npm side of the same proof: the registry reads mcpName back off the
+      // published tarball to confirm one person controls both names.
+      assert.equal(pkg["mcpName"], srv["name"], `${dir}: mcpName must match the registry namespace`);
+    }
+  });
+});

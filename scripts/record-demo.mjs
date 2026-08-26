@@ -374,7 +374,7 @@ function render() {
     [{ cmd: `deadchannel_probe  ${FIRST.replace("https://", "").slice(0, 58)}` }, { gap: 1 },
      ...digest(dead?.text ?? "{}", ["verdict", "risk", "priceUsd", "networks", "checksPassed", "checksRun", "problems"])], 8.0);
 
-  scene("probe · the busiest data seller in the catalog", money(PROBE * 2), verdictCaption(live?.text ?? "{}"),
+  scene("probe · one of the busiest sellers in the catalog", money(PROBE * 2), verdictCaption(live?.text ?? "{}"),
     [{ cmd: `deadchannel_probe  ${SECOND.replace("https://", "")}` }, { gap: 1 },
      ...digest(live?.text ?? "{}", ["verdict", "risk", "priceUsd", "networks", "checksPassed", "checksRun", "problems"])], 8.0);
 

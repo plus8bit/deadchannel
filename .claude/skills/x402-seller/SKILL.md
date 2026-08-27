@@ -39,9 +39,14 @@ The order is: pull the number, do the arithmetic by hand, then say the thing.
 - **Buyer reach is the metric.** `l30DaysUniquePayers` is what separates listings.
   Twenty calls from one wallet add volume and recency and no reach at all.
 - **Thirty days without a settlement removes a resource from the catalog.**
-- Hypothesis, unconfirmed: settlements through a non-CDP facilitator (Solvador on
-  Solana, GoPlausible on Algorand) may not refresh the record. `/probe` sat at two
-  networks and seven calls through two Solana settlements and one on Base.
+- **The lag is hours, not minutes, and it is easy to mistake for a fault.**
+  `/probe` sat at two networks and seven calls through two Solana settlements and
+  one on Base, which looked like non-CDP facilitators being invisible to the
+  catalog. They are not: the record caught up to three networks later the same
+  day. Wait a cycle before diagnosing.
+- The price in the record lags separately from the networks. `/probe` advertised
+  $0.001 in the catalog while the live challenge asked $0.005, which is exactly
+  the mismatch that makes an agent fail on its first call.
 
 ### The payer leaderboard is farmed
 

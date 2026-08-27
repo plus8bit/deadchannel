@@ -48795,7 +48795,7 @@ var LOOKUP_ROUTE = {
   method: "POST",
   serviceName: "Hosaka",
   description: "Use when you have a company domain and need to know what the company is before spending more. Returns the company name and site title, domain age, registrar, mail provider, DNS provider, DMARC and HTTPS status, and a count of the third-party vendors detected. One call, no signup, no API key. The cheapest way to qualify a domain before buying a fuller record.",
-  tags: ["company-data", "enrichment", "domain", "b2b", "firmographics"],
+  tags: ["company-data", "enrichment", "domain", "software-detection", "b2b", "firmographics"],
   mimeType: "application/json",
   inputExample: { domain: "figma.com" },
   inputSchema: {
@@ -48820,8 +48820,8 @@ var DOSSIER_ROUTE = {
   path: "/dossier",
   method: "POST",
   serviceName: "Hosaka",
-  description: "Use when you need a company's technology and vendor stack from its domain alone. Returns every third-party vendor the company can be proven to use \u2014 mail, DNS, CDN, analytics, payments, support, hosting \u2014 each with the DNS record or loaded script that proves it, plus registration, certificate and site facts. Technographics without a subscription or a sales call.",
-  tags: ["technographics", "vendor-stack", "company-data", "enrichment", "b2b"],
+  description: "Use when you need a company's technology and vendor stack from its domain alone. Returns every third-party service it runs on \u2014 the software and tools behind its mail, DNS, CDN, analytics, payments, support and hosting \u2014 each with the DNS record or loaded script that proves it, plus registration, certificate and site facts. Technographics and SaaS detection without a subscription.",
+  tags: ["technographics", "vendor-stack", "software-detection", "tools", "enrichment", "b2b"],
   mimeType: "application/json",
   inputExample: { domain: "figma.com" },
   inputSchema: {

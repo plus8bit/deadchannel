@@ -47534,7 +47534,7 @@ var deadchannel_config_default = {
   $comment: "Public deployment settings. Environment variables override every field. The payout address is public information by design: an x402 seller never holds a private key, it only declares where settlement should land. Publishing it here rather than hiding it in a dashboard means anyone can audit where the money goes.",
   payTo: "0x712c78928080Adb009E31315c0c3c7473dA9648a",
   network: "base",
-  priceUsd: 1e-3,
+  priceUsd: 5e-3,
   publicUrl: "https://deadchannel.vercel.app",
   facilitatorUrl: "https://facilitator.goplausible.xyz",
   algorandPayTo: "NLT4P2QFI3OO3PTLQHQXCAM2RA2Y7T4RZZKZF43BLMBKDFPFX54ZLDY2JU"

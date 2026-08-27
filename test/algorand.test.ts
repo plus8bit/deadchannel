@@ -572,3 +572,23 @@ describe("the health check both shops answer with", () => {
     }
   });
 });
+
+describe("where the probe's price actually comes from", () => {
+  it("keeps the deployed config and the code default saying the same number", async () => {
+    const { DEFAULT_PRICE_USD } = await import("../src/server/config.ts");
+    const { readFileSync } = await import("node:fs");
+    const file = JSON.parse(
+      readFileSync(new URL("../deadchannel.config.json", import.meta.url), "utf8"),
+    ) as { priceUsd?: number };
+
+    // The price is stated twice: once in the config the deployment reads, once
+    // as the fallback in code. Raising only the fallback changed nothing and
+    // still shipped a commit saying the price had gone up, which is worse than
+    // leaving it alone. Whichever a reader looks at now has to be the truth.
+    assert.equal(
+      file.priceUsd,
+      DEFAULT_PRICE_USD,
+      "deadchannel.config.json and DEFAULT_PRICE_USD disagree, so one of them is a lie",
+    );
+  });
+});

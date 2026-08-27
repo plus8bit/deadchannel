@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { ConfigError, loadConfig, toAtomic } from "../src/server/config.ts";
 
@@ -75,7 +76,13 @@ describe("committed defaults", () => {
   it("uses the checked-in payout address when the environment is silent", () => {
     const cfg = loadConfig({});
     assert.match(cfg.payTo, /^0x[a-fA-F0-9]{40}$/, "a deployment must never start without a payout address");
-    assert.equal(cfg.priceAtomic, "1000");
+    // Read from the file rather than written out here: the price lives in the
+    // committed config, and a copy of it in a test is a third place to change
+    // and forget, which is exactly how the last raise failed to take effect.
+    const committed = JSON.parse(
+      readFileSync(new URL("../deadchannel.config.json", import.meta.url), "utf8"),
+    ) as { priceUsd: number };
+    assert.equal(cfg.priceAtomic, String(Math.round(committed.priceUsd * 1e6)));
   });
 
   it("lets the environment override every committed field", () => {

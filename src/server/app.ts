@@ -204,40 +204,51 @@ async function handleFacilitatorCheck(
   cfg: Config,
   facilitator: FacilitatorClient | FacilitatorFor,
 ): Promise<void> {
-  const client = typeof facilitator === "function" ? facilitator(cfg.network.caip2) : facilitator;
-  const base = {
-    facilitator: client.baseUrl,
-    network: cfg.network.caip2,
-    scheme: "exact",
-  };
+  const route = (n: string) => (typeof facilitator === "function" ? facilitator(n) : facilitator);
 
-  let kinds;
-  try {
-    kinds = await client.supported();
-  } catch (err) {
-    const detail = describe(err);
-    // 401/403 from a facilitator means credentials, not connectivity.
-    const authProblem = err instanceof FacilitatorError && (err.status === 401 || err.status === 403);
-    return send(res, 503, {
-      ...base,
-      reachable: !authProblem,
-      authenticated: false,
-      canSettle: false,
-      problem: authProblem
-        ? "the facilitator rejected our credentials — check CDP_API_KEY_ID and CDP_API_KEY_SECRET"
-        : detail,
-    });
-  }
+  // Every chain the shop advertises, not just the primary one. A chain routed
+  // to a facilitator that will not settle it is an offer no buyer can complete,
+  // and checking only the first one leaves it looking healthy right up until
+  // somebody pays — which is exactly how we found the Solana rail was dead.
+  const networks = [
+    cfg.network.caip2,
+    ...(cfg.algorandPayTo ? [ALGORAND_MAINNET] : []),
+    ...cfg.rails.map((r) => r.caip2),
+    ...(cfg.solanaPayTo ? [SOLANA_RAIL.caip2] : []),
+  ];
 
-  const canSettle = kinds.some((k) => k.network === cfg.network.caip2 && k.scheme === "exact");
-  send(res, canSettle ? 200 : 503, {
-    ...base,
-    reachable: true,
-    authenticated: true,
-    canSettle,
-    supports: kinds.map((k) => `v${k.x402Version}/${k.scheme}/${k.network}`).slice(0, 20),
-    ...(canSettle ? {} : { problem: `facilitator cannot settle exact on ${cfg.network.caip2}` }),
-  });
+  const chains = await Promise.all(
+    networks.map(async (network) => {
+      const client = route(network);
+      try {
+        const kinds = await client.supported();
+        const canSettle = kinds.some((k) => k.network === network && k.scheme === "exact");
+        return {
+          network,
+          facilitator: client.baseUrl,
+          reachable: true,
+          authenticated: true,
+          canSettle,
+          ...(canSettle ? {} : { problem: `facilitator cannot settle exact on ${network}` }),
+        };
+      } catch (err) {
+        // 401/403 from a facilitator means credentials, not connectivity, and
+        // the two are fixed in different places.
+        const authProblem = err instanceof FacilitatorError && (err.status === 401 || err.status === 403);
+        return {
+          network,
+          facilitator: client.baseUrl,
+          reachable: !authProblem,
+          authenticated: false,
+          canSettle: false,
+          problem: authProblem ? "the facilitator rejected our credentials" : describe(err),
+        };
+      }
+    }),
+  );
+
+  const healthy = chains.every((c) => c.canSettle);
+  send(res, healthy ? 200 : 503, { scheme: "exact", healthy, chains });
 }
 
 function serviceCard(cfg: Config) {

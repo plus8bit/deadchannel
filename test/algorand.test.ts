@@ -554,3 +554,21 @@ describe("the record a sale leaves behind", () => {
     }
   });
 });
+
+describe("the health check both shops answer with", () => {
+  it("covers every chain the shop advertises, not just the first", async () => {
+    const { readFileSync } = await import("node:fs");
+    // Both servers must build their chain list the same way, from what the
+    // config actually offers. A shop that advertises three rails and checks one
+    // reports itself healthy until a buyer discovers otherwise, which is how
+    // the Solana rail sat broken while /facilitator said everything was fine.
+    for (const file of ["../src/server/app.ts", "../src/hosaka/server/app.ts"]) {
+      const source = readFileSync(new URL(file, import.meta.url), "utf8");
+      const block = source.slice(source.indexOf("const networks = ["));
+      const list = block.slice(0, block.indexOf("];"));
+      for (const rail of ["algorandPayTo", "cfg.rails", "solanaPayTo"]) {
+        assert.ok(list.includes(rail), `${file}: the health check ignores ${rail}`);
+      }
+    }
+  });
+});

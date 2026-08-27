@@ -1893,35 +1893,42 @@ async function handlePaidProbe(req, res, cfg, facilitator, deps) {
   send(res, 200, result);
 }
 async function handleFacilitatorCheck(res, cfg, facilitator) {
-  const client = typeof facilitator === "function" ? facilitator(cfg.network.caip2) : facilitator;
-  const base = {
-    facilitator: client.baseUrl,
-    network: cfg.network.caip2,
-    scheme: "exact"
-  };
-  let kinds;
-  try {
-    kinds = await client.supported();
-  } catch (err) {
-    const detail = describe(err);
-    const authProblem = err instanceof FacilitatorError && (err.status === 401 || err.status === 403);
-    return send(res, 503, {
-      ...base,
-      reachable: !authProblem,
-      authenticated: false,
-      canSettle: false,
-      problem: authProblem ? "the facilitator rejected our credentials \u2014 check CDP_API_KEY_ID and CDP_API_KEY_SECRET" : detail
-    });
-  }
-  const canSettle = kinds.some((k) => k.network === cfg.network.caip2 && k.scheme === "exact");
-  send(res, canSettle ? 200 : 503, {
-    ...base,
-    reachable: true,
-    authenticated: true,
-    canSettle,
-    supports: kinds.map((k) => `v${k.x402Version}/${k.scheme}/${k.network}`).slice(0, 20),
-    ...canSettle ? {} : { problem: `facilitator cannot settle exact on ${cfg.network.caip2}` }
-  });
+  const route = (n) => typeof facilitator === "function" ? facilitator(n) : facilitator;
+  const networks = [
+    cfg.network.caip2,
+    ...cfg.algorandPayTo ? [ALGORAND_MAINNET] : [],
+    ...cfg.rails.map((r) => r.caip2),
+    ...cfg.solanaPayTo ? [SOLANA_RAIL.caip2] : []
+  ];
+  const chains = await Promise.all(
+    networks.map(async (network) => {
+      const client = route(network);
+      try {
+        const kinds = await client.supported();
+        const canSettle = kinds.some((k) => k.network === network && k.scheme === "exact");
+        return {
+          network,
+          facilitator: client.baseUrl,
+          reachable: true,
+          authenticated: true,
+          canSettle,
+          ...canSettle ? {} : { problem: `facilitator cannot settle exact on ${network}` }
+        };
+      } catch (err) {
+        const authProblem = err instanceof FacilitatorError && (err.status === 401 || err.status === 403);
+        return {
+          network,
+          facilitator: client.baseUrl,
+          reachable: !authProblem,
+          authenticated: false,
+          canSettle: false,
+          problem: authProblem ? "the facilitator rejected our credentials" : describe(err)
+        };
+      }
+    })
+  );
+  const healthy = chains.every((c) => c.canSettle);
+  send(res, healthy ? 200 : 503, { scheme: "exact", healthy, chains });
 }
 function serviceCard(cfg) {
   return {

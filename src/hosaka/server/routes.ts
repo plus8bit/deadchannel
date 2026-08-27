@@ -223,10 +223,10 @@ export const BUNDLE_ROUTE: PaidRoute = {
   method: "POST",
   serviceName: "Hosaka",
   description:
-    "Use when all you have is a company domain and you need the people. Most people-data endpoints " +
-    "want an email or a LinkedIn URL before they will answer, which is the thing you do not have yet; this " +
-    "one starts from the domain alone. Returns named employees with job title, seniority, location and " +
-    "profile link, plus the company's proven third-party vendor stack in the same call.",
+    "Finds the people who work at a company from its domain alone: named employees with job title, " +
+    "seniority, location and profile link. Use it when the domain is all you have, because most people-data " +
+    "endpoints want an email or a LinkedIn URL before they will answer. Also returns the company's proven " +
+    "third-party vendor stack in the same call, so one purchase answers who works there and what they run.",
   tags: ["people-data", "lead-enrichment", "prospecting", "enrichment", "b2b"],
   mimeType: "application/json",
   inputExample: { domain: "figma.com" },
@@ -267,10 +267,10 @@ export const EXECUTIVES_ROUTE: PaidRoute = {
   method: "POST",
   serviceName: "Hosaka",
   description:
-    "Use when all you have is a company domain and you need the people who can sign: owners, founders, " +
-    "C-level, partners, VPs, heads and directors, each with title, location and profile link. Endpoints that " +
-    "enrich a known person want an email or a profile URL first; this one starts from the domain. Also " +
-    "returns the company's proven vendor stack, so one call answers who decides and what they already run.",
+    "Finds the decision makers at a company from its domain alone: owners, founders, C-level, partners, " +
+    "VPs, heads and directors, each with title, location and profile link. Use it when the domain is all you " +
+    "have, because endpoints that enrich a known person want an email or a profile URL first. Also returns " +
+    "the company's proven vendor stack, so one call answers who decides and what they already run.",
   tags: ["decision-makers", "people-data", "prospecting", "enrichment", "b2b"],
   mimeType: "application/json",
   inputExample: { domain: "figma.com" },

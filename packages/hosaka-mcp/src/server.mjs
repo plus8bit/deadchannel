@@ -340,7 +340,7 @@ server.tool(
   {
     name: "hosaka_executives",
     title: "Who can sign at a company",
-    description: `Everything hosaka_dossier returns, plus the people who decide: owners, founders, C-level, partners, VPs, heads and directors, each with title, location and profile link. Use this when the question is who to approach about buying something. Use hosaka_people instead to see anyone who works there regardless of level. Costs ${PRICES.executives} in USDC.`,
+    description: `Finds the decision makers at a company from its domain alone: owners, founders, C-level, partners, VPs, heads and directors, each with title, location and profile link, plus everything hosaka_dossier returns. Reach for it when the question is who to approach about buying something. Use hosaka_people to see anyone who works there regardless of level. Costs ${PRICES.executives} in USDC.`,
     inputSchema: DOMAIN_SCHEMA
   },
   async (args) => {
@@ -355,7 +355,7 @@ server.tool(
   {
     name: "hosaka_people",
     title: "People who work at a company",
-    description: `Everything hosaka_dossier returns, plus named people who work at the company, sourced from a people-data provider. Cheaper than buying the contacts alone elsewhere. Use hosaka_contacts instead when a published support or sales address would answer the question. Costs ${PRICES.people} in USDC.`,
+    description: `Finds the people who work at a company from its domain alone: named employees with job title, seniority, location and profile link, plus everything hosaka_dossier returns. Reach for it when the domain is all you have, because most people-data tools want an email or a profile URL first. Use hosaka_contacts instead when a published support address would answer. Costs ${PRICES.people} in USDC.`,
     inputSchema: DOMAIN_SCHEMA
   },
   async (args) => {

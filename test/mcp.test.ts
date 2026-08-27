@@ -170,3 +170,20 @@ describe("what the two registries have to agree on", () => {
     }
   });
 });
+
+describe("claims the published tools make about price", () => {
+  it("never says we are cheaper than an alternative we have not measured", async () => {
+    const { readFileSync } = await import("node:fs");
+    // This claim was true against a $0.28 supplier and false against the $0.15
+    // one we actually use. It was removed from the catalog listing and survived
+    // for days inside the npm package, where a stranger reads it on install.
+    // Comparative price claims need a measured competitor, so they are banned
+    // from the bundles rather than left to be checked by memory.
+    for (const bundle of ["packages/hosaka-mcp/src/server.mjs", "packages/deadchannel-mcp/src/server.mjs"]) {
+      const source = readFileSync(new URL(`../${bundle}`, import.meta.url), "utf8");
+      for (const claim of [/cheaper than/i, /less than (?:any|other|competing)/i, /best price/i]) {
+        assert.ok(!claim.test(source), `${bundle} makes an unmeasured price comparison: ${claim}`);
+      }
+    }
+  });
+});

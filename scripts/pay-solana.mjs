@@ -103,7 +103,13 @@ if (signer.address === offer.payTo) {
   fail("the paying wallet is the receiving wallet. A payment to yourself proves nothing and will be refused.");
 }
 
-const client = new x402Client().register(NETWORK, new ExactSvmScheme({ signer }));
+// The signer is the first positional argument, not a field on a config object.
+// Passing { signer } silently hands the library an object where it expects a
+// key and fails deep inside, which reads like the endpoint is broken.
+const client = new x402Client().register(
+  NETWORK,
+  new ExactSvmScheme(signer, { rpcUrl: process.env.SOLANA_RPC ?? "https://api.mainnet-beta.solana.com" }),
+);
 const paidFetch = wrapFetchWithPayment(fetch, client);
 
 const res = await paidFetch(TARGET, {

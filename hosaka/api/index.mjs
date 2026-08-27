@@ -48827,8 +48827,8 @@ var BUNDLE_ROUTE = {
   path: "/people",
   method: "POST",
   serviceName: "Hosaka",
-  description: "Use when you need named employees at a company you only know by domain. Returns people who work there with name, job title, seniority, location and profile link, plus the company's proven third-party vendor stack in the same call. B2B lead enrichment and prospecting from a domain, priced per call instead of per seat.",
-  tags: ["people-data", "lead-enrichment", "prospecting", "contacts", "b2b"],
+  description: "Use when all you have is a company domain and you need the people. Most people-data endpoints want an email or a LinkedIn URL before they will answer, which is the thing you do not have yet; this one starts from the domain alone. Returns named employees with job title, seniority, location and profile link, plus the company's proven third-party vendor stack in the same call.",
+  tags: ["people-data", "lead-enrichment", "prospecting", "enrichment", "b2b"],
   mimeType: "application/json",
   inputExample: { domain: "figma.com" },
   inputSchema: {
@@ -48846,8 +48846,8 @@ var EXECUTIVES_ROUTE = {
   path: "/executives",
   method: "POST",
   serviceName: "Hosaka",
-  description: "Use when you need the decision makers rather than the whole staff: owners, founders, C-level, partners, VPs, heads and directors, each with title, location and profile link. Also returns the company's proven third-party vendor stack. For finding who can sign a contract at a company you only know by domain.",
-  tags: ["decision-makers", "people-data", "sales", "prospecting", "b2b"],
+  description: "Use when all you have is a company domain and you need the people who can sign: owners, founders, C-level, partners, VPs, heads and directors, each with title, location and profile link. Endpoints that enrich a known person want an email or a profile URL first; this one starts from the domain. Also returns the company's proven vendor stack, so one call answers who decides and what they already run.",
+  tags: ["decision-makers", "people-data", "prospecting", "enrichment", "b2b"],
   mimeType: "application/json",
   inputExample: { domain: "figma.com" },
   inputSchema: {

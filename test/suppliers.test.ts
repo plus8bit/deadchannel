@@ -228,3 +228,16 @@ describe("asking a supplier what it wants", () => {
     assert.ok(err.message.length > 400, "a rejection must survive long enough to be read");
   });
 });
+
+describe("what a young market does to a year count", () => {
+  it("publishes the registration date, not only the floored age", async () => {
+    const { LOOKUP_ROUTE } = await import("../src/hosaka/server/routes.ts");
+    const example = LOOKUP_ROUTE.outputExample as Record<string, unknown>;
+    // Eleven of the eighteen busiest x402 sellers profile as ageYears 0, which
+    // is true and useless: the protocol is barely older than that. The date
+    // survives the flooring, so it is the field that still separates a domain
+    // registered last month from one registered last year.
+    assert.ok("registeredOn" in example, "the example must show the date a buyer needs");
+    assert.ok("ageYears" in example, "the year count stays for anyone who only wants that");
+  });
+});

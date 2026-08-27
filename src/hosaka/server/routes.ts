@@ -83,6 +83,16 @@ async function stocked(domain: string): Promise<{ profile: DomainProfile; fromWa
 export interface LookupResponse {
   domain: string;
   ageYears: number | null;
+  /**
+   * The registration date itself, because the year count is too coarse here.
+   *
+   * Profiling the eighteen busiest x402 sellers returned ageYears 0 for eleven
+   * of them: the protocol is barely a year old, so almost every domain in this
+   * market floors to zero and the field stops separating anything. A buyer
+   * cannot tell three weeks from eleven months, and for a trust signal that is
+   * the whole distinction.
+   */
+  registeredOn: string | null;
   registrar: string | null;
   mailProvider: string | null;
   dnsProvider: string | null;
@@ -98,6 +108,7 @@ export async function runLookup(req: DomainRequest): Promise<LookupResponse> {
   return {
     domain: profile.domain,
     ageYears: profile.registration?.value.ageYears ?? null,
+    registeredOn: profile.registration?.value.registered ?? null,
     registrar: profile.registration?.value.registrar ?? null,
     // Asked of the records directly: the deduplicated vendor list keeps only
     // the strongest evidence per vendor, which loses the MX/NS attribution.
@@ -175,6 +186,7 @@ export const LOOKUP_ROUTE: PaidRoute = {
   outputExample: {
     domain: "figma.com",
     ageYears: 27,
+    registeredOn: "1999-05-04T00:00:00Z",
     registrar: "Amazon Registrar, Inc.",
     mailProvider: "Google Workspace",
     dnsProvider: "AWS Route 53",

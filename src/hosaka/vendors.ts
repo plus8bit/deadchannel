@@ -72,13 +72,27 @@ const SPF_RULES: Rule[] = [
 ];
 
 const MX_RULES: Rule[] = [
-  { name: "Google Workspace", category: "email", pattern: /aspmx.*google|googlemail/i },
+  // Google publishes two shapes. Matching only the aspmx one left smtp.google.com
+  // to fall through and print a bare hostname where a provider name belongs,
+  // which is how a domain we profile ends up looking like a domain we failed on.
+  { name: "Google Workspace", category: "email", pattern: /aspmx.*google|googlemail|smtp\.google\.com/i },
   { name: "Microsoft 365", category: "email", pattern: /mail\.protection\.outlook/i },
   { name: "Proofpoint", category: "security", pattern: /pphosted|proofpoint/i },
   { name: "Mimecast", category: "security", pattern: /mimecast/i },
   { name: "Zoho Mail", category: "email", pattern: /zoho/i },
   { name: "Fastmail", category: "email", pattern: /messagingengine/i },
   { name: "Barracuda", category: "security", pattern: /barracudanetworks/i },
+  // Everything below turned up as an unnamed hostname while profiling the
+  // eighteen busiest x402 sellers, which is a fair sample of who is building
+  // right now: small teams on routed mail rather than on a corporate suite.
+  { name: "Cloudflare Email Routing", category: "email", pattern: /mx\.cloudflare\.net/i },
+  { name: "Runbox", category: "email", pattern: /runbox\.com/i },
+  { name: "Timeweb", category: "email", pattern: /timeweb\.(ru|cloud)/i },
+  { name: "Proton Mail", category: "email", pattern: /protonmail\.ch|mail\.protonmail/i },
+  { name: "iCloud Mail", category: "email", pattern: /icloud\.com|me\.com$/i },
+  { name: "Yandex Mail", category: "email", pattern: /mx\.yandex/i },
+  { name: "Migadu", category: "email", pattern: /migadu\.com/i },
+  { name: "Purelymail", category: "email", pattern: /purelymail\.com/i },
 ];
 
 const NS_RULES: Rule[] = [

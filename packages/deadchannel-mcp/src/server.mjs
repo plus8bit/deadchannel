@@ -75,7 +75,7 @@ var PROBE_ROUTE = {
 };
 
 // src/server/config.ts
-var DEFAULT_PRICE_USD = 1e-3;
+var DEFAULT_PRICE_USD = 5e-3;
 
 // src/mcp/protocol.ts
 var PROTOCOL_VERSION = "2025-06-18";

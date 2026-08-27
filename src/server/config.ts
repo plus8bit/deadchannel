@@ -52,12 +52,18 @@ export const NETWORKS: Record<string, NetworkConfig> = {
 /**
  * What the probe costs when nothing overrides it.
  *
+ * Raised from a tenth of a cent when Solvador's terms became clear: it settles
+ * our Solana, Monad and Robinhood rails free for the first thousand payments a
+ * month and charges $0.001 after, so a probe priced at $0.001 would have worked
+ * for nothing exactly when it started working at all. Half a cent still costs
+ * less than the smallest payment it protects, which is the whole argument.
+ *
  * Exported so the MCP package and anything else that quotes the price in prose
  * can read it instead of retyping it, because a tool description advertising a
  * price we no longer charge sends an agent to budget for one number and be
  * challenged for another.
  */
-export const DEFAULT_PRICE_USD = 0.001;
+export const DEFAULT_PRICE_USD = 0.005;
 
 export interface Config {
   port: number;

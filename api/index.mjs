@@ -164,7 +164,7 @@ var NETWORKS = {
     usdcVersion: "2"
   }
 };
-var DEFAULT_PRICE_USD = 1e-3;
+var DEFAULT_PRICE_USD = 5e-3;
 var USDC_DECIMALS = 6;
 var EVM_ADDRESS = /^0x[a-fA-F0-9]{40}$/;
 var FILE_DEFAULTS = deadchannel_config_default;

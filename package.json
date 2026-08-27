@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Risk oracle for x402 endpoints \u2014 tells agents which paid endpoints are alive, honestly priced, and safe to call. Zero runtime dependencies.",
+  "description": "Risk oracle for x402 endpoints — tells agents which paid endpoints are alive, honestly priced, and safe to call. Zero runtime dependencies.",
   "license": "MIT",
   "engines": {
     "node": ">=22"
@@ -35,5 +35,8 @@
     "esbuild": "^0.24.0",
     "typescript": "^5.7.2",
     "viem": "^2.55.19"
+  },
+  "dependencies": {
+    "@x402/svm": "2.23.0"
   }
 }

@@ -20,6 +20,15 @@ interface Listing {
  * the 402, rather than written alongside them. Two hand-maintained descriptions
  * of one price is a promise waiting to drift.
  */
+/** Prints a price the way a reader writes one, trailing zeros trimmed. */
+const usd = (n: number) => `$${n.toFixed(6).replace(/0+$/, "").replace(/\.$/, "")}`;
+
+/** The live price of one shelf, so prose and challenge cannot disagree. */
+function shelfPrice(shelves: readonly Listing[], path: string, cfg: Config): number {
+  const shelf = shelves.find((s) => s.route.path === path);
+  return shelf?.priceUsd ?? cfg.priceUsd;
+}
+
 export function hosakaOpenApi(
   cfg: Config,
   shelves: readonly Listing[],
@@ -70,19 +79,67 @@ export function hosakaOpenApi(
       description:
         "Company data for AI agents, paid per call in USDC. Reads a company's own DNS to find every " +
         "third-party vendor it can be proven to use, and returns the record proving each one.",
+      // Generated from the same prices, never written out. Typed by hand, this
+      // sentence went on promising $0.01, $0.07, $0.02, $0.25 and $0.30 through
+      // three repricings while the challenge asked four times more — which is
+      // precisely the mismatch our own risk checker exists to flag on others.
       "x-guidance":
-        "Every endpoint takes a JSON body with one field: {\"domain\": \"figma.com\"}. A URL works too; " +
-        "the scheme and path are stripped. Start with POST /lookup ($0.01) for a summary, POST /dossier " +
-        "($0.07) for every vendor with the DNS record or loaded script that proves it, POST /contacts " +
-        "($0.02) for the addresses a company publishes about itself, POST /people ($0.25) for named " +
-        "employees, and POST /executives ($0.30) for only those who can sign. Payment is x402 v2: call " +
-        "without a payment header, read the terms from the 402, sign, retry. Settles in USDC on Base, " +
-        "Solana, Polygon, Arbitrum, Algorand and Monad, and in USDG on Robinhood Chain — a buyer pays " +
-        "on whichever chain it already holds a dollar. Nothing settles unless the answer is produced.",
+        'Every endpoint takes a JSON body with one field: {"domain": "figma.com"}. A URL works too; ' +
+        "the scheme and path are stripped. Start with POST /lookup (" +
+        usd(shelfPrice(shelves, "/lookup", cfg)) +
+        ") for a summary, POST /dossier (" +
+        usd(shelfPrice(shelves, "/dossier", cfg)) +
+        ") for every vendor with the DNS record or loaded script that proves it, POST /contacts (" +
+        usd(shelfPrice(shelves, "/contacts", cfg)) +
+        ") for the addresses a company publishes about itself, POST /people (" +
+        usd(shelfPrice(shelves, "/people", cfg)) +
+        ") for named employees, and POST /executives (" +
+        usd(shelfPrice(shelves, "/executives", cfg)) +
+        ") for only those who can sign. Payment is x402 v2: call without a payment header, read the " +
+        "terms from the 402, sign, retry. Settles in USDC on Base, Solana, Polygon, Arbitrum, Algorand " +
+        "and Monad, and in USDG on Robinhood Chain, so a buyer pays on whichever chain it already " +
+        "holds a dollar. Nothing settles unless the answer is produced.",
       contact: { email: "dreamquayco@gmail.com" },
       license: { name: "MIT", identifier: "MIT" },
     },
     servers: [{ url: cfg.publicUrl }],
     paths,
   };
+}
+
+/**
+ * The plain-text card an agent reads before it reads anything structured.
+ *
+ * Built from the same shelf table as the OpenAPI, so the two cannot drift and
+ * neither can drift from the challenge.
+ */
+export function hosakaLlmsTxt(cfg: Config, shelves: readonly Listing[]): string {
+  const rows = shelves
+    .map((s) => `- \`POST ${s.route.path}\` ${usd(s.priceUsd ?? cfg.priceUsd)} — ${s.route.description}`)
+    .join("\n");
+  return `# Hosaka
+
+Company data for AI agents, paid per call in USDC. Reads a company's own DNS to
+find every third-party vendor it can be proven to use, and returns the record
+proving each one. No signup, no API key, no subscription.
+
+## Endpoints
+
+Every paid endpoint takes \`{"domain": "figma.com"}\`. A URL works too.
+
+${rows}
+- \`POST /preview\` free — vendor count and a sample, to see the shape before paying
+
+## Paying
+
+x402 v2. Call without a payment header, read the terms from the 402, sign, retry.
+Settles in USDC on Base, Solana, Polygon, Arbitrum, Algorand and Monad, and in
+USDG on Robinhood Chain. Nothing settles unless the answer is produced.
+
+## Elsewhere
+
+- MCP server: \`npm i -g hosaka-mcp\` (io.github.plus8bit/hosaka)
+- OpenAPI: ${cfg.publicUrl}/openapi.json
+- Source: https://github.com/plus8bit/deadchannel
+`;
 }

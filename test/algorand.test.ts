@@ -592,3 +592,69 @@ describe("where the probe's price actually comes from", () => {
     );
   });
 });
+
+describe("prices written in prose, where nothing checks them", () => {
+  it("quotes only prices the challenge will actually ask for", async () => {
+    const { hosakaOpenApi, hosakaLlmsTxt } = await import("../src/hosaka/server/openapi.ts");
+    const { loadConfig } = await import("../src/server/config.ts");
+    const { PRICE_LOOKUP, PRICE_DOSSIER, LOOKUP_ROUTE, DOSSIER_ROUTE, BUNDLE_ROUTE, EXECUTIVES_ROUTE, CONTACTS_ROUTE } =
+      await import("../src/hosaka/server/routes.ts");
+    const { TIERS } = await import("../src/hosaka/server/bundle.ts");
+
+    const cfg = loadConfig(
+      { X402_NETWORK: "base", X402_PAY_TO: "0x712c78928080Adb009E31315c0c3c7473dA9648a", PUBLIC_URL: "https://example.test" },
+      {},
+    );
+    const shelves = [
+      { route: LOOKUP_ROUTE, priceUsd: PRICE_LOOKUP },
+      { route: DOSSIER_ROUTE, priceUsd: PRICE_DOSSIER },
+      { route: BUNDLE_ROUTE, priceUsd: TIERS.people.priceUsd },
+      { route: EXECUTIVES_ROUTE, priceUsd: TIERS.executives.priceUsd },
+      { route: CONTACTS_ROUTE, priceUsd: TIERS.contacts.priceUsd },
+    ];
+
+    // x-guidance is the first thing an agent reads and the last thing anyone
+    // checks. Written by hand, it promised $0.01, $0.07, $0.02, $0.25 and $0.30
+    // through three repricings while the challenge asked four times more — the
+    // exact catalog-versus-challenge mismatch deadchannel sells a check for.
+    const ours = new Set(
+      shelves.flatMap((s) => {
+        const n = s.priceUsd;
+        return [`$${n}`, `$${n.toFixed(2)}`, `$${n.toFixed(3)}`, `$${n.toFixed(6).replace(/0+$/, "").replace(/\.$/, "")}`];
+      }),
+    );
+    for (const [surface, text] of [
+      ["openapi", JSON.stringify(hosakaOpenApi(cfg, shelves))],
+      ["llms.txt", hosakaLlmsTxt(cfg, shelves)],
+    ] as const) {
+      const quoted = [...new Set(text.match(/\$\d+\.\d+/g) ?? [])].filter((p) => !ours.has(p));
+      assert.deepEqual(quoted, [], `${surface} promises prices we do not charge: ${quoted.join(", ")}`);
+    }
+  });
+
+  it("serves every discovery surface it tells crawlers about", async () => {
+    const { createHandler } = await import("../src/hosaka/server/app.ts");
+    const { loadConfig } = await import("../src/server/config.ts");
+    const { createServer } = await import("node:http");
+    const cfg = loadConfig(
+      { X402_NETWORK: "base", X402_PAY_TO: "0x712c78928080Adb009E31315c0c3c7473dA9648a", PUBLIC_URL: "https://example.test" },
+      {},
+    );
+    const server = createServer(createHandler(cfg, (() => {
+      throw new Error("no facilitator needed");
+    }) as never));
+    await new Promise<void>((r) => server.listen(0, r));
+    const port = (server.address() as { port: number }).port;
+    try {
+      // /llms.txt was advertised on the merchant card and answered 404 here for
+      // its whole life. A discovery surface that 404s is worse than one that was
+      // never claimed, because a crawler records the failure and moves on.
+      for (const path of ["/llms.txt", "/openapi.json", "/health", "/favicon.svg"]) {
+        const res = await fetch(`http://127.0.0.1:${port}${path}`);
+        assert.equal(res.status, 200, `${path} answered ${res.status}`);
+      }
+    } finally {
+      server.close();
+    }
+  });
+});

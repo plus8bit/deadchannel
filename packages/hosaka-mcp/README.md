@@ -1,5 +1,13 @@
 # hosaka-mcp
 
+An MCP server is a tool an agent can call. It does not tell the agent *when* to
+call it. If you want that too, install the skill as well:
+
+```bash
+npx skills add plus8bit/deadchannel/skills/hosaka --yes
+```
+
+
 Company facts for AI agents, paid per call in USDC on Base. No signup, no API key.
 
 ## Tools

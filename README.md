@@ -9,6 +9,14 @@ an answer.
 | **Hosaka** | which third-party vendors a company uses, proven from its own DNS, plus contacts | $0.005 – $0.40 |
 | **deadchannel** | whether an x402 endpoint is alive, honestly priced and safe to call | $0.005 |
 
+
+Agents can install Hosaka as a skill, which tells them what it is for and when
+to reach for it:
+
+```bash
+npx skills add plus8bit/deadchannel/skills/hosaka --yes
+```
+
 ## Hosaka — company data for agents
 
 Available as an MCP server, so any MCP client can buy from it directly:

@@ -49756,7 +49756,7 @@ Machine-readable card at <a href="${cfg.publicUrl}/index.json">/index.json</a> &
     if (pv.ageYears) await write("  domain is " + pv.ageYears + " years old");
     await pause(140);
     await write("each vendor comes with the DNS record that proves it.");
-    await write("that list is the paid part: /dossier, $0.07 on any of 7 chains.");
+    await write("that list is the paid part: /dossier, $${PRICE_DOSSIER} on any of 7 chains.");
   }
 
   async function run(raw){

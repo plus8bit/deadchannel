@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "hosaka": {
+      "source": "plus8bit/deadchannel",
+      "sourceType": "github",
+      "skillPath": "skills/hosaka/SKILL.md",
+      "computedHash": "4acd9687a2a5944cbe715528cf05fed34ff1ea405b61c9868cb5b670bfe308d2"
+    }
+  }
+}

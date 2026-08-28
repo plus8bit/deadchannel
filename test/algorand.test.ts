@@ -711,6 +711,9 @@ describe("every file that quotes a price", () => {
       "../README.md",
       "../skills/hosaka/SKILL.md",
       "../.claude/skills/hosaka/SKILL.md",
+      // The landing page is the one surface a human reads, and it quoted $0.07
+      // for three repricings because the net only covered markdown.
+      "../src/hosaka/server/landing.ts",
       ...readdirSync(new URL("../packages", import.meta.url)).map((d) => `../packages/${d}/README.md`),
     ];
     for (const file of files) {

@@ -1707,6 +1707,20 @@ function buildPaymentRequired(cfg, route, error = "PAYMENT-SIGNATURE header is r
     extensions: bazaarExtension(route)
   };
 }
+function schemaOf(value) {
+  if (Array.isArray(value)) {
+    return { type: "array", items: value.length > 0 ? schemaOf(value[0]) : { type: "object" } };
+  }
+  if (value === null) return { type: ["string", "null"] };
+  if (typeof value === "object") {
+    const properties = {};
+    for (const [k, v] of Object.entries(value)) properties[k] = schemaOf(v);
+    return { type: "object", properties };
+  }
+  if (typeof value === "number") return { type: "number" };
+  if (typeof value === "boolean") return { type: "boolean" };
+  return { type: "string" };
+}
 function bazaarExtension(route) {
   return {
     bazaar: {
@@ -1727,7 +1741,11 @@ function bazaarExtension(route) {
         type: "object",
         properties: {
           input: { type: "object", properties: { body: route.inputSchema } },
-          output: { type: "object" }
+          // Indexers read this exact path — schema.properties.output.properties
+          // .example — and reject a listing without it, because an agent that
+          // cannot see the shape of an answer is buying blind. Derived from the
+          // published example so the two cannot describe different answers.
+          output: { type: "object", properties: { example: schemaOf(route.outputExample) } }
         }
       }
     }

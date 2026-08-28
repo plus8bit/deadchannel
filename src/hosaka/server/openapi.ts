@@ -67,25 +67,6 @@ export function hosakaOpenApi(
         summary: shelf.route.description,
         tags: shelf.route.tags.slice(0, 4),
         // Decimal USD here; the 402 carries the same number in atomic units.
-        // AgentCash and the Bazaar both read the output shape from here, and
-        // reject a listing that only declares its input: without it an agent
-        // cannot know what it is buying until after it has paid.
-        extensions: {
-          bazaar: {
-            info: {
-              input: { type: "http", method: shelf.route.method, bodyType: "json", body: shelf.route.inputExample },
-              output: { type: "json", example: shelf.route.outputExample },
-            },
-            schema: {
-              $schema: "https://json-schema.org/draft/2020-12/schema",
-              type: "object",
-              properties: {
-                input: { type: "object", properties: { body: shelf.route.inputSchema } },
-                output: schemaFrom(shelf.route.outputExample),
-              },
-            },
-          },
-        },
         "x-payment-info": {
           price: { mode: "fixed", currency: "USD", amount: price.toFixed(6) },
           protocols: [{ x402: {} }],

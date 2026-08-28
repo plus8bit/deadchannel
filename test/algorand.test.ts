@@ -670,24 +670,24 @@ describe("what a buyer can know before paying", () => {
       { X402_NETWORK: "base", X402_PAY_TO: "0x712c78928080Adb009E31315c0c3c7473dA9648a", PUBLIC_URL: "https://example.test" },
       {},
     );
-    const spec = hosakaOpenApi(cfg, [
-      { route: LOOKUP_ROUTE, priceUsd: PRICE_LOOKUP },
-      { route: DOSSIER_ROUTE, priceUsd: PRICE_DOSSIER },
-      { route: BUNDLE_ROUTE, priceUsd: TIERS.people.priceUsd },
-      { route: EXECUTIVES_ROUTE, priceUsd: TIERS.executives.priceUsd },
-      { route: CONTACTS_ROUTE, priceUsd: TIERS.contacts.priceUsd },
-    ]) as { paths: Record<string, { post: Record<string, unknown> }> };
+    void hosakaOpenApi;
+    void cfg;
+    const { bazaarExtension } = await import("../src/server/x402.ts");
+    const { PROBE_ROUTE } = await import("../src/server/routes.ts");
 
-    // AgentCash rejects a listing whose bazaar extension declares only its
-    // input, and it is right to: without an output shape an agent cannot know
-    // what it is buying until it has already paid. Five of ours failed this.
-    for (const [path, ops] of Object.entries(spec.paths)) {
-      const bazaar = (ops.post["extensions"] as { bazaar?: { schema?: { properties?: Record<string, unknown> } } })?.bazaar;
-      const out = bazaar?.schema?.properties?.["output"] as { properties?: Record<string, unknown> } | undefined;
-      assert.ok(out, `${path} declares no output schema`);
+    // Indexers validate the challenge, not the OpenAPI, and read exactly
+    // schema.properties.output.properties.example. Declaring only the input
+    // failed all five of ours: an agent that cannot see the shape of an answer
+    // is buying blind, and their crawler refuses to list that.
+    for (const route of [LOOKUP_ROUTE, DOSSIER_ROUTE, BUNDLE_ROUTE, EXECUTIVES_ROUTE, CONTACTS_ROUTE, PROBE_ROUTE]) {
+      const ext = bazaarExtension(route) as {
+        bazaar: { schema: { properties: { output?: { properties?: { example?: { properties?: Record<string, unknown> } } } } } };
+      };
+      const example = ext.bazaar.schema.properties.output?.properties?.example;
+      assert.ok(example, `${route.path} declares no output schema at the path indexers read`);
       assert.ok(
-        Object.keys(out.properties ?? {}).length > 0,
-        `${path} declares an output schema with no fields, which tells a buyer nothing`,
+        Object.keys(example.properties ?? {}).length > 0,
+        `${route.path} declares an output schema with no fields, which tells a buyer nothing`,
       );
     }
   });

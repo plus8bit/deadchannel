@@ -48498,6 +48498,20 @@ function buildPaymentRequired(cfg, route, error = "PAYMENT-SIGNATURE header is r
     extensions: bazaarExtension(route)
   };
 }
+function schemaOf(value) {
+  if (Array.isArray(value)) {
+    return { type: "array", items: value.length > 0 ? schemaOf(value[0]) : { type: "object" } };
+  }
+  if (value === null) return { type: ["string", "null"] };
+  if (typeof value === "object") {
+    const properties = {};
+    for (const [k, v] of Object.entries(value)) properties[k] = schemaOf(v);
+    return { type: "object", properties };
+  }
+  if (typeof value === "number") return { type: "number" };
+  if (typeof value === "boolean") return { type: "boolean" };
+  return { type: "string" };
+}
 function bazaarExtension(route) {
   return {
     bazaar: {
@@ -48518,7 +48532,11 @@ function bazaarExtension(route) {
         type: "object",
         properties: {
           input: { type: "object", properties: { body: route.inputSchema } },
-          output: { type: "object" }
+          // Indexers read this exact path — schema.properties.output.properties
+          // .example — and reject a listing without it, because an agent that
+          // cannot see the shape of an answer is buying blind. Derived from the
+          // published example so the two cannot describe different answers.
+          output: { type: "object", properties: { example: schemaOf(route.outputExample) } }
         }
       }
     }
@@ -49855,25 +49873,6 @@ function hosakaOpenApi(cfg, shelves) {
         summary: shelf.route.description,
         tags: shelf.route.tags.slice(0, 4),
         // Decimal USD here; the 402 carries the same number in atomic units.
-        // AgentCash and the Bazaar both read the output shape from here, and
-        // reject a listing that only declares its input: without it an agent
-        // cannot know what it is buying until after it has paid.
-        extensions: {
-          bazaar: {
-            info: {
-              input: { type: "http", method: shelf.route.method, bodyType: "json", body: shelf.route.inputExample },
-              output: { type: "json", example: shelf.route.outputExample }
-            },
-            schema: {
-              $schema: "https://json-schema.org/draft/2020-12/schema",
-              type: "object",
-              properties: {
-                input: { type: "object", properties: { body: shelf.route.inputSchema } },
-                output: schemaFrom(shelf.route.outputExample)
-              }
-            }
-          }
-        },
         "x-payment-info": {
           price: { mode: "fixed", currency: "USD", amount: price.toFixed(6) },
           protocols: [{ x402: {} }]

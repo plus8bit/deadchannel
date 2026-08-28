@@ -118,6 +118,28 @@ export function buildPaymentRequired(
  * 89.8% of the live catalog ships without it, which is why agents cannot find
  * most of what is out there — so this service publishes the full descriptor.
  */
+/**
+ * Describes a value's shape as JSON Schema.
+ *
+ * Derived from the example each route already publishes rather than written
+ * beside it: a hand-kept schema is a second description of one answer, and two
+ * descriptions drift. The example is checked against what the route returns.
+ */
+function schemaOf(value: unknown): Record<string, unknown> {
+  if (Array.isArray(value)) {
+    return { type: "array", items: value.length > 0 ? schemaOf(value[0]) : { type: "object" } };
+  }
+  if (value === null) return { type: ["string", "null"] };
+  if (typeof value === "object") {
+    const properties: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) properties[k] = schemaOf(v);
+    return { type: "object", properties };
+  }
+  if (typeof value === "number") return { type: "number" };
+  if (typeof value === "boolean") return { type: "boolean" };
+  return { type: "string" };
+}
+
 export function bazaarExtension(route: PaidRoute): Record<string, unknown> {
   return {
     bazaar: {
@@ -138,7 +160,11 @@ export function bazaarExtension(route: PaidRoute): Record<string, unknown> {
         type: "object",
         properties: {
           input: { type: "object", properties: { body: route.inputSchema } },
-          output: { type: "object" },
+          // Indexers read this exact path — schema.properties.output.properties
+          // .example — and reject a listing without it, because an agent that
+          // cannot see the shape of an answer is buying blind. Derived from the
+          // published example so the two cannot describe different answers.
+          output: { type: "object", properties: { example: schemaOf(route.outputExample) } },
         },
       },
     },

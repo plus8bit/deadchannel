@@ -6,8 +6,8 @@ an answer.
 
 | | what it sells | price |
 | --- | --- | --- |
-| **Hosaka** | which third-party vendors a company uses, proven from its own DNS, plus contacts | $0.01 – $0.25 |
-| **deadchannel** | whether an x402 endpoint is alive, honestly priced and safe to call | $0.001 |
+| **Hosaka** | which third-party vendors a company uses, proven from its own DNS, plus contacts | $0.005 – $0.40 |
+| **deadchannel** | whether an x402 endpoint is alive, honestly priced and safe to call | $0.005 |
 
 ## Hosaka — company data for agents
 
@@ -34,10 +34,10 @@ four prices, so a cheap question never pays for an expensive answer:
 
 | tool | price | what you get |
 | --- | --- | --- |
-| `hosaka_lookup` | $0.01 | domain age, registrar, mail and DNS provider, DMARC, HTTPS, vendor count |
-| `hosaka_contacts` | $0.02 | the dossier, plus the emails and phones the company publishes about itself |
-| `hosaka_dossier` | $0.07 | every third-party vendor the company can be proven to use, each with its proof |
-| `hosaka_people` | $0.25 | the dossier, plus named people who work there |
+| `hosaka_lookup` | $0.005 | domain age, registrar, mail and DNS provider, DMARC, HTTPS, vendor count |
+| `hosaka_contacts` | $0.10 | the dossier, plus the emails and phones the company publishes about itself |
+| `hosaka_dossier` | $0.20 | every third-party vendor the company can be proven to use, each with its proof |
+| `hosaka_people` | $0.35 | the dossier, plus named people who work there |
 
 **Why the dossier is worth having.** A company proves it owns its domain to
 every SaaS product it buys by placing a DNS verification record, and authorises
@@ -189,7 +189,7 @@ costs the buyer nothing.
 GET  /             service card, free
 GET  /health       liveness, free
 GET  /facilitator  proves credentials are accepted, free, moves no money
-POST /probe        the check, $0.001 in USDC on Base
+POST /probe        the check, $0.005 in USDC on Base
 ```
 
 `GET /facilitator` exists because a wrong credential otherwise stays invisible
@@ -198,7 +198,7 @@ until someone tries to pay, and the first to discover it would be a customer.
 ## Live
 
 The service is deployed at **https://deadchannel.vercel.app**, selling on Base
-mainnet at $0.001 per call and settling through the Coinbase facilitator.
+mainnet at $0.005 per call and settling through the Coinbase facilitator.
 
 First settled payment: [`0x6ac4a22c`](https://basescan.org/tx/0x6ac4a22c0b7721c9a5103d98ee3d546c120293e97bb5b7a2ca13fabed28e319b),
 block 50230005, 20 Aug 2026. Gas was paid by the facilitator, not the buyer —
@@ -221,8 +221,8 @@ indexed  : active=true
 A second shop on the same payout address, selling company facts to agents.
 
 ```
-POST /lookup    $0.01   domain age, registrar, mail and DNS provider, DMARC, HTTPS
-POST /dossier   $0.07    every third-party vendor we can prove, with the proof
+POST /lookup    $0.005  domain age, registrar, mail and DNS provider, DMARC, HTTPS
+POST /dossier   $0.20   every third-party vendor we can prove, with the proof
 ```
 
 Live at **https://hosaka-agents.vercel.app**, settling on Base mainnet.

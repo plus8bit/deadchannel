@@ -692,3 +692,36 @@ describe("what a buyer can know before paying", () => {
     }
   });
 });
+
+describe("every file that quotes a price", () => {
+  it("quotes only prices a shelf actually charges", async () => {
+    const { readFileSync, readdirSync } = await import("node:fs");
+    const { PRICE_LOOKUP, PRICE_DOSSIER } = await import("../src/hosaka/server/routes.ts");
+    const { TIERS } = await import("../src/hosaka/server/bundle.ts");
+    const { DEFAULT_PRICE_USD } = await import("../src/server/config.ts");
+
+    const ours = new Set(
+      [PRICE_LOOKUP, PRICE_DOSSIER, DEFAULT_PRICE_USD, ...Object.values(TIERS).map((t) => t.priceUsd)]
+        .flatMap((n) => [`$${n}`, `$${n.toFixed(2)}`, `$${n.toFixed(3)}`, `$${n.toFixed(6)}`]),
+    );
+    // Observations about other people's prices, not claims about ours.
+    const aboutOthers = new Set(["$0.0001", "$0.01", "$0.05", "$0.28", "$0.15"]);
+
+    const files = [
+      "../README.md",
+      "../skills/hosaka/SKILL.md",
+      "../.claude/skills/hosaka/SKILL.md",
+      ...readdirSync(new URL("../packages", import.meta.url)).map((d) => `../packages/${d}/README.md`),
+    ];
+    for (const file of files) {
+      const text = readFileSync(new URL(file, import.meta.url), "utf8");
+      // Prices have now gone stale in the guidance, in llms.txt, in an npm
+      // tarball, in a config file and in three READMEs. Every one was found by
+      // somebody outside rather than by us. This is the net under all of them.
+      const stale = [...new Set(text.match(/\$\d+\.\d+/g) ?? [])].filter(
+        (p) => !ours.has(p) && !aboutOthers.has(p),
+      );
+      assert.deepEqual(stale, [], `${file} quotes prices we do not charge: ${stale.join(", ")}`);
+    }
+  });
+});

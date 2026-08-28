@@ -3,7 +3,7 @@
 Check an x402 endpoint before you pay it.
 
 An agent with a wallet can now buy from strangers. Nothing checks the stranger.
-`deadchannel_probe` grades an endpoint for **$0.001** in USDC on Base — less
+`deadchannel_probe` grades an endpoint for **$0.005** in USDC on Base — less
 than the smallest payment it protects — and returns a verdict, a risk score,
 and the specific findings behind both.
 
@@ -38,7 +38,7 @@ service is down" apart from "my key is wrong" before spending anything.
 
 | Tool | Cost | What it answers |
 | --- | --- | --- |
-| `deadchannel_probe` | $0.001 | Is this endpoint safe to pay? |
+| `deadchannel_probe` | $0.005 | Is this endpoint safe to pay? |
 | `deadchannel_health` | free | Is deadchannel itself up? |
 
 No signup, no API key, no account. MIT licensed —

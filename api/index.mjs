@@ -1827,6 +1827,13 @@ async function handle(req, res, cfg, facilitator, deps) {
   if (path === "/llms.txt") return sendText(res, llmsTxt(cfg));
   if (path === "/openapi.json") return send(res, 200, openApiSpec(cfg));
   if (path === "/facilitator") return handleFacilitatorCheck(res, cfg, facilitator);
+  if (path === "/.well-known/x402") {
+    const required = buildPaymentRequired(cfg, PROBE_ROUTE);
+    return send(res, 200, {
+      x402Version: 2,
+      resources: [{ resource: required.resource, accepts: required.accepts, extensions: required.extensions }]
+    });
+  }
   if (path === "/" || path === "/index.json") {
     if (path === "/" && prefersHtml(req)) return sendHtml(res, landingPage(cfg));
     return send(res, 200, serviceCard(cfg));
@@ -1840,7 +1847,15 @@ async function handle(req, res, cfg, facilitator, deps) {
   }
   send(res, 404, {
     error: "not found",
-    endpoints: ["GET /", "GET /health", "GET /facilitator", "GET /llms.txt", "GET /openapi.json", "POST /probe"]
+    endpoints: [
+      "GET /",
+      "GET /health",
+      "GET /facilitator",
+      "GET /llms.txt",
+      "GET /openapi.json",
+      "GET /.well-known/x402",
+      "POST /probe"
+    ]
   });
 }
 async function handlePaidProbe(req, res, cfg, facilitator, deps) {

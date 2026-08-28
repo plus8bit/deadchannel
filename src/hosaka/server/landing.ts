@@ -328,6 +328,11 @@ Machine-readable card at <a href="${cfg.publicUrl}/index.json">/index.json</a> &
 
 </div>
 
+<!-- Pageviews only, and nothing at all until Web Analytics is switched on for
+     the project: the script 404s and the shim swallows the calls. Hobby has no
+     custom events, so what a visitor asked about stays in the request log. -->
+<script>window.va = window.va || function(){ (window.vaq = window.vaq || []).push(arguments); };</script>
+<script defer src="/_vercel/insights/script.js"></script>
 <script>
 (function(){
   var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;

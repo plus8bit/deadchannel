@@ -77,6 +77,16 @@ async function handle(
   if (path === "/llms.txt") return sendText(res, llmsTxt(cfg));
   if (path === "/openapi.json") return send(res, 200, openApiSpec(cfg));
   if (path === "/facilitator") return handleFacilitatorCheck(res, cfg, facilitator);
+  // The same document Hosaka publishes: one machine-readable list of what is
+  // for sale and what it costs, so an index can catalog the shop without being
+  // told about it. Whether anything crawls it is unproven; it costs nothing.
+  if (path === "/.well-known/x402") {
+    const required = buildPaymentRequired(cfg, PROBE_ROUTE);
+    return send(res, 200, {
+      x402Version: 2,
+      resources: [{ resource: required.resource, accepts: required.accepts, extensions: required.extensions }],
+    });
+  }
   if (path === "/" || path === "/index.json") {
     // One address, two audiences: browsers read the page, agents read the card.
     if (path === "/" && prefersHtml(req)) return sendHtml(res, landingPage(cfg));
@@ -93,7 +103,15 @@ async function handle(
 
   send(res, 404, {
     error: "not found",
-    endpoints: ["GET /", "GET /health", "GET /facilitator", "GET /llms.txt", "GET /openapi.json", "POST /probe"],
+    endpoints: [
+      "GET /",
+      "GET /health",
+      "GET /facilitator",
+      "GET /llms.txt",
+      "GET /openapi.json",
+      "GET /.well-known/x402",
+      "POST /probe",
+    ],
   });
 }
 

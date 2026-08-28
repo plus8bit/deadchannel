@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { previewLog } from "../src/hosaka/server/interest.ts";
+import { hosakaLanding } from "../src/hosaka/server/landing.ts";
+import { loadConfig } from "../src/server/config.ts";
 import { describe, it } from "node:test";
 import { buildProfile, normalize } from "../src/hosaka/profile.ts";
 import { detectVendors, providerFor } from "../src/hosaka/vendors.ts";
@@ -139,5 +142,40 @@ describe("honesty about what is missing", () => {
     }
     // Whatever happened to the page, the DNS-based facts still have to be there.
     assert.ok(profile.vendors.length > 0, "DNS evidence does not depend on the homepage");
+  });
+});
+
+describe("free preview, counted", () => {
+  it("counts a stranger's domain and marks our own", () => {
+    assert.deepEqual(previewLog("example.com", "landing"), {
+      msg: "preview",
+      domain: "example.com",
+      via: "landing",
+      self: true,
+    });
+    assert.deepEqual(previewLog("WWW.Kettle.co ", undefined), {
+      msg: "preview",
+      domain: "kettle.co",
+      via: "api",
+    });
+  });
+
+  it("carries no identity beyond the domain that was asked about", () => {
+    const keys = Object.keys(previewLog("kettle.co", "landing"));
+    assert.deepEqual(keys.sort(), ["domain", "msg", "via"]);
+  });
+
+  it("tags the landing page's own fetch, so a browser is separable from an agent", () => {
+    const html = hosakaLanding(
+      loadConfig(
+        {
+          X402_NETWORK: "base",
+          X402_PAY_TO: "0x712c78928080Adb009E31315c0c3c7473dA9648a",
+          PUBLIC_URL: "https://example.test",
+        },
+        {},
+      ),
+    );
+    assert.match(html, /"x-hosaka-src": "landing"/);
   });
 });

@@ -8,6 +8,7 @@ import { facilitatorsFor } from "../../server/facilitator-router.ts";
 import { SOLANA_RAIL } from "../../server/rails.ts";
 import { hosakaLanding, HOSAKA_FAVICON } from "./landing.ts";
 import { hosakaOpenApi, hosakaLlmsTxt } from "./openapi.ts";
+import { previewLog } from "./interest.ts";
 import { buildPaymentRequired } from "../../server/x402.ts";
 import { ALGORAND_MAINNET } from "../../server/algorand.ts";
 import type { FacilitatorFor } from "../../server/facilitator-router.ts";
@@ -116,7 +117,10 @@ async function handle(
   }
   if (path === "/preview" && req.method === "POST") {
     try {
-      return send(res, 200, await runPreview(parseDomainRequest(await readJson(req))));
+      const asked = parseDomainRequest(await readJson(req));
+      // The free preview is the only place a human tells us what they came for.
+      log("info", previewLog(asked.domain, header(req, "x-hosaka-src")));
+      return send(res, 200, await runPreview(asked));
     } catch (err) {
       return send(res, 400, { error: err instanceof Error ? err.message : "bad request" });
     }
@@ -239,6 +243,11 @@ function send(res: ServerResponse, status: number, body: unknown): void {
     vary: "Accept",
   });
   res.end(payload);
+}
+
+function header(req: IncomingMessage, name: string): string | undefined {
+  const v = req.headers[name];
+  return Array.isArray(v) ? v[0] : v;
 }
 
 function log(level: "info" | "error", fields: Record<string, unknown>): void {

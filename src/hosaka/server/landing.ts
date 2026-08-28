@@ -455,7 +455,7 @@ Machine-readable card at <a href="${cfg.publicUrl}/index.json">/index.json</a> &
     try {
       var r = await fetch("/preview", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", "x-hosaka-src": "landing" },
         body: JSON.stringify({ domain: domain })
       });
       pv = await r.json();

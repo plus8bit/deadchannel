@@ -42839,10 +42839,10 @@ function isValidJWT(jwt, alg) {
   if (!jwtRegex.test(jwt))
     return false;
   try {
-    const [header2] = jwt.split(".");
-    if (!header2)
+    const [header3] = jwt.split(".");
+    if (!header3)
       return false;
-    const base64 = header2.replace(/-/g, "+").replace(/_/g, "/").padEnd(header2.length + (4 - header2.length % 4) % 4, "=");
+    const base64 = header3.replace(/-/g, "+").replace(/_/g, "/").padEnd(header3.length + (4 - header3.length % 4) % 4, "=");
     const decoded = JSON.parse(atob(base64));
     if (typeof decoded !== "object" || decoded === null)
       return false;
@@ -46680,25 +46680,25 @@ var init_chunk_BA2VL4DT = __esm({
        */
       parsePaymentResult(args) {
         const { status, getHeader, body } = args;
-        let header2;
+        let header3;
         try {
-          header2 = this.getPaymentSettleResponse(getHeader);
+          header3 = this.getPaymentSettleResponse(getHeader);
         } catch {
           if (status === 402) {
             try {
-              header2 = this.getPaymentRequiredResponse(getHeader, body);
+              header3 = this.getPaymentRequiredResponse(getHeader, body);
             } catch {
             }
           }
         }
         let paymentStatus = "none";
-        if (header2 && !("success" in header2)) {
+        if (header3 && !("success" in header3)) {
           paymentStatus = "payment_required";
         }
-        if (header2 && "success" in header2) {
-          paymentStatus = header2.success ? "settled" : "settle_failed";
+        if (header3 && "success" in header3) {
+          paymentStatus = header3.success ? "settled" : "settle_failed";
         }
-        return { status, paymentStatus, body, header: header2 };
+        return { status, paymentStatus, body, header: header3 };
       }
       /**
        * Parses a fetch Response into an `HTTPResourceResponse` for app-level convenience.
@@ -47888,7 +47888,7 @@ function readCdpCredentials(env = process.env) {
 function createCdpBearer(credentials, method, url, now = Math.floor(Date.now() / 1e3)) {
   const parsed = new URL(url);
   const uri = `${method.toUpperCase()} ${parsed.host}${parsed.pathname}`;
-  const header2 = {
+  const header3 = {
     alg: "EdDSA",
     typ: "JWT",
     kid: credentials.keyId,
@@ -47902,7 +47902,7 @@ function createCdpBearer(credentials, method, url, now = Math.floor(Date.now() /
     exp: now + TOKEN_LIFETIME_SECONDS,
     uri
   };
-  const signingInput = `${b64url(JSON.stringify(header2))}.${b64url(JSON.stringify(claims))}`;
+  const signingInput = `${b64url(JSON.stringify(header3))}.${b64url(JSON.stringify(claims))}`;
   const signature = sign(null, Buffer.from(signingInput, "utf8"), privateKeyFrom(credentials.keySecret));
   return `${signingInput}.${signature.toString("base64url")}`;
 }
@@ -48545,9 +48545,9 @@ function bazaarExtension(route) {
 function encodeHeader(value) {
   return Buffer.from(JSON.stringify(value), "utf8").toString("base64");
 }
-function decodePaymentSignature(header2) {
-  if (!header2) return null;
-  const trimmed = header2.trim();
+function decodePaymentSignature(header3) {
+  if (!header3) return null;
+  const trimmed = header3.trim();
   if (trimmed.length === 0) return null;
   const candidates = trimmed.startsWith("{") ? [trimmed] : [safeBase64(trimmed), trimmed].filter((v) => v !== null);
   for (const candidate of candidates) {
@@ -49005,9 +49005,9 @@ async function quote(supplier, timeoutMs = 1e4) {
   if (res.status !== 402) {
     throw new SupplierError(supplier.id, `expected 402, got ${res.status}`);
   }
-  const header2 = res.headers.get("payment-required");
-  if (!header2) throw new SupplierError(supplier.id, "402 carried no PAYMENT-REQUIRED header");
-  const required = JSON.parse(Buffer.from(header2, "base64").toString("utf8"));
+  const header3 = res.headers.get("payment-required");
+  if (!header3) throw new SupplierError(supplier.id, "402 carried no PAYMENT-REQUIRED header");
+  const required = JSON.parse(Buffer.from(header3, "base64").toString("utf8"));
   const onBase = (required.accepts ?? []).find(
     (a) => a.network === "eip155:8453" && a.scheme === "exact" && a.amount
   );
@@ -49734,7 +49734,7 @@ Machine-readable card at <a href="${cfg.publicUrl}/index.json">/index.json</a> &
     try {
       var r = await fetch("/preview", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", "x-hosaka-src": "landing" },
         body: JSON.stringify({ domain: domain })
       });
       pv = await r.json();
@@ -49946,6 +49946,25 @@ USDG on Robinhood Chain. Nothing settles unless the answer is produced.
 `;
 }
 
+// src/hosaka/server/interest.ts
+var OUR_DOMAINS = [
+  "example.com",
+  "figma.com",
+  "stripe.com",
+  "cloudinary.com",
+  "coinbase.com",
+  "vercel.com",
+  "hosaka-agents.vercel.app",
+  "stableenrich.dev",
+  "onesource.io"
+];
+function previewLog(domain, src) {
+  const clean2 = domain.trim().toLowerCase().replace(/^www\./, "");
+  const via = src === "landing" || src === "mcp" ? src : "api";
+  const ours = OUR_DOMAINS.includes(clean2);
+  return ours ? { msg: "preview", domain: clean2, via, self: true } : { msg: "preview", domain: clean2, via };
+}
+
 // src/hosaka/server/app.ts
 var subject = (req) => req.domain;
 var SHELVES = [
@@ -50003,7 +50022,9 @@ async function handle(req, res, cfg, facilitator) {
   }
   if (path === "/preview" && req.method === "POST") {
     try {
-      return send(res, 200, await runPreview(parseDomainRequest(await readJson(req))));
+      const asked = parseDomainRequest(await readJson(req));
+      log("info", previewLog(asked.domain, header2(req, "x-hosaka-src")));
+      return send(res, 200, await runPreview(asked));
     } catch (err) {
       return send(res, 400, { error: err instanceof Error ? err.message : "bad request" });
     }
@@ -50103,6 +50124,10 @@ function send(res, status, body) {
     vary: "Accept"
   });
   res.end(payload);
+}
+function header2(req, name) {
+  const v = req.headers[name];
+  return Array.isArray(v) ? v[0] : v;
 }
 function log(level, fields) {
   process.stdout.write(`${JSON.stringify({ t: (/* @__PURE__ */ new Date()).toISOString(), level, ...fields })}

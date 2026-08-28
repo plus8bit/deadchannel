@@ -91,6 +91,10 @@ Entering as the sixth, with no name, is the position we already failed from.
   cannot call it at all and can call ours.
 - Never make a comparative price claim. Ours outlived its supplier by days inside
   a published npm package. A test now bans them from the bundles.
+- **A price lives in more places than anyone remembers.** Eleven surfaces have now
+  been caught quoting a dead price: the config, the code default, three READMEs,
+  the OpenAPI guidance, llms.txt, the landing page, two npm descriptions and the
+  MCP registry manifest. Every single one was found by looking, none by a report.
 
 ## Traps that cost us money or time
 
@@ -110,6 +114,30 @@ Entering as the sixth, with no name, is the position we already failed from.
   parameter name a rejection was already naming; keep 2000.
 - **Ask before paying.** These endpoints validate before they settle, so a rejected
   request is free and its error text is the cheapest schema there is.
+
+## Published is not local
+
+`npm publish` is the only guard the repository cannot enforce. Both MCP packages
+sat on npm for days quoting prices from before a repricing, because changing a
+price rebuilds the bundle in the working tree and nothing republishes it. The
+understatement is the dangerous direction: an agent budgets the old number and
+fails on its first call.
+
+`npm run check:published` downloads the tarballs a buyer would install and
+compares them to the live challenge. Run it after any price change, and read the
+result carefully: comments carry supplier costs, and an `outputExample` carries
+the price of whatever the tool was aimed at. Neither has to match our shelf.
+
+## Counting is already done for you
+
+Before building a counter, look at what the host records. Vercel groups runtime
+logs by `requestPath` over about seven days at no cost and no code, which is the
+whole of "how many people asked". Line-level logs are billing-limited to roughly
+a day on Hobby, so a log line is worth adding only for what the aggregate cannot
+say: which domain, and whether the caller was us. Filter our own traffic at read
+time by marking it, never at write time — a filter applied on the way in cannot
+be undone on the way out. Web Analytics is a separate switch in the dashboard and
+is off until somebody turns it on.
 
 ## The money map
 

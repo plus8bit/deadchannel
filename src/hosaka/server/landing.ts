@@ -312,12 +312,14 @@ curl -X POST <span class="s">${cfg.publicUrl}/dossier</span> \\
   -d <span class="s">'{"domain":"figma.com"}'</span></pre>
 <p style="margin-top:16px">Or let an agent find it alone. Published to npm and listed in the official MCP registry, so any MCP client discovers and pays for it with one line:</p>
 <pre>npx -y <span class="s">hosaka-mcp</span></pre>
+<p style="margin-top:16px">A server tells an agent how to call this. It does not tell it when. The skill does that, and installs the same way:</p>
+<pre>npx skills add <span class="s">plus8bit/deadchannel/skills/hosaka</span> --yes</pre>
 </section>
 
 <section class="r" style="animation-delay:.34s">
 <h2>Countermeasures</h2>
 <p><a href="https://deadchannel.vercel.app">deadchannel</a> grades any x402 endpoint before an agent spends money on it &mdash; alive, honestly priced, safe to call, or a trap.</p>
-<p>ICE guards a system from the intruder. This is the inverse: it guards the intruder from the system. We built it because we needed it ourselves &mdash; we probed the whole catalog first, and a real share of it is dead, testnet-only, or priced in a token that makes a cent look like a fortune.</p>
+<p>ICE guards a system from the intruder. This is the inverse: it guards the intruder from the system. We built it because we needed it ourselves. Of 14,979 listings we read, 572 advertise a testnet, an address that cannot receive, or a price no agent should pay; of 150 we actually dialled, 137 answered, 10 answered badly and 3 not at all. One listing in twenty-six, and one call in twelve. Small enough to ignore until it is your money.</p>
 </section>
 
 <footer class="r" style="animation-delay:.40s">

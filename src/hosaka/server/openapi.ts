@@ -20,6 +20,30 @@ interface Listing {
  * the 402, rather than written alongside them. Two hand-maintained descriptions
  * of one price is a promise waiting to drift.
  */
+/**
+ * Turns the published example into a JSON Schema describing the same shape.
+ *
+ * Derived rather than written, because a hand-kept schema is a second
+ * description of one answer and the two drift. The example is already checked
+ * against what the endpoint returns, so a schema built from it inherits that
+ * check. Agents need the field names and their types before paying; that is
+ * exactly what an example carries.
+ */
+function schemaFrom(value: unknown): Record<string, unknown> {
+  if (Array.isArray(value)) {
+    return { type: "array", items: value.length > 0 ? schemaFrom(value[0]) : { type: "object" } };
+  }
+  if (value === null) return { type: ["string", "null"] };
+  if (typeof value === "object") {
+    const properties: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) properties[k] = schemaFrom(v);
+    return { type: "object", properties };
+  }
+  if (typeof value === "number") return { type: "number" };
+  if (typeof value === "boolean") return { type: "boolean" };
+  return { type: "string" };
+}
+
 /** Prints a price the way a reader writes one, trailing zeros trimmed. */
 const usd = (n: number) => `$${n.toFixed(6).replace(/0+$/, "").replace(/\.$/, "")}`;
 
@@ -43,6 +67,25 @@ export function hosakaOpenApi(
         summary: shelf.route.description,
         tags: shelf.route.tags.slice(0, 4),
         // Decimal USD here; the 402 carries the same number in atomic units.
+        // AgentCash and the Bazaar both read the output shape from here, and
+        // reject a listing that only declares its input: without it an agent
+        // cannot know what it is buying until after it has paid.
+        extensions: {
+          bazaar: {
+            info: {
+              input: { type: "http", method: shelf.route.method, bodyType: "json", body: shelf.route.inputExample },
+              output: { type: "json", example: shelf.route.outputExample },
+            },
+            schema: {
+              $schema: "https://json-schema.org/draft/2020-12/schema",
+              type: "object",
+              properties: {
+                input: { type: "object", properties: { body: shelf.route.inputSchema } },
+                output: schemaFrom(shelf.route.outputExample),
+              },
+            },
+          },
+        },
         "x-payment-info": {
           price: { mode: "fixed", currency: "USD", amount: price.toFixed(6) },
           protocols: [{ x402: {} }],
@@ -56,7 +99,7 @@ export function hosakaOpenApi(
             description: "The answer.",
             content: {
               "application/json": {
-                schema: { type: "object" },
+                schema: schemaFrom(shelf.route.outputExample),
                 example: shelf.route.outputExample,
               },
             },

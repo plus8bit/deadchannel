@@ -49826,6 +49826,20 @@ Machine-readable card at <a href="${cfg.publicUrl}/index.json">/index.json</a> &
 }
 
 // src/hosaka/server/openapi.ts
+function schemaFrom(value) {
+  if (Array.isArray(value)) {
+    return { type: "array", items: value.length > 0 ? schemaFrom(value[0]) : { type: "object" } };
+  }
+  if (value === null) return { type: ["string", "null"] };
+  if (typeof value === "object") {
+    const properties = {};
+    for (const [k, v] of Object.entries(value)) properties[k] = schemaFrom(v);
+    return { type: "object", properties };
+  }
+  if (typeof value === "number") return { type: "number" };
+  if (typeof value === "boolean") return { type: "boolean" };
+  return { type: "string" };
+}
 var usd = (n) => `$${n.toFixed(6).replace(/0+$/, "").replace(/\.$/, "")}`;
 function shelfPrice(shelves, path, cfg) {
   const shelf = shelves.find((s) => s.route.path === path);
@@ -49841,6 +49855,25 @@ function hosakaOpenApi(cfg, shelves) {
         summary: shelf.route.description,
         tags: shelf.route.tags.slice(0, 4),
         // Decimal USD here; the 402 carries the same number in atomic units.
+        // AgentCash and the Bazaar both read the output shape from here, and
+        // reject a listing that only declares its input: without it an agent
+        // cannot know what it is buying until after it has paid.
+        extensions: {
+          bazaar: {
+            info: {
+              input: { type: "http", method: shelf.route.method, bodyType: "json", body: shelf.route.inputExample },
+              output: { type: "json", example: shelf.route.outputExample }
+            },
+            schema: {
+              $schema: "https://json-schema.org/draft/2020-12/schema",
+              type: "object",
+              properties: {
+                input: { type: "object", properties: { body: shelf.route.inputSchema } },
+                output: schemaFrom(shelf.route.outputExample)
+              }
+            }
+          }
+        },
         "x-payment-info": {
           price: { mode: "fixed", currency: "USD", amount: price.toFixed(6) },
           protocols: [{ x402: {} }]
@@ -49854,7 +49887,7 @@ function hosakaOpenApi(cfg, shelves) {
             description: "The answer.",
             content: {
               "application/json": {
-                schema: { type: "object" },
+                schema: schemaFrom(shelf.route.outputExample),
                 example: shelf.route.outputExample
               }
             }

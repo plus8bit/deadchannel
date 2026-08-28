@@ -126,7 +126,7 @@ describe("what the MCP tools tell an agent a call costs", () => {
         PRICE_DOSSIER,
         ...Object.values(TIERS).map((t) => t.priceUsd),
         ...Object.values(SUPPLIERS).flatMap((s) => [s.listPriceUsd, s.maxPriceUsd]),
-      ].map((n) => `$${n}`),
+      ].flatMap((n) => [`$${n}`, `$${n.toFixed(2)}`, `$${n.toFixed(3)}`]),
     );
 
     for (const bundle of ["packages/deadchannel-mcp/src/server.mjs", "packages/hosaka-mcp/src/server.mjs"]) {

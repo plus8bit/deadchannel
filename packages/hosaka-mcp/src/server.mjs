@@ -69,7 +69,7 @@ var MAX_BODY_BYTES = 32 * 1024;
 
 // src/hosaka/server/routes.ts
 var PRICE_LOOKUP = 5e-3;
-var PRICE_DOSSIER = 0.04;
+var PRICE_DOSSIER = 0.2;
 var TTL_MS = 24 * 60 * 60 * 1e3;
 var warehouse = new MemoryStore({ maxItems: 5e3 });
 
@@ -91,20 +91,20 @@ var TIERS = {
      */
     seniority: ["Owner", "Founder", "C-level", "Partner", "VP", "Head", "Director"],
     /**
-     * $0.21 against the same $0.15 cost as the unfiltered shelf.
+     * $0.40 against the same $0.15 cost as the unfiltered shelf.
      *
      * The purchase price does not change, so the premium is not for more data —
      * it is for less of it, chosen. A list of everyone at a company and a list
      * of the seven people who can sign are not the same product, and the second
      * is the one anyone selling B2B came for.
      */
-    priceUsd: 0.21
+    priceUsd: 0.4
   },
   people: {
     supplier: "fullenrich-people",
     kind: "named-people",
     /**
-     * $0.19 against a $0.16 ceiling on the supplier.
+     * $0.35 against a $0.16 ceiling on the supplier.
      *
      * The old price was set against a $0.28 competitor that no longer sets it.
      * Our own supplier is listed in the same catalog at $0.15 and ranks first
@@ -117,20 +117,20 @@ var TIERS = {
      * to cost no more than buying the two halves apart, and wins on being one
      * call whose answer is already sorted.
      */
-    priceUsd: 0.19
+    priceUsd: 0.35
   },
   contacts: {
     supplier: "openwebninja-contacts",
     kind: "published-contact-points",
     /**
-     * $0.02 against a $0.003 supplier cost.
+     * $0.10 against a $0.003 supplier cost.
      *
      * Cheap because the underlying answer is cheap: it is what the company
      * publishes about itself, not who works there. Priced as the shelf a buyer
      * reaches for when the question is "how do I reach this company" and the
      * people shelf would be waste.
      */
-    priceUsd: 0.02
+    priceUsd: 0.1
   }
 };
 var PRICE_BUNDLE = TIERS.people.priceUsd;

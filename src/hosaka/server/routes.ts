@@ -27,9 +27,17 @@ import type { PaidRoute } from "../../server/x402.ts";
  * The look-up drops to what the catalog was already advertising for it, which
  * removes a mismatch and costs almost nothing: its job is to collect distinct
  * payers, and unique payers are what the ranking counts.
+ *
+ * The dossier then went the other way, from $0.040 to $0.200, once the segment
+ * was measured properly. Undercutting BuiltWith won the position and won it at a
+ * price where the position is worth little: the eleven endpoints in this segment
+ * earning over $20 a month have a median price of $0.150, and the band from
+ * $0.20 to $0.49 carries twice the median buyers of any cheaper band while
+ * everything above $0.50 collapses. Price and rank were uncorrelated in every
+ * measurement taken here, so the discount bought nothing it was meant to buy.
  */
 export const PRICE_LOOKUP = 0.005;
-export const PRICE_DOSSIER = 0.04;
+export const PRICE_DOSSIER = 0.2;
 /** Registration and DNS move slowly; a day-old profile is still a true one. */
 const TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -266,7 +274,7 @@ export const BUNDLE_ROUTE: PaidRoute = {
  * not a worse version of the same one, so it gets its own shelf and its own
  * price rather than being served quietly when the expensive shelf was paid for.
  *
- * At $0.02 it is also the shelf that works on a small float: thirty of these
+ * At $0.10 it is also the shelf that works on a small float: six of these
  * fit in the wallet space of one call to /people.
  */
 /**

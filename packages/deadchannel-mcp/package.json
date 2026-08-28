@@ -1,7 +1,7 @@
 {
   "name": "deadchannel-mcp",
-  "version": "0.1.0",
-  "description": "Check an x402 endpoint before you pay it. Returns a verdict (live, degraded, trap, testnet, dead), a 0-100 risk score and the specific problems found, for $0.001 in USDC on Base. No signup, no API key.",
+  "version": "0.1.1",
+  "description": "Check an x402 endpoint before you pay it. Returns a verdict (live, degraded, trap, testnet, dead), a 0-100 risk score and the specific problems found, for $0.005 in USDC on Base. No signup, no API key.",
   "keywords": [
     "mcp",
     "modelcontextprotocol",

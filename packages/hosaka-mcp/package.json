@@ -1,6 +1,6 @@
 {
   "name": "hosaka-mcp",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Company facts for AI agents, paid per call in USDC on Base: domain age, mail and DNS providers, and every third-party vendor a company can be proven to use, each with the record that proves it. No signup, no API key.",
   "keywords": [
     "mcp",

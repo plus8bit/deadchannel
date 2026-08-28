@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Risk oracle for x402 endpoints — tells agents which paid endpoints are alive, honestly priced, and safe to call. Zero runtime dependencies.",
+  "description": "Risk oracle for x402 endpoints \u2014 tells agents which paid endpoints are alive, honestly priced, and safe to call. Zero runtime dependencies.",
   "license": "MIT",
   "engines": {
     "node": ">=22"
@@ -25,7 +25,8 @@
     "deploy": "scripts/deploy.sh",
     "mcp": "node src/hosaka/mcp/server.ts",
     "build:mcp": "esbuild src/hosaka/mcp/server.ts --bundle --platform=node --target=node20 --format=esm --packages=external --outfile=packages/hosaka-mcp/src/server.mjs --log-level=warning",
-    "build:mcp-deadchannel": "esbuild src/server/mcp-server.ts --bundle --platform=node --target=node20 --format=esm --packages=external --outfile=packages/deadchannel-mcp/src/server.mjs --log-level=warning"
+    "build:mcp-deadchannel": "esbuild src/server/mcp-server.ts --bundle --platform=node --target=node20 --format=esm --packages=external --outfile=packages/deadchannel-mcp/src/server.mjs --log-level=warning",
+    "check:published": "node scripts/check-published.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

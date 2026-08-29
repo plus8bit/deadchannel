@@ -49981,6 +49981,7 @@ var SHELVES = [
   { route: EXECUTIVES_ROUTE, parse: parseDomainRequest, run: (r) => runBundle(r, "executives"), priceUsd: PRICE_EXECUTIVES, subject },
   { route: CONTACTS_ROUTE, parse: parseDomainRequest, run: (r) => runBundle(r, "contacts"), priceUsd: PRICE_CONTACTS, subject }
 ];
+var CATALOG_PATHS = /* @__PURE__ */ new Set(["/.well-known/x402", "/.well-known/x402-resources", "/x402-resources"]);
 function createHandler(cfg, facilitator) {
   return (req, res) => {
     handle(req, res, cfg, facilitator).catch((err) => {
@@ -50017,7 +50018,7 @@ async function handle(req, res, cfg, facilitator) {
     return void res.end(hosakaLlmsTxt(cfg, SHELVES));
   }
   if (path === "/warehouse") return send(res, 200, await warehouseStats());
-  if (path === "/.well-known/x402") {
+  if (CATALOG_PATHS.has(path)) {
     return send(res, 200, {
       x402Version: 2,
       resources: SHELVES.map((shelf2) => {

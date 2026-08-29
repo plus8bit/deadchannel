@@ -35,6 +35,9 @@ const DEFAULT_DEPS: Deps = { runProbe };
  * The request handler on its own, so the same code serves a long-running
  * process and a serverless function without a second implementation.
  */
+/** The spec path, and the two names crawlers guess at beside it. */
+const CATALOG_PATHS = new Set(["/.well-known/x402", "/.well-known/x402-resources", "/x402-resources"]);
+
 export function createHandler(
   cfg: Config,
   facilitator: FacilitatorClient | FacilitatorFor,
@@ -79,8 +82,8 @@ async function handle(
   if (path === "/facilitator") return handleFacilitatorCheck(res, cfg, facilitator);
   // The same document Hosaka publishes: one machine-readable list of what is
   // for sale and what it costs, so an index can catalog the shop without being
-  // told about it. Whether anything crawls it is unproven; it costs nothing.
-  if (path === "/.well-known/x402") {
+  // told about it, at the spec path and the two names crawlers guess at.
+  if (CATALOG_PATHS.has(path)) {
     const required = buildPaymentRequired(cfg, PROBE_ROUTE);
     return send(res, 200, {
       x402Version: 2,
@@ -110,6 +113,8 @@ async function handle(
       "GET /llms.txt",
       "GET /openapi.json",
       "GET /.well-known/x402",
+      "GET /.well-known/x402-resources",
+      "GET /x402-resources",
       "POST /probe",
     ],
   });

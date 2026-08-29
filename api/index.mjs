@@ -1800,6 +1800,7 @@ function clampAscii(value, max) {
 // src/server/app.ts
 var MAX_BODY_BYTES2 = 32 * 1024;
 var DEFAULT_DEPS = { runProbe };
+var CATALOG_PATHS = /* @__PURE__ */ new Set(["/.well-known/x402", "/.well-known/x402-resources", "/x402-resources"]);
 function createHandler(cfg, facilitator, deps = DEFAULT_DEPS) {
   return (req, res) => {
     handle(req, res, cfg, facilitator, deps).catch((err) => {
@@ -1827,7 +1828,7 @@ async function handle(req, res, cfg, facilitator, deps) {
   if (path === "/llms.txt") return sendText(res, llmsTxt(cfg));
   if (path === "/openapi.json") return send(res, 200, openApiSpec(cfg));
   if (path === "/facilitator") return handleFacilitatorCheck(res, cfg, facilitator);
-  if (path === "/.well-known/x402") {
+  if (CATALOG_PATHS.has(path)) {
     const required = buildPaymentRequired(cfg, PROBE_ROUTE);
     return send(res, 200, {
       x402Version: 2,
@@ -1854,6 +1855,8 @@ async function handle(req, res, cfg, facilitator, deps) {
       "GET /llms.txt",
       "GET /openapi.json",
       "GET /.well-known/x402",
+      "GET /.well-known/x402-resources",
+      "GET /x402-resources",
       "POST /probe"
     ]
   });

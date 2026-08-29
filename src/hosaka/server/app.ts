@@ -52,6 +52,9 @@ const SHELVES: Shelf[] = [
   { route: CONTACTS_ROUTE, parse: parseDomainRequest, run: (r) => runBundle(r, "contacts"), priceUsd: PRICE_CONTACTS, subject },
 ];
 
+/** The spec path, and the two names crawlers guess at beside it. */
+const CATALOG_PATHS = new Set(["/.well-known/x402", "/.well-known/x402-resources", "/x402-resources"]);
+
 export function createHandler(cfg: Config, facilitator: FacilitatorClient | FacilitatorFor) {
   return (req: IncomingMessage, res: ServerResponse): void => {
     handle(req, res, cfg, facilitator).catch((err: unknown) => {
@@ -102,8 +105,9 @@ async function handle(
   if (path === "/warehouse") return send(res, 200, await warehouseStats());
   // The listing mechanism agent indexes crawl: one document naming every paid
   // resource and what it costs, so a marketplace can catalog the shop without
-  // being told about it.
-  if (path === "/.well-known/x402") {
+  // being told about it. The spec names one path and crawlers guess at two more
+  // beside it, so the same document answers all three.
+  if (CATALOG_PATHS.has(path)) {
     return send(res, 200, {
       x402Version: 2,
       resources: SHELVES.map((shelf) => {

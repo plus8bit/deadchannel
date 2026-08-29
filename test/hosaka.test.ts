@@ -179,3 +179,39 @@ describe("free preview, counted", () => {
     assert.match(html, /"x-hosaka-src": "landing"/);
   });
 });
+
+describe("the catalog document", () => {
+  it("answers the same object at the spec path and at both guesses", async () => {
+    const { createHandler } = await import("../src/hosaka/server/app.ts");
+    const { createServer } = await import("node:http");
+    const cfg = loadConfig(
+      { X402_NETWORK: "base", X402_PAY_TO: "0x712c78928080Adb009E31315c0c3c7473dA9648a", PUBLIC_URL: "https://example.test" },
+      {},
+    );
+    const server = createServer(createHandler(cfg, (() => {
+      throw new Error("no facilitator needed to read a catalog");
+    }) as never));
+    await new Promise<void>((r) => server.listen(0, r));
+    const port = (server.address() as { port: number }).port;
+
+    try {
+      const paths = ["/.well-known/x402", "/.well-known/x402-resources", "/x402-resources"];
+      const bodies = [];
+      for (const path of paths) {
+        const res = await fetch(`http://127.0.0.1:${port}${path}`);
+        assert.equal(res.status, 200, `${path} should serve the catalog`);
+        bodies.push(await res.json());
+      }
+      assert.deepEqual(bodies[1], bodies[0]);
+      assert.deepEqual(bodies[2], bodies[0]);
+      assert.equal((bodies[0] as { resources: unknown[] }).resources.length, 5);
+
+      // A2A's card is a different protocol's greeting. Answering it with a
+      // payment manifest would be a wrong answer, not a helpful one.
+      const a2a = await fetch(`http://127.0.0.1:${port}/.well-known/agent.json`);
+      assert.equal(a2a.status, 404);
+    } finally {
+      server.close();
+    }
+  });
+});

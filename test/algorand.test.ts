@@ -276,10 +276,12 @@ describe("the well-known manifest a marketplace crawls", () => {
       assert.equal(byPath.get("/dossier")!.accepts[0]!.amount, atomic(PRICE_DOSSIER));
       assert.equal(byPath.get("/people")!.accepts[0]!.amount, atomic(TIERS.people.priceUsd));
       assert.equal(byPath.get("/executives")!.accepts[0]!.amount, atomic(TIERS.executives.priceUsd));
-      assert.equal(
-        new Set([...byPath.values()].map((e) => e.accepts[0]!.amount)).size,
-        byPath.size,
-        "every shelf must carry its own price",
+      assert.equal(byPath.get("/contacts")!.accepts[0]!.amount, atomic(TIERS.contacts.priceUsd));
+      // Two shelves may legitimately share a price; all five sharing one is the
+      // bug this guards, and it means priceAtomic was never applied.
+      assert.ok(
+        new Set([...byPath.values()].map((e) => e.accepts[0]!.amount)).size > 1,
+        "every shelf carrying the same amount means the price override was lost",
       );
 
       for (const [path, entry] of byPath) {

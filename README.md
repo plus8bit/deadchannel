@@ -43,8 +43,8 @@ four prices, so a cheap question never pays for an expensive answer:
 | tool | price | what you get |
 | --- | --- | --- |
 | `hosaka_lookup` | $0.005 | domain age, registrar, mail and DNS provider, DMARC, HTTPS, vendor count |
-| `hosaka_contacts` | $0.10 | the dossier, plus the emails and phones the company publishes about itself |
-| `hosaka_dossier` | $0.20 | every third-party vendor the company can be proven to use, each with its proof |
+| `hosaka_contacts` | $0.02 | the dossier, plus the emails and phones the company publishes about itself |
+| `hosaka_dossier` | $0.02 | every third-party vendor the company can be proven to use, each with its proof |
 | `hosaka_people` | $0.35 | the dossier, plus named people who work there |
 
 **Why the dossier is worth having.** A company proves it owns its domain to
@@ -230,7 +230,7 @@ A second shop on the same payout address, selling company facts to agents.
 
 ```
 POST /lookup    $0.005  domain age, registrar, mail and DNS provider, DMARC, HTTPS
-POST /dossier   $0.20   every third-party vendor we can prove, with the proof
+POST /dossier   $0.02   every third-party vendor we can prove, with the proof
 ```
 
 Live at **https://hosaka-agents.vercel.app**, settling on Base mainnet.

@@ -40,8 +40,8 @@ works too; the scheme and path are stripped.
 | --- | --- | --- | --- |
 | See the shape before paying | `POST /preview` | free | vendor count, categories, two samples |
 | Qualify a domain cheaply | `POST /lookup` | $0.005 | age, registration date, registrar, mail and DNS provider, DMARC, HTTPS, vendor count |
-| **Proven vendor stack** | `POST /dossier` | $0.20 | **the default.** Every third-party service with the DNS record or loaded script that proves it |
-| Reach the company | `POST /contacts` | $0.10 | emails, phones and socials it publishes about itself, plus the stack |
+| **Proven vendor stack** | `POST /dossier` | $0.02 | **the default.** Every third-party service with the DNS record or loaded script that proves it |
+| Reach the company | `POST /contacts` | $0.02 | emails, phones and socials it publishes about itself, plus the stack |
 | Named employees | `POST /people` | $0.35 | name, job title, seniority, location, profile link, plus the stack |
 | Only who can sign | `POST /executives` | $0.40 | owners, founders, C-level, partners, VPs, heads, directors, plus the stack |
 

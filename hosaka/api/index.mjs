@@ -48728,7 +48728,7 @@ function applyOutcome(res, outcome) {
 
 // src/hosaka/server/routes.ts
 var PRICE_LOOKUP = 5e-3;
-var PRICE_DOSSIER = 0.2;
+var PRICE_DOSSIER = 0.02;
 var TTL_MS = 24 * 60 * 60 * 1e3;
 var warehouse = new MemoryStore({ maxItems: 5e3 });
 function parseDomainRequest(body) {
@@ -49243,7 +49243,20 @@ var TIERS = {
      * of the seven people who can sign are not the same product, and the second
      * is the one anyone selling B2B came for.
      */
-    priceUsd: 0.4
+    priceUsd: 0.4,
+    /**
+     * True once /dossier fell to two cents, and recorded rather than hidden.
+     *
+     * A buyer holding only a domain can now take our dossier for $0.02 and go
+     * to our own supplier, who takes a domain too and lists at $0.15, for a
+     * total under this shelf. We cannot answer by cutting: the ceiling we
+     * authorise is $0.16, so a price that keeps our own margin rule sits above
+     * what the parts cost.
+     * The shelf stays because retiring it would drop the listing, and it is
+     * marked because a price an agent will skip should be a decision, not a
+     * drift.
+     */
+    knowinglyAbovePartsPrice: true
   },
   people: {
     supplier: "fullenrich-people",
@@ -49262,20 +49275,22 @@ var TIERS = {
      * to cost no more than buying the two halves apart, and wins on being one
      * call whose answer is already sorted.
      */
-    priceUsd: 0.35
+    priceUsd: 0.35,
+    /** Same arithmetic as the shelf above: the parts total less than this shelf. */
+    knowinglyAbovePartsPrice: true
   },
   contacts: {
     supplier: "openwebninja-contacts",
     kind: "published-contact-points",
     /**
-     * $0.10 against a $0.003 supplier cost.
+     * Two cents against a $0.003 supplier cost.
      *
      * Cheap because the underlying answer is cheap: it is what the company
      * publishes about itself, not who works there. Priced as the shelf a buyer
      * reaches for when the question is "how do I reach this company" and the
      * people shelf would be waste.
      */
-    priceUsd: 0.1
+    priceUsd: 0.02
   }
 };
 async function runBundle(req, tier) {

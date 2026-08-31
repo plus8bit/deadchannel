@@ -6,13 +6,13 @@
     "url": "https://github.com/plus8bit/deadchannel",
     "source": "github"
   },
-  "version": "0.3.1",
+  "version": "0.3.2",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "hosaka-mcp",
-      "version": "0.3.1",
+      "version": "0.3.2",
       "transport": {
         "type": "stdio"
       },

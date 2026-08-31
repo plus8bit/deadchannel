@@ -141,10 +141,17 @@ describe("the resale shelves", () => {
     // that sum, the shelf is asking to be skipped, and an agent that compares
     // prices will skip it.
     const apart = PRICE_DOSSIER + SUPPLIERS["fullenrich-people"]!.listPriceUsd;
-    assert.ok(
-      TIERS.people.priceUsd <= apart,
-      `bundle $${TIERS.people.priceUsd} vs $${apart.toFixed(3)} bought separately`,
-    );
+    for (const [name, tier] of Object.entries(TIERS)) {
+      if (tier.supplier !== "fullenrich-people") continue;
+      // Beating the do-it-yourself route is the goal. Failing to beat it is
+      // allowed only when it is written down on the shelf, because the
+      // alternative — cutting under our own cost — is worse than being skipped.
+      assert.ok(
+        tier.priceUsd <= apart || tier.knowinglyAbovePartsPrice === true,
+        `${name} sells at $${tier.priceUsd} while the parts cost $${apart.toFixed(3)}: ` +
+          "either price it under that or mark knowinglyAbovePartsPrice with the reason",
+      );
+    }
   });
 
   it("keeps the two tiers distinguishable in the response", async () => {

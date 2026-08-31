@@ -37,7 +37,7 @@ import type { PaidRoute } from "../../server/x402.ts";
  * measurement taken here, so the discount bought nothing it was meant to buy.
  */
 export const PRICE_LOOKUP = 0.005;
-export const PRICE_DOSSIER = 0.2;
+export const PRICE_DOSSIER = 0.02;
 /** Registration and DNS move slowly; a day-old profile is still a true one. */
 const TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -236,10 +236,11 @@ export const DOSSIER_ROUTE: PaidRoute = {
 /**
  * The resale shelf.
  *
- * Priced at $0.25 against a supplier cost of $0.15: cheaper than the market's
- * top earner at $0.28 while carrying strictly more — their contacts plus a
- * company dossier they do not sell. Being both cheaper and fuller than the
- * leader is the only position worth taking from behind.
+ * Priced against a supplier cost of $0.15, which is what makes it the one
+ * shelf here with a floor. It carries more than a people record alone — the
+ * company dossier comes with it — but see knowinglyAbovePartsPrice in
+ * bundle.ts: once the dossier fell to two cents, a buyer can assemble the same
+ * answer for less, and we cannot follow without selling under cost.
  */
 export const BUNDLE_ROUTE: PaidRoute = {
   path: "/people",
@@ -274,8 +275,9 @@ export const BUNDLE_ROUTE: PaidRoute = {
  * not a worse version of the same one, so it gets its own shelf and its own
  * price rather than being served quietly when the expensive shelf was paid for.
  *
- * At $0.10 it is also the shelf that works on a small float: six of these
- * fit in the wallet space of one call to /people.
+ * It is also the shelf that works on the smallest float: the supplier takes
+ * three tenths of a cent, so a dollar in the operating wallet covers hundreds
+ * of these against six calls to /people.
  */
 /**
  * The shelf a B2B seller actually wants.

@@ -10,6 +10,17 @@ something is a hypothesis rather than a measurement, it says so.
 
 ## The rule that matters most
 
+**Never invent a value.** Not an address, not a name, not a number, not a link. A
+plausible guess presented as a finding is worse than an admission of ignorance,
+because it spends someone else's credibility. Thirty outreach letters went out
+with `info@<domain>` filled in by pattern while the text said the domains had
+been run through our own tooling; what had actually run was `/preview`, which
+returns no addresses at all. The first four bounced. Say "not found" and name
+what it would take to find it.
+
+Say where a value came from when you hand it over, and never describe a step in
+words that overstate what it did.
+
 **Measure first, propose second.** In one working day this project produced five
 directions that died the moment they were checked: a price-intelligence product
 (niche populated, 2-6 calls each), a novelty endpoint (23 cents a month), RWA and

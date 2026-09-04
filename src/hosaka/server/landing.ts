@@ -57,9 +57,12 @@ export function hosakaLanding(cfg: Config): string {
 <meta name="description" content="Every third-party vendor a company can be proven to use, read from its own DNS. Sold to AI agents per call in USDC. No signup, no API key.">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <meta name="theme-color" content="#07080B">
+<meta property="og:site_name" content="Hosaka">
 <meta property="og:title" content="Hosaka — company data for agents">
 <meta property="og:description" content="Every third-party vendor a company can be proven to use, read from its own DNS. Paid per call in USDC.">
 <meta property="og:type" content="website">
+<meta property="og:image" content="${cfg.publicUrl}/favicon.svg">
+<meta property="og:url" content="${cfg.publicUrl}">
 <meta name="twitter:card" content="summary">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

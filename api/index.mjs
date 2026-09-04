@@ -1572,8 +1572,11 @@ function landingPage(cfg) {
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/favicon.svg">
 <meta name="theme-color" content="#0C0E13">
+<meta property="og:site_name" content="deadchannel">
 <meta property="og:title" content="deadchannel">
 <meta property="og:description" content="Risk check for any x402 endpoint. Tells an agent whether an endpoint is alive, honestly priced and safe to call, before it spends money.">
+<meta property="og:image" content="${cfg.publicUrl}/favicon.svg">
+<meta property="og:url" content="${cfg.publicUrl}">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary">
 <link rel="preconnect" href="https://fonts.googleapis.com">
